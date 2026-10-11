@@ -24,7 +24,11 @@ const NEVER_PUSH = new Set(['imex_alert_history']);
 // --skip=a,b,prefix_* leaves those widget types as they are on the server for this run (e.g. the Reports and AI widgets
 // while their services on pmiserv-thg are not redeployed yet: --skip=imex_rpt_*,aiml_*)
 const SKIP = (process.argv.find((a) => a.startsWith('--skip=')) || '').slice(7).split(',').map((s) => s.trim()).filter(Boolean);
-const skipped = (fqn) => SKIP.some((p) => (p.endsWith('*') ? fqn.startsWith(p.slice(0, -1)) : fqn === p));
+// --only=a,b,prefix_* pushes only these widget types and leaves every other one as it is (e.g. one feature's widgets:
+// --only=imex_help,imex_side_menu)
+const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).split(',').map((s) => s.trim()).filter(Boolean);
+const matches = (list, fqn) => list.some((p) => (p.endsWith('*') ? fqn.startsWith(p.slice(0, -1)) : fqn === p));
+const skipped = (fqn) => matches(SKIP, fqn) || (ONLY.length > 0 && !matches(ONLY, fqn));
 const LAST_RUN = 'mirror-data/target-last-run.json';
 // the save each hand edit on the server started from (UTC, from the audit log):
 //   machine cards 09:18 and org hierarchy 09:19 / 11:21 (debug logs commented out) on top of the 07:53 run;
