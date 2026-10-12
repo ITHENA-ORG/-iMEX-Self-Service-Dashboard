@@ -1036,9 +1036,17 @@ test('machine page header: one line; machine name as the title (D-038, with the 
   ok(/Updated (just now|\d+ (second|minute|hour)s? ago)/.test(h.text), `updated: ${h.text}`);
   ok(/^("?DM Sans"?|Inter)/.test(h.font), `page font DM Sans / Inter (${h.font})`);
   // D-033: "Updated x ago" follows the newest data point and ticks every second; exact time in the tooltip
-  const upd = await t.b(() => ({ title: document.querySelector('.dbb-upd').title, right: document.querySelector('.dbb-upd').getBoundingClientRect().right, head: document.querySelector('.dbb-rhead').getBoundingClientRect().right }));
+  // 12 Oct 2026: the bar's buttons (Analyzer; Create ticket when the app's ticket service is on the page) follow it
+  const upd = await t.b(() => {
+    const a = document.querySelector('.dbb-ract');
+    const btns = a ? [...a.querySelectorAll('.dbb-rbtn')] : [];
+    return { title: document.querySelector('.dbb-upd').title, right: document.querySelector('.dbb-upd').getBoundingClientRect().right, head: document.querySelector('.dbb-rhead').getBoundingClientRect().right,
+      acts: btns.length ? a.getBoundingClientRect() : null, btns: btns.map((b) => b.title), top: document.querySelector('.dbb-upd').getBoundingClientRect().top };
+  });
   ok(/Newest data point on this dashboard: /.test(upd.title), `tooltip: ${upd.title}`);
-  ok(upd.head - upd.right <= 24, 'Updated sits at the right end of the row');
+  ok(upd.btns.includes('Open this machine in the Analyzer'), `Analyzer button: ${upd.btns.join(', ')}`);
+  ok(!upd.btns.includes('Create a ticket for this machine'), 'no Create ticket without the app ticket service');
+  ok(upd.acts && upd.acts.left - upd.right <= 24 && upd.head - upd.acts.right <= 24 && Math.abs(upd.acts.top - upd.top) < 12, 'Updated, then the bar buttons, at the right end of the row');
 });
 
 test('machine page follows a machine picked in an app navbar (URL-only state change)', async (t) => {

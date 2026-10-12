@@ -8,6 +8,7 @@
  *   must match the `ICONS` enum in `core/schema.ts`, which validates `style.icon` on save and
  *   in chat output. Used by `render/widgets.ts`, `builder/editors.ts` and `entries/listing.ts`.
  * - `WIDGET_ICON`: one icon per widget type (keys = `Widget['type']`), for the builder palette.
+ * - `UI_ICON`: icons for page buttons that are not title icons (the machine page bar's Create ticket).
  * - `icon(name)`: safe lookup by name.
  *
  * Because they use currentColor, icons take the text colour of their container; size them with
@@ -44,6 +45,15 @@ export const ICON_SVG: Record<string, string> = {
   cpu: S('<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/>'),
   home: S('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'),
   list: S('<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>'),
+};
+
+/**
+ * Icons for page buttons only (not selectable as widget title icons, so not in `ICON_SVG` / the schema's `ICONS`).
+ * `ticket`: Create ticket (a document with a plus), the same glyph as the Create ticket button on the app's Active
+ * alerts rows.
+ */
+export const UI_ICON: Record<string, string> = {
+  ticket: S('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 12v6M9 15h6"/>'),
 };
 
 /** Palette icon per widget type (keys are the widget type ids from core/schema.ts). */

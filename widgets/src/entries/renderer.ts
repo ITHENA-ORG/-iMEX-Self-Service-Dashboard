@@ -40,6 +40,8 @@ import type { Dashboard } from '../core/schema';
 import { Grid, GRID_CSS } from '../render/grid';
 import { CSS, ensureCss, esc, STATUS, ago, agoWords, applyTheme } from '../render/theme';
 import { defaultWidgets } from '../render/widgets';
+import { ICON_SVG, UI_ICON } from '../render/icons';
+import type { Widget } from '../core/schema';
 import { openBuilder } from '../builder/builder';
 import { BUILDER_CSS } from '../builder/styles';
 import { modal, confirmModal, toast } from '../builder/ui';
@@ -73,6 +75,25 @@ html.imx-mobile .dbb-rend .dbb-rhead .dbb-crumb{flex:1 1 100%}
 .dbb-rtools{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .dbb-rtools select{font:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
 .dbb-rbody{flex:1;overflow:auto;min-height:0;padding:4px 6px}
+.dbb-ract{flex:none;display:inline-flex;align-items:center;gap:6px}
+/* the machine page: time window, freshness and the buttons as one group at the right end (it wraps as a whole, right-aligned) */
+.dbb-rright{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px 10px;min-width:0}
+.dbb-rright .dbb-tw{margin-left:0}
+/* the machine page bar's Analyzer and Create ticket (12 Oct 2026): pills like the time window; in the app (side menu,
+   html.imx-menu-shift) the bar is the dark page banner, so they take the banner's translucent look there */
+.dbb-ract:empty{display:none}
+.dbb-rbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;height:28px;margin:0;padding:0 11px 0 9px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;font-weight:600;line-height:1;white-space:nowrap;cursor:pointer;transition:background .12s,border-color .12s,box-shadow .12s}
+.dbb-rbtn svg{width:15px;height:15px;flex:none;color:var(--accent)}
+.dbb-rbtn:hover{background:var(--hover);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.dbb-rbtn:focus{outline:none}
+.dbb-rbtn:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+@media (max-width:1100px){.dbb-rbtn{width:28px;padding:0}.dbb-rbtn span{display:none}}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.18);color:#FFFFFF}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn svg{color:var(--imx-a2,#7DD3FC)}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.34)}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:focus-visible{box-shadow:0 0 0 3px rgba(125,211,252,.45)}
+html.imx-mobile .dbb-rbtn{width:28px;padding:0}
+html.imx-mobile .dbb-rbtn span{display:none}
 .dbb-rhead-skel{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 .dbb-rhead-skel .imx-skel{flex:none;height:14px}
 .dbb-dark .dbb-rhead-skel .imx-skel{--imx-skel1:rgba(255,255,255,.07);--imx-skel2:rgba(255,255,255,.13)}
@@ -100,6 +121,27 @@ function timeHtml(range: string): string {
       : 'Dashboard time window: charts and summaries cover this period, ending now';
   return `<span class="dbb-tw" title="${tip}"><span class="k">${CLOCK}<span>Time window</span></span><span class="v ${live ? 'live' : ''}">${esc(windowLabel(range))}</span></span><span class="dbb-upd" aria-live="off"><span class="d"></span><span class="t">Waiting for data…</span></span>`;
 }
+/**
+ * Storyboard round (12 Oct 2026): the properties the Analyzer opens with from the machine page bar. The keys the
+ * dashboard's widgets show for this machine (bound to the page's machine, to it by name, or to its machine type),
+ * unique, at most 15 (the Analyzer's limit); without any, the machine type's first numeric properties.
+ */
+export function analyzerKeys(widgets: Widget[], deviceId: string, profile: string, catalogue: { key: string; type?: string; states?: Record<string, string> }[] = []): string[] {
+  const out: string[] = [];
+  for (const w of widgets) {
+    const b: any = w.binding;
+    const mine = b.mode === 'current' || (b.mode === 'fixed' && (b.deviceIds ?? []).includes(deviceId)) || ((b.mode === 'siblings' || b.mode === 'nearest') && b.profile === profile);
+    if (!mine) continue;
+    for (const k of w.keys ?? []) if (k && !out.includes(k)) out.push(k);
+  }
+  if (out.length) return out.slice(0, 15);
+  for (const m of catalogue) if (m.type !== 'string' && m.type !== 'boolean' && !m.states && !out.includes(m.key)) out.push(m.key);
+  return out.slice(0, 6);
+}
+
+/** A date and time for the ticket text ("12 Oct 2026, 1:05 PM"; the app's 12 / 24-hour clock applies). */
+const tkTime = (ts: number) => new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
 /** Counter for unique ids of renderer instances in this library copy (used as the publishActions owner). */
 let seq = 0;
 
@@ -132,6 +174,8 @@ export function init(tbCtx: any) {
     loadSeq?: number;
     range?: string;
     ticks?: number;
+    /** The machine's status as the header pill shows it (Running / Stopped / Offline), for a ticket's text. */
+    status?: string;
   } = {};
   (tbCtx as any).__dbb = st;
   // Remember which dashboard state shows machines, as a fallback for the navbar's Dashboard list when the
@@ -279,7 +323,8 @@ export function init(tbCtx: any) {
       ${sideMenu ? `<div class="dbb-rtitle" title="${esc(node.label)} (${esc(node.profile)})">${esc(node.label)}</div>` : ''}
       <div class="dbb-crumb" title="${esc(where)}${dash ? ` · Dashboard: ${esc(dash.name)}` : ''}">${esc(where)}${dash ? `<span class="dbb-crumb-d"> · ${esc(dash.name)}</span>` : ''}</div>
       <span class="dbb-status-pill" style="--pill:${STATUS.neutral}"><span class="dbb-dot"></span>…</span>
-      ${timeHtml(range)}`;
+      <div class="dbb-rright">${timeHtml(range)}<span class="dbb-ract"></span></div>`;
+    st.status = undefined;
     shiftLabel(ctx, deviceId);
     // the built-in layout uses every key the machine type sends, not only the catalogued ones (9 Oct 2026)
     if (!dash) {
@@ -287,7 +332,9 @@ export function init(tbCtx: any) {
       if (stale()) return;
     }
     const grid = ensureGrid(ctx, deviceId, range, dash?.theme);
-    grid.render(dash ? dash.widgets : defaultWidgets(ctx, node.profile));
+    const shown = dash ? dash.widgets : defaultWidgets(ctx, node.profile);
+    grid.render(shown);
+    barActions(ctx, deviceId, node, where, dash, shown, range);
     // Status pill after the grid has started loading (D-022): the header no longer holds up the widgets.
     void lastTelemetry(ctx, deviceId, node.profile).then(({ lastTs, runStatus }) => {
       if (st.deviceId !== deviceId) return;
@@ -298,6 +345,7 @@ export function init(tbCtx: any) {
       if (!pill) return;
       pill.style.setProperty('--pill', status[1]);
       pill.innerHTML = `<span class="dbb-dot"></span>${status[0]}`;
+      st.status = status[0];
       pill.title = lastTs ? `Machine last sent data ${ago(lastTs)}` : 'No data from this machine yet';
     });
 
@@ -350,6 +398,94 @@ export function init(tbCtx: any) {
       } catch (e: any) {
         toast(root, e.message, 'err');
       }
+    }
+  }
+
+  /**
+   * Storyboard round (12 Oct 2026): two compact buttons at the right end of the machine page bar.
+   * - Analyzer: opens the app's Analyzer (state `analytics`) with this machine and the properties this dashboard shows
+   *   (analyzerKeys); only for a role that can see the Analyzer page.
+   * - Create ticket: the app's Create ticket form (window.imxTicket, set up by the side menu; source 'machine') with
+   *   the machine, its place, the dashboard, the time window and the status; the user writes subject and description.
+   *   Only when the ticket service is on the page and switched on (it can load after this widget: looked for again for
+   *   a few seconds).
+   * Their tooltips are `title`s (the app's kit shows them as its own tooltip).
+   */
+  function barActions(ctx: UserContext, deviceId: string, node: scope.Node, where: string, dash: Dashboard | null, shown: Widget[], range: string) {
+    const box = head.querySelector('.dbb-ract') as HTMLElement | null;
+    if (!box) return;
+    const here = () => st.deviceId === deviceId && box.isConnected;
+    if (ctx.perms.page('analyzer') !== 'hidden') {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'dbb-rbtn dbb-ran';
+      b.title = 'Open this machine in the Analyzer';
+      b.setAttribute('aria-label', 'Open this machine in the Analyzer');
+      b.innerHTML = `${ICON_SVG.chart}<span>Analyzer</span>`;
+      b.addEventListener('click', () => {
+        const keys = analyzerKeys(shown, deviceId, node.profile, ctx.profileKeys[node.profile] ?? []);
+        const entityId = { id: deviceId, entityType: 'DEVICE' };
+        const eq = { entityName: node.name, entityLabel: node.label || node.name, entityId };
+        // no top-level entityId: the Analyzer's data alias is rooted at the state entity, and a DEVICE there resolves to
+        // nothing (the page stays empty; checked 13 Oct 2026). Its handleAdditionalParams reads selectedEquipment first.
+        tbCtx.stateController?.openState?.('analytics', { selectedEquipment: eq, entityName: node.name, entityLabel: node.label || node.name, key: keys }, false);
+      });
+      box.appendChild(b);
+    }
+    // the ticket service: there (open + status) and switched on; null while it is not on the page yet
+    const svc = () => {
+      const t = (window as any).imxTicket;
+      return t && typeof t.open === 'function' && typeof t.status === 'function' ? t : null;
+    };
+    let tries = 0;
+    const addTicket = () => {
+      if (!here()) return;
+      const T = svc();
+      if (!T) {
+        if (++tries < 10) setTimeout(addTicket, 1000);
+        return;
+      }
+      void Promise.resolve(T.status()).then(
+        (s: any) => {
+          if (!here() || !s?.enabled || box.querySelector('.dbb-rtk')) return;
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'dbb-rbtn dbb-rtk';
+          b.title = 'Create a ticket for this machine';
+          b.setAttribute('aria-label', 'Create a ticket for this machine');
+          b.innerHTML = `${UI_ICON.ticket}<span>Create ticket</span>`;
+          b.addEventListener('click', () => void openTicket(ctx, deviceId, node, where, dash, range));
+          box.appendChild(b);
+        },
+        () => {
+          /* no service answer: no button */
+        },
+      );
+    };
+    addTicket();
+  }
+  /** The Create ticket form for the machine shown, with the page's facts as the description's first lines. */
+  async function openTicket(ctx: UserContext, deviceId: string, node: scope.Node, where: string, dash: Dashboard | null, range: string) {
+    const T = (window as any).imxTicket;
+    if (!T?.open) return;
+    let win = rangeWindow(range, null);
+    if (isShiftRange(range)) win = rangeWindow(range, await calendarFor(ctx, deviceId).catch(() => null));
+    // "Last 8 hours, 12 Oct 2026, 4:05 AM - 12:05 PM" (the end's date only when it is another day)
+    const sameDay = win && new Date(win.startTs).toDateString() === new Date(win.endTs).toDateString();
+    const endText = win ? (sameDay ? new Date(win.endTs).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : tkTime(win.endTs)) : '';
+    const shownWin = win ? `${windowLabel(range)}, ${tkTime(win.startTs)} - ${endText}` : windowLabel(range);
+    const lines = [
+      `Machine: ${node.label || node.name}`,
+      where ? `Location: ${where}` : '',
+      `Dashboard: ${dash ? dash.name : 'Built-in layout'}`,
+      `Time window shown: ${shownWin}`,
+      st.status ? `Status: ${st.status}` : '',
+      `Created from the machine dashboard at ${tkTime(Date.now())}`,
+    ].filter(Boolean);
+    try {
+      await T.open({ deviceId, deviceName: node.label || node.name, where, source: 'machine', subject: '', description: lines.join('\n') });
+    } catch (e: any) {
+      toast(root, `The ticket form could not be opened: ${e?.message ?? e}`, 'err');
     }
   }
 

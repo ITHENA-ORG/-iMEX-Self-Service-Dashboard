@@ -644,3 +644,24 @@ A full read-only security review of widgets/src and the chat relay, then fixes, 
 - TBEL: `Math.max(0.0, 1)` (double and integer) fails with "argument type mismatch"; multiply by `1.0` first.
 - `GET /api/plugins/telemetry/.../values/timeseries` returns values as strings unless `useStrictDataTypes=true`; re-posting them as-is would store numbers as text.
 - Widget subscription API (4.3): an `alarmCount` datasource without an entity filter is not pushed when an alarm is raised (ThingsBoard only recounts now and then); with an `entityType` or `entityList` filter the new count arrives about 20 ms after the alarm. Datasource names of count datasources are replaced ("Alarms count", "Alarms count 2", …): match the results by their order.
+
+### D-055 Machine page bar: Analyzer and Create ticket, 12 Oct 2026 (Probodh's storyboard feedback via Akshay)
+- **Why:** "all actions reachable from the machine's page": the bar at the top of each machine dashboard gets the
+  Analyzer with this machine selected (navigation) and Create ticket with the machine and the time window filled in;
+  the user writes the subject and description.
+- **Analyzer** (chart icon, tooltip "Open this machine in the Analyzer"): `openState('analytics', {selectedEquipment,
+  entityName, entityLabel, key})` with NO top-level `entityId` (the Analyzer's alias is rooted at the state entity and
+  stays empty for a device). Keys (`analyzerKeys()`): the properties of the widgets bound to this machine (current,
+  fixed including it, siblings / nearest of its type), unique, at most 15 (the Analyzer's limit); none -> the first 6
+  numeric catalogue keys. Only when the role sees the Analyzer page (`ctx.perms.page('analyzer') !== 'hidden'`).
+- **Create ticket** (`UI_ICON.ticket`, a document with a plus as on the Active alerts rows): `window.imxTicket.open`
+  (the app's form, App UI U-050; the AI service creates the ticket, source `machine`), description lines Machine,
+  Location, Dashboard, Time window shown, Status, Created at. Hidden when `window.imxTicket` is missing or ticketing is
+  switched off; disabled with a tooltip when switched on but not set up.
+- **Layout:** time window, "Updated…" and the two pill buttons form one right-aligned group that wraps as a whole;
+  icon only under 1100 px and on phones; inside the app the buttons take the banner's translucent look, on a dark
+  preset (`.dbb-dark`) too.
+- **Tests:** `widgets/test/barkeys.test.ts` (keys: bound widgets, uniqueness, 15 cap, fallback); E2E header expects
+  "Updated" then the bar buttons at the right end.
+- **Deploy:** all three widget types with `deploy-node.mjs --go` on LOCAL (one library, one `dbb_lib_version` stamp;
+  a renderer-only push would make the launcher and listing report "older version").
