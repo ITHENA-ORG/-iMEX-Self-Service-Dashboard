@@ -176,6 +176,8 @@ export function init(tbCtx: any) {
     ticks?: number;
     /** The machine's status as the header pill shows it (Running / Stopped / Offline), for a ticket's text. */
     status?: string;
+    /** The theme of the dashboard shown (D-056: applied again when the app switches light / dark). */
+    theme?: Dashboard['theme'] | null;
   } = {};
   (tbCtx as any).__dbb = st;
   // Remember which dashboard state shows machines, as a fallback for the navbar's Dashboard list when the
@@ -264,9 +266,10 @@ export function init(tbCtx: any) {
   };
   // Applies the dashboard theme and creates the read-only grid once, then only updates its environment.
   const ensureGrid = (ctx: UserContext, deviceId: string | null, range: string, theme?: Dashboard['theme']) => {
-    const { dark } = applyTheme(root, theme);
+    const { dark, appDark } = applyTheme(root, theme);
     void body;
-    const env = { ctx, deviceId, timeRange: range, theme: theme ?? null, dark, navigate, busyKey: id };
+    st.theme = theme ?? null;
+    const env = { ctx, deviceId, timeRange: range, theme: theme ?? null, dark, appDark, navigate, busyKey: id };
     if (!st.grid) st.grid = new Grid(gridHost, env, { editable: false });
     else st.grid.setEnv(env);
     return st.grid;
@@ -576,7 +579,14 @@ export function init(tbCtx: any) {
     el.title = `Newest data point on this dashboard: ${new Date(ts).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
   };
   const ticker = setInterval(tick, 1000);
+  // D-056: the app switched light / dark: the theme again (a light dashboard follows the app), every card redrawn
+  const onMode = () => {
+    if (st.grid && st.ctx) ensureGrid(st.ctx, st.deviceId ?? null, st.range ?? 'realtime', st.theme ?? undefined);
+    else applyTheme(root, st.theme);
+  };
+  window.addEventListener('imx-mode-changed', onMode);
   (tbCtx as any).__dbbCleanup = () => {
+    window.removeEventListener('imx-mode-changed', onMode);
     clearInterval(watch);
     clearInterval(ticker);
     window.removeEventListener(CHANGED_EVENT, onChanged);

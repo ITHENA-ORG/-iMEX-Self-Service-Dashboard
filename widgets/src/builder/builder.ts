@@ -317,6 +317,10 @@ class Builder {
   // Kept as fields so the same function references can be removed in close().
   keyHandler = (e: KeyboardEvent) => this.onKey(e);
   resizeHandler = () => this.placeBelowNavbar();
+  /** D-056: the app switched light / dark: the canvas takes the theme again (its CSS chrome follows by itself). */
+  modeHandler = () => {
+    if (this.root?.isConnected && this.grid) this.renderCanvas();
+  };
   private navKey = '';
   private navWatch: ReturnType<typeof setInterval> | null = null;
   private navAsking = false;
@@ -395,6 +399,7 @@ class Builder {
     this.placeBelowNavbar();
     window.addEventListener('resize', this.resizeHandler);
     window.addEventListener(APP_INSETS_EVENT, this.resizeHandler);
+    window.addEventListener('imx-mode-changed', this.modeHandler);
     if (this.o.pageKey) {
       this.navKey = this.o.pageKey();
       this.navWatch = setInterval(() => void this.checkNavigation(), 500);
@@ -429,6 +434,7 @@ class Builder {
     window.removeEventListener('beforeunload', this.unloadHandler);
     window.removeEventListener('resize', this.resizeHandler);
     window.removeEventListener(APP_INSETS_EVENT, this.resizeHandler);
+    window.removeEventListener('imx-mode-changed', this.modeHandler);
     if (this.navWatch) clearInterval(this.navWatch);
     this.grid?.destroy();
     this.root.remove();
@@ -1019,10 +1025,11 @@ class Builder {
     const canvas = this.root.querySelector('.dbb-canvas') as HTMLElement;
     const center = this.root.querySelector('.dbb-center') as HTMLElement;
     const empty = this.root.querySelector('.dbb-empty') as HTMLElement;
-    const themeSig = JSON.stringify(this.draft.theme ?? {});
-    const { dark } = applyTheme(center, this.draft.theme);
+    const { dark, appDark } = applyTheme(center, this.draft.theme);
+    // D-056: the app's light / dark mode is part of the theme the cards were drawn with
+    const themeSig = JSON.stringify(this.draft.theme ?? {}) + (appDark ? '|appdark' : '');
     // editing: true keeps link widgets inert and marks cards as editable in the renderers.
-    const env = { ctx: this.ctx, deviceId: this.deviceId, timeRange: this.draft.timeRange, theme: this.draft.theme ?? null, dark, editing: true };
+    const env = { ctx: this.ctx, deviceId: this.deviceId, timeRange: this.draft.timeRange, theme: this.draft.theme ?? null, dark, appDark, editing: true };
     if (!this.grid) {
       this.grid = new Grid(canvas, env, {
         editable: true,

@@ -93,7 +93,7 @@ import { Widget, Binding, WIDGET_CAPS, WIDGET_LABELS, CONTENT_TYPES, MAX_SERIES,
 import { calendarFor } from '../core/shifts';
 import { cardSkeleton, topProgress, pageBusy } from './kit';
 import { compatible } from '../core/compat';
-import { SERIES, SERIES_DARK, STATUS, SEVERITY_COLOR, RAMP_BLUE, RAMP_ORANGE, esc, fmtNum, ago, miniMarkdown, fontStack, loadFont, safeUrl } from './theme';
+import { SERIES, SERIES_DARK, STATUS, SEVERITY_COLOR, RAMP_BLUE, RAMP_ORANGE, esc, fmtNum, ago, miniMarkdown, fontStack, loadFont, safeUrl, darkColor } from './theme';
 import { lineChart, barChart, gauge, sparkline, donut, stateTimeline, heatmap, Slice, TimelineRow, HeatRow } from './charts';
 import { effectiveRules, matchRule, thresholdLines, stateLabel, valueType, asBool, cssColor } from './rules';
 import { sanitizeHtml, fillPlaceholders, placeholderKeys } from './rich';
@@ -110,6 +110,8 @@ export interface RenderEnv {
   theme?: DashboardTheme | null;
   /** Dark theme: charts use SERIES_DARK instead of SERIES. */
   dark?: boolean;
+  /** D-056: a light dashboard drawn dark because the app is in dark mode: the cards' own light colours are toned down. */
+  appDark?: boolean;
   /** Builder canvas: links and buttons don't navigate. */
   editing?: boolean;
   /** Opens a dashboard state (link widgets). nodeId: machine or location to open it for. */
@@ -255,8 +257,11 @@ const PAD: Record<string, string> = { compact: '6px', normal: '10px', roomy: '16
  * @param st The widget's settings.style (may be undefined).
  * @returns A `style` attribute string ("--a:b;--c:d"), or '' when there is nothing to set.
  */
-export function cardVars(st: CardStyle | undefined): string {
+export function cardVars(st: CardStyle | undefined, appDark = false): string {
   if (!st) return '';
+  // D-056: in the app's dark mode a light dashboard's white / light-grey card colours give way to the dark surface,
+  // pastel tints are toned down, near-black text colours give way to the dark theme's text; coloured tiles stay.
+  if (appDark) st = darkCardStyle(st);
   const v: string[] = [];
   if (st.bg) {
     // A hex background also switches the text/grid tokens to light or dark ink for contrast.
@@ -338,7 +343,7 @@ export function renderWidget(container: HTMLElement, w: Widget, env: RenderEnv, 
   card.dataset.type = w.type;
   if (st?.titlePos === 'bottom') card.classList.add('title-bottom');
   if (st?.align) card.classList.add(`al-${st.align}`);
-  const vars = cardVars(st);
+  const vars = cardVars(st, !!env.appDark);
   if (vars) card.setAttribute('style', vars);
   const content = CONTENT_TYPES.has(w.type);
   // Content widgets show a title only if one was typed; a link's title is its button label instead.
@@ -860,7 +865,10 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
       }),
     );
     // Cells take the rule colour when heatColor = 'rules', else a position on the blue/orange ramp between min and max.
-    const ramp = s.heatColor === 'orange' ? RAMP_ORANGE : RAMP_BLUE;
+    // D-056: on a dark surface the ramp runs from dark (low) to light (high), so high values stand out; its darkest
+    // step (close to the card colour) is left out
+    const ramp0 = s.heatColor === 'orange' ? RAMP_ORANGE : RAMP_BLUE;
+    const ramp = env.dark ? [...ramp0].reverse().slice(1) : ramp0;
     const useRules = s.heatColor === 'rules' && rules.length;
     heatmap(body, rows, cols, {
       bucketMs,
@@ -995,7 +1003,53 @@ async function drawText(body: HTMLElement, w: Widget, env: RenderEnv): Promise<u
     html = fillPlaceholders(html, values);
   }
   body.innerHTML = `<div class="dbb-md">${html}</div>`;
+  if (env.appDark) darkInlineColors(body);
   return undefined;
+}
+
+/** D-056: a card style with its colours made fit for the app's dark mode (darkColor; a dropped colour is removed). */
+export function darkCardStyle(st: CardStyle): CardStyle {
+  const o: CardStyle = { ...st };
+  let tinted = false;
+  if (o.bg) {
+    const b = darkColor(o.bg, 'bg');
+    if (b === null) delete o.bg;
+    else if (b !== o.bg) {
+      o.bg = b;
+      tinted = true;
+    }
+  }
+  // text on a kept coloured tile keeps its colour (it was chosen for that tile)
+  const onTile = !!o.bg && !tinted && o.bg !== 'transparent';
+  for (const k of ['titleColor', 'valueColor', 'iconColor'] as const) {
+    if (!o[k] || onTile) continue;
+    const c = darkColor(o[k], 'text');
+    if (c === null) delete o[k];
+    else o[k] = c;
+  }
+  if (o.borderColor) {
+    const c = darkColor(o.borderColor, 'border');
+    if (c === null) delete o.borderColor;
+  }
+  return o;
+}
+
+/** D-056: inline colours of rich text (typed on a light dashboard) made readable on the app's dark cards. */
+function darkInlineColors(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>('[style]').forEach((e) => {
+    const c = e.style.color;
+    if (c) {
+      const d = darkColor(c, 'text');
+      if (d === null) e.style.removeProperty('color');
+      else if (d !== c) e.style.color = d;
+    }
+    const b = e.style.backgroundColor;
+    if (b) {
+      const d = darkColor(b, 'bg');
+      if (d === null) e.style.removeProperty('background-color');
+      else if (d !== b) e.style.backgroundColor = d;
+    }
+  });
 }
 
 /**

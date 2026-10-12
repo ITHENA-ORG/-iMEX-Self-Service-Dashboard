@@ -28,7 +28,8 @@
  *
  * EXPORTS
  * Colours: SERIES, SERIES_DARK, STATUS, SEVERITY_COLOR, RAMP_BLUE, RAMP_ORANGE, SWATCHES, PRESETS.
- * Theme: applyTheme, isDark, loadFont, fontStack, CSS, ensureCss.
+ * Theme: applyTheme, themeVars, isDark, loadFont, fontStack, CSS, ensureCss.
+ * D-056 app dark mode: APP_DARK, appDarkMode, colorInfo, darkColor.
  * Helpers: safeUrl, esc, fmtNum, fmtTime, ago, el, bandColor, miniMarkdown.
  */
 
@@ -77,6 +78,106 @@ export const PRESETS: Record<string, Tokens & { label: string }> = {
   slate: { label: 'Slate', dark: true, surface: '#1f2733', plane: '#141a23', line: '#2e3847', grid: '#29323f', ink: '#f3f5f8', ink2: '#b9c2cf', ink3: '#8391a3', accent: '#3987e5', hover: '#263041' },
   dark: { label: 'Dark', dark: true, surface: '#1a1a19', plane: '#0d0d0d', line: '#2c2c2a', grid: '#2c2c2a', ink: '#ffffff', ink2: '#c3c2b7', ink3: '#898781', accent: '#3987e5', hover: '#242423' },
 };
+
+/**
+ * D-056: the app's dark mode (App UI U-051, `html[data-imx-mode="dark"]`). A dashboard saved with a light preset
+ * takes these tokens instead of its preset's; the app's dark variables (`--imx-*`, set on <html> by the side menu)
+ * win, the fallbacks are the same values. Dark presets (slate, dark) keep their own tokens.
+ */
+export const APP_DARK: Tokens = {
+  dark: true,
+  surface: 'var(--imx-surface,#121A2B)',
+  plane: 'var(--imx-bg,#0B1220)',
+  line: 'var(--imx-line,#26324A)',
+  grid: 'color-mix(in srgb,var(--imx-line,#26324A) 72%,var(--imx-surface,#121A2B))',
+  ink: 'var(--imx-text,#E6EBF3)',
+  ink2: 'var(--imx-text2,#C9D3E1)',
+  ink3: 'var(--imx-muted,#97A6BC)',
+  accent: '#3987e5',
+  hover: 'var(--imx-ph,#1B263C)',
+};
+
+/** D-056: whether the app runs in dark mode (the side menu's `data-imx-mode` on <html>). False outside a browser. */
+export function appDarkMode(): boolean {
+  return typeof document !== 'undefined' && document.documentElement?.getAttribute('data-imx-mode') === 'dark';
+}
+
+/** Hue-free facts of a #rgb / #rrggbb(aa) or rgb()/rgba() colour: WCAG luminance (0-1), chroma (max-min channel, 0-1) and alpha. Null for anything else. */
+export function colorInfo(c?: string | null): { lum: number; chroma: number; alpha: number } | null {
+  const s = String(c ?? '').trim();
+  let ch: number[] | null = null;
+  let alpha = 1;
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})([0-9a-f]{2})?$/i.exec(s);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3) h = h.replace(/./g, (x) => x + x);
+    ch = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+    if (hex[2]) alpha = parseInt(hex[2], 16) / 255;
+  } else {
+    const m = /^rgba?\(\s*(\d+(?:\.\d+)?)[\s,]+(\d+(?:\.\d+)?)[\s,]+(\d+(?:\.\d+)?)(?:\s*[,/]\s*(\d*(?:\.\d+)?%?))?\s*\)$/i.exec(s);
+    if (m) {
+      ch = [m[1], m[2], m[3]].map(Number);
+      if (m[4]) alpha = m[4].endsWith('%') ? parseFloat(m[4]) / 100 : parseFloat(m[4]);
+    }
+  }
+  if (!ch || ch.some((v) => !(v >= 0 && v <= 255))) return null;
+  const n = ch.map((v) => v / 255);
+  const [r, g, b] = n.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return { lum: 0.2126 * r + 0.7152 * g + 0.0722 * b, chroma: Math.max(...n) - Math.min(...n), alpha };
+}
+
+/**
+ * D-056: a colour a user picked on a light dashboard, made fit for the app's dark surfaces.
+ * - 'bg' (card or page background): a white / light grey one is dropped (null: the dark surface shows); a light
+ *   tint (pastel) becomes the same hue at low strength over the dark surface; a saturated or dark colour (a red
+ *   alert tile, a navy banner) is kept as it is.
+ * - 'text' (title, value, icon, rich-text colour): a black / dark grey one is dropped (null: the dark theme's text
+ *   colour applies); a dark saturated one is lightened; anything else is kept.
+ * - 'border': a light grey one is dropped (null: the theme line); others kept.
+ * Colours it cannot read (names, gradients, var()) and transparent ones are returned unchanged.
+ */
+export function darkColor(c: string, role: 'bg' | 'text' | 'border'): string | null {
+  const i = colorInfo(c);
+  if (!i || i.alpha < 0.05) return c;
+  if (role === 'text') {
+    if (i.lum >= 0.1) return c;
+    return i.chroma < 0.16 ? null : `color-mix(in srgb, ${c} 45%, #ffffff)`;
+  }
+  if (i.lum <= 0.55) return c;
+  if (i.chroma < 0.12) return null;
+  return role === 'bg' ? `color-mix(in srgb, ${c} 22%, var(--imx-surface,#121A2B))` : null;
+}
+
+/**
+ * The CSS variables of a dashboard theme and whether it is dark (pure; applyTheme writes them).
+ * D-056: with `appDark` (the app in dark mode) a light preset takes APP_DARK, and a light page or card background
+ * of the theme is dropped or toned down (darkColor); the accent stays.
+ */
+export function themeVars(t: DashboardTheme | null | undefined, appDark = false): { vars: Record<string, string>; dark: boolean; appDark: boolean } {
+  const p0 = PRESETS[t?.preset ?? 'light'] ?? PRESETS.light;
+  const conv = appDark && !p0.dark;
+  const p: Tokens = conv ? APP_DARK : p0;
+  const bg = t?.bg && conv ? darkColor(t.bg, 'bg') : t?.bg;
+  const cardBg = t?.cardBg && conv ? darkColor(t.cardBg, 'bg') : t?.cardBg;
+  const vars: Record<string, string> = {
+    '--surface': cardBg ?? p.surface,
+    '--surface-2': p.plane,
+    '--plane': bg ?? p.plane,
+    '--line': p.line,
+    '--grid': p.grid,
+    '--ink': p.ink,
+    '--ink-2': p.ink2,
+    '--ink-3': p.ink3,
+    '--accent': t?.accent ?? p0.accent,
+    '--hover': p.hover,
+    '--radius': `${t?.radius ?? 12}px`,
+    '--shadow': SHADOWS[t?.shadow ?? 'soft'],
+    '--pad': PADS[t?.density ?? 'normal'],
+    '--font': fontStack(t?.font),
+    '--title-align': t?.titleAlign ?? 'left',
+  };
+  return { vars, dark: p.dark, appDark: conv };
+}
 
 const SHADOWS: Record<string, string> = {
   none: 'none',
@@ -140,37 +241,23 @@ export function safeUrl(u?: string | null): string | null {
 }
 
 /**
- * Applies a dashboard theme to a container as CSS variables. Returns whether it is dark.
+ * Applies a dashboard theme to a container as CSS variables. Returns whether it is dark, and (D-056) whether it
+ * is a light theme drawn dark because the app is in dark mode (appDark; the container also gets .dbb-appdark).
  * @param el Dashboard root (machine page root or builder canvas). Gets inline CSS variables, the
  *   .dbb-dark class and a background (colour, or a cover / contain / tiled image from bgImage via safeUrl).
  * @param t Dashboard.theme; missing or unknown preset falls back to light, missing fields to preset values.
  * Side effect: loads the theme font (loadFont). Safe to call again with another theme: every
  * variable and background property is overwritten.
  */
-export function applyTheme(el: HTMLElement, t?: DashboardTheme | null): { dark: boolean } {
-  const p = PRESETS[t?.preset ?? 'light'] ?? PRESETS.light;
-  const v: Record<string, string> = {
-    '--surface': t?.cardBg ?? p.surface,
-    '--surface-2': p.plane,
-    '--plane': t?.bg ?? p.plane,
-    '--line': p.line,
-    '--grid': p.grid,
-    '--ink': p.ink,
-    '--ink-2': p.ink2,
-    '--ink-3': p.ink3,
-    '--accent': t?.accent ?? p.accent,
-    '--hover': p.hover,
-    '--radius': `${t?.radius ?? 12}px`,
-    '--shadow': SHADOWS[t?.shadow ?? 'soft'],
-    '--pad': PADS[t?.density ?? 'normal'],
-    '--font': fontStack(t?.font),
-    '--title-align': t?.titleAlign ?? 'left',
-  };
+export function applyTheme(el: HTMLElement, t?: DashboardTheme | null): { dark: boolean; appDark: boolean } {
+  // D-056: in the app's dark mode a light preset is drawn with the app's dark tokens (.dbb-dark + .dbb-appdark)
+  const { vars: v, dark, appDark } = themeVars(t, appDarkMode());
   for (const [k, val] of Object.entries(v)) el.style.setProperty(k, val);
   // D-039: a dashboard with its own font is marked, so an app-wide font does not replace it
   el.toggleAttribute('data-dbb-font', !!t?.font);
   loadFont(t?.font || 'Inter');
-  el.classList.toggle('dbb-dark', p.dark);
+  el.classList.toggle('dbb-dark', dark);
+  el.classList.toggle('dbb-appdark', appDark);
   const img = safeUrl(t?.bgImage);
   const fit = t?.bgFit ?? 'cover';
   el.style.backgroundColor = 'var(--plane)';
@@ -181,7 +268,7 @@ export function applyTheme(el: HTMLElement, t?: DashboardTheme | null): { dark: 
   el.style.backgroundRepeat = img ? (fit === 'tile' ? 'repeat' : 'no-repeat') : '';
   el.style.backgroundPosition = img ? 'center' : '';
   el.style.backgroundAttachment = '';
-  return { dark: p.dark };
+  return { dark, appDark };
 }
 
 /** Whether a theme's preset is dark, without touching the DOM. */
@@ -198,6 +285,8 @@ export const CSS = `
 .dbb-root{--surface:#ffffff;--surface-2:#f4f5f7;--plane:#f4f5f7;--line:#e6e5e0;--grid:#efeeea;--ink:#0b0b0b;--ink-2:#52514e;--ink-3:#898781;--accent:#2a78d6;--danger:#d03b3b;--hover:#f3f8fe;
   --radius:12px;--shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.08);--pad:10px;--font:Inter,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--title-align:left;
   font-family:var(--font);color:var(--ink);font-size:13px;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+/* D-056: in the app's dark mode a page without a theme yet (loading, placeholder, no access) is dark too; applyTheme's inline values win */
+html[data-imx-mode="dark"] .dbb-root{--surface:${APP_DARK.surface};--surface-2:${APP_DARK.plane};--plane:${APP_DARK.plane};--line:${APP_DARK.line};--grid:${APP_DARK.grid};--ink:${APP_DARK.ink};--ink-2:${APP_DARK.ink2};--ink-3:${APP_DARK.ink3};--hover:${APP_DARK.hover}}
 .dbb-root *{box-sizing:border-box}
 .dbb-root :is(button,input,select,textarea,option){font-family:inherit}
 .dbb-card{background:var(--card-bg,var(--surface));border:var(--card-border,1px solid var(--line));border-radius:var(--card-radius,var(--radius));box-shadow:var(--card-shadow,var(--shadow));height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;transition:box-shadow .15s,transform .15s;color:var(--ink)}
@@ -313,6 +402,13 @@ export const CSS = `
 .dbb-dark .dbb-skel .imx-skel-row{border-top-color:rgba(255,255,255,.07)}
 @keyframes dbbfade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 .dbb-card-b.dbb-first>*{animation:dbbfade .25s ease-out}
+/* D-056: the app's dark mode. Tooltips stand off the dark cards, status banners keep their meaning, highlights stay readable. */
+html[data-imx-mode="dark"] .dbb-dark :is(.dbb-tip,.dbb-info .dbb-info-pop){background:#1E2A40;color:#E6EBF3;border:1px solid #33415C;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+html[data-imx-mode="dark"] .dbb-dark .dbb-info-pop a{color:#9ec5f4}
+html[data-imx-mode="dark"] .dbb-dark .dbb-banner.warn{background:rgba(245,158,11,.16);color:#FCD34D}
+html[data-imx-mode="dark"] .dbb-dark .dbb-banner.err{background:rgba(239,68,68,.16);color:#FCA5A5}
+html[data-imx-mode="dark"] .dbb-dark .dbb-md mark{background:rgba(250,204,21,.3)}
+html[data-imx-mode="dark"] .dbb-appdark .dbb-skel .imx-skel,html[data-imx-mode="dark"] .dbb-appdark .dbb-st-skel .imx-skel{--imx-skel1:#1C2639;--imx-skel2:#25314A}
 `;
 
 /** Adds a <style id=...> to <head> unless one with that id exists. Changing the CSS needs a page reload to apply. */

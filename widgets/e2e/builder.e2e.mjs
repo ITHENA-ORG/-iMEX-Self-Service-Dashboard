@@ -1924,6 +1924,60 @@ test('navbar: viewers get a list icon with only the Dashboard list', async (t) =
   ok(!(await t.page.$('.dbb-dl')), 'Esc closes');
 });
 
+// ------------------------------------------------------------------ D-056 the app's dark mode
+/** Background of an element as [r, g, b] (first rgb of its computed background colour). */
+const bgOf = (sel) => {
+  const e = document.querySelector(sel);
+  if (!e) return null;
+  const m = getComputedStyle(e).backgroundColor.match(/\d+(\.\d+)?/g);
+  return m ? m.slice(0, 3).map(Number) : null;
+};
+const dark = (c) => !!c && c[0] + c[1] + c[2] < 3 * 80;
+const switchMode = (mode) => {
+  document.documentElement.setAttribute('data-imx-mode', mode);
+  window.dispatchEvent(new CustomEvent('imx-mode-changed', { detail: { mode } }));
+};
+
+test('dark mode (D-056): the machine page follows the app light / dark switch; light mode as before', async (t) => {
+  await t.page.close();
+  const s = await open('dev=pc');
+  Object.assign(t, s);
+  await t.page.waitForSelector('.dbb-rend .dbb-card');
+  const light = await t.b(bgOf, '.dbb-rend .dbb-card');
+  ok(light && !dark(light), `light card: ${light}`);
+  ok(!(await t.b(() => document.querySelector('.dbb-rend').classList.contains('dbb-appdark'))), 'no dark class in light mode');
+  await t.b(switchMode, 'dark');
+  await t.page.waitForTimeout(600);
+  const d = await t.b(() => ({ cls: document.querySelector('.dbb-rend').classList.contains('dbb-appdark') && document.querySelector('.dbb-rend').classList.contains('dbb-dark'), plane: getComputedStyle(document.querySelector('.dbb-rend')).backgroundColor, ink: getComputedStyle(document.querySelector('.dbb-rend .dbb-card')).color }));
+  ok(d.cls, 'dbb-appdark + dbb-dark on the page');
+  const dc = await t.b(bgOf, '.dbb-rend .dbb-card');
+  ok(dark(dc), `cards dark: ${dc}`);
+  ok(dark(await t.b(bgOf, '.dbb-rend')), `page dark: ${d.plane}`);
+  ok(!dark(d.ink.match(/\d+/g).slice(0, 3).map(Number)), `text light: ${d.ink}`);
+  await t.b(switchMode, 'light');
+  await t.page.waitForTimeout(600);
+  eq(await t.b(bgOf, '.dbb-rend .dbb-card'), light, 'back to the light card colour');
+  ok(!(await t.b(() => document.querySelector('.dbb-rend').classList.contains('dbb-appdark'))), 'dark class removed');
+});
+
+test('dark mode (D-056): builder panels, dialogs and canvas are dark; a dark preset stays as saved', async (t) => {
+  await t.b(switchMode, 'dark');
+  await t.page.waitForTimeout(600);
+  for (const sel of ['.dbb-overlay', '.dbb-top', '.dbb-right', '.dbb-left', '.dbb-center']) {
+    const c = await t.b(bgOf, sel);
+    ok(dark(c), `${sel} dark: ${c}`);
+  }
+  ok(await t.b(() => document.querySelector('.dbb-center').classList.contains('dbb-appdark')), 'canvas drawn with the app dark tokens');
+  // a dark preset keeps its own colours (no app-dark conversion)
+  await t.b(() => window.__b.mutate((d) => (d.theme = { preset: 'dark' })));
+  await t.idle(400);
+  const c = await t.b(() => ({ app: document.querySelector('.dbb-center').classList.contains('dbb-appdark'), dark: document.querySelector('.dbb-center').classList.contains('dbb-dark'), surface: document.querySelector('.dbb-center').style.getPropertyValue('--surface') }));
+  eq(c, { app: false, dark: true, surface: '#1a1a19' }, 'dark preset as saved');
+  await t.b(switchMode, 'light');
+  await t.page.waitForTimeout(400);
+  ok(!dark(await t.b(bgOf, '.dbb-right')), 'light mode: the panel is light again');
+});
+
 // ------------------------------------------------------------------ run
 
 const only = process.argv.slice(2).map((s) => s.toLowerCase());

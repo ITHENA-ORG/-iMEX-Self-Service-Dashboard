@@ -241,7 +241,9 @@ export class Grid {
   setEnv(env: RenderEnv) {
     const prev = this.env;
     this.env = env;
-    if (prev && prev.deviceId === env.deviceId && prev.ctx === env.ctx) {
+    // D-056: light / dark changed: every card is made again (its own colours depend on it)
+    if (prev && (!!prev.dark !== !!env.dark || !!prev.appDark !== !!env.appDark)) this.render(this.widgets, true);
+    else if (prev && prev.deviceId === env.deviceId && prev.ctx === env.ctx) {
       for (const h of this.handles.values()) void h.update(this.envOf());
       this.render(this.widgets);
     } else this.render(this.widgets, true);

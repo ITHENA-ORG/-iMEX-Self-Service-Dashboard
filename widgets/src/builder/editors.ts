@@ -22,7 +22,7 @@
 import type { ColorRule, RuleOp, CardStyle, DashboardTheme, Widget } from '../core/schema';
 import { RULE_OP_LABELS, ICONS, FONTS, THEME_PRESETS } from '../core/schema';
 import type { KeyMeta } from '../core/types';
-import { esc, SWATCHES, PRESETS, loadFont, STATUS, safeUrl } from '../render/theme';
+import { esc, SWATCHES, PRESETS, loadFont, STATUS, safeUrl, appDarkMode } from '../render/theme';
 import { sanitizeHtml } from '../render/rich';
 import { valueType, ValueType, matchRule, bandsToRules } from '../render/rules';
 import { ICON_SVG } from '../render/icons';
@@ -635,6 +635,7 @@ export function themeEditor(host: HTMLElement, theme: DashboardTheme | undefined
       const P = PRESETS[p];
       return `<button data-preset="${p}" class="${cur === p ? 'on' : ''}" title="${P.label}"><span class="pv" style="background:${P.plane}"><i style="background:${P.surface};border-color:${P.line}"></i><i style="background:${P.surface};border-color:${P.line}"><b style="background:${P.accent}"></b></i></span><span>${P.label}</span></button>`;
     }).join('')}</div>
+    ${appDarkMode() && !PRESETS[cur]?.dark ? '<div class="dbb-hint">The app is in dark mode, so this light theme is shown with dark colours. In light mode it looks as chosen here.</div>' : ''}
     <div class="dbb-row"><div class="dbb-field half"><span>Accent colour</span>${colorInputT('accent', t.accent, PRESETS[cur].accent)}</div>
       <label class="dbb-field half"><span>Font</span><select data-t="font"><option value="">Same as the app (default)</option>${FONTS.filter((f) => f !== 'Inter').map((f) => `<option ${t.font === f ? 'selected' : ''}>${f}</option>`).join('')}</select></label></div>
     <div class="dbb-sec">Background</div>

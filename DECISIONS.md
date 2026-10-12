@@ -665,3 +665,18 @@ A full read-only security review of widgets/src and the chat relay, then fixes, 
   "Updated" then the bar buttons at the right end.
 - **Deploy:** all three widget types with `deploy-node.mjs --go` on LOCAL (one library, one `dbb_lib_version` stamp;
   a renderer-only push would make the launcher and listing report "older version").
+
+### D-056 Dashboards follow the app's dark mode, 13 Oct 2026 (Akshay: "light vs dark", App UI U-051)
+- With `html[data-imx-mode="dark"]` a dashboard saved with a light preset (light / ocean / sand) is drawn with the app's
+  dark tokens (`APP_DARK`: `--imx-surface`, `--imx-bg`, `--imx-line`, `--imx-text` / `text2` / `muted`, `--imx-ph`) and
+  gets `.dbb-dark` + `.dbb-appdark`; charts use SERIES_DARK and the existing dark rules (deltas, meters, skeletons, kit)
+  apply. Its accent stays. Dark presets (slate, dark) stay as saved.
+- Colours the user picked: white / light-grey page or card colours are dropped, a pastel is toned down (22 % over the
+  dark surface), saturated or dark colours are kept (a red alert tile, a navy banner, with their own text colours).
+  Near-black title / value / icon / rich-text colours give way to the theme text; dark saturated ones are lightened;
+  light-grey borders give way to the theme line. Heatmap ramps run dark -> light on dark surfaces.
+- The renderer and the builder canvas redraw on `imx-mode-changed`. The Builder editor (panels, palette, pickers,
+  dialogs, chat, start screen, Open dialog), the Dashboard list and the edit menu get dark rules scoped under the
+  attribute; the Theme tab says when a light theme is shown dark. Light output is identical (`cardVars(st, false)`).
+- Tests: `widgets/test/darkmode.test.ts` (14); E2E light -> dark -> light switch and a dark preset kept. Deployed to
+  LOCAL with `deploy-node.mjs --go` (`dbb_lib_version` 2026-10-12T20:17:03.745Z).
