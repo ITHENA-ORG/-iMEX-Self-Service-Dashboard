@@ -94,6 +94,7 @@ html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn svg{color:var(--imx-a2,#7DD3F
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.34)}
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:focus-visible{box-shadow:0 0 0 3px rgba(125,211,252,.45)}
 html.imx-mobile .dbb-rbtn{width:40px;height:40px;padding:0}
+html.imx-mobile .dbb-rright .dbb-upd{order:3;flex-basis:100%;justify-content:flex-end}
 html.imx-mobile .dbb-rbtn span{display:none}
 .dbb-rhead-skel{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 .dbb-rhead-skel .imx-skel{flex:none;height:14px}
@@ -153,7 +154,7 @@ export function analyzerTarget(setting: unknown, deviceId: string, node: { name:
   const state = typeof setting === 'string' && setting.trim() ? setting.trim() : 'analytics';
   const entityId = { id: deviceId, entityType: 'DEVICE' };
   const label = node.label || node.name;
-  if (state === 'trend') return { state, params: { entityId, entityName: node.name, entityLabel: label, key: keys, selected: keys[0] ?? null } };
+  if (state === 'trend') return { state, params: { entityId, entityName: node.name, entityLabel: label, key: keys, selected: keys.find((k) => !/(^|_)(status|state|mode)$/i.test(k)) ?? keys[0] ?? null } };
   return { state, params: { selectedEquipment: { entityName: node.name, entityLabel: label, entityId }, entityName: node.name, entityLabel: label, key: keys } };
 }
 
