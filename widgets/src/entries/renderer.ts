@@ -11,6 +11,7 @@
 // Settings (widgets/widget-types.mjs):
 //   refreshSeconds  REST polling interval in seconds when the WebSocket is down (default 10)
 //   chatEnabled     enable the Chat tab when "Edit this dashboard" opens the builder
+//   analyzerState   the state the bar's Analyzer button opens: 'analytics' (default) or 'trend' (phone, D-057)
 //   customerId      customer to show when a tenant admin opens the app (D-018)
 //   dashboardId     (not in the settings form) standalone dashboard to show when the state has none
 //
@@ -92,7 +93,7 @@ html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn{background:rgba(255,255,255,.
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn svg{color:var(--imx-a2,#7DD3FC)}
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.34)}
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:focus-visible{box-shadow:0 0 0 3px rgba(125,211,252,.45)}
-html.imx-mobile .dbb-rbtn{width:28px;padding:0}
+html.imx-mobile .dbb-rbtn{width:40px;height:40px;padding:0}
 html.imx-mobile .dbb-rbtn span{display:none}
 .dbb-rhead-skel{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 .dbb-rhead-skel .imx-skel{flex:none;height:14px}
@@ -137,6 +138,34 @@ export function analyzerKeys(widgets: Widget[], deviceId: string, profile: strin
   if (out.length) return out.slice(0, 15);
   for (const m of catalogue) if (m.type !== 'string' && m.type !== 'boolean' && !m.states && !out.includes(m.key)) out.push(m.key);
   return out.slice(0, 6);
+}
+
+/**
+ * Where the machine page bar's Analyzer button goes (D-057), from the renderer setting `analyzerState`:
+ * - 'analytics' (default, also when empty): the web Analyzer, `{selectedEquipment, entityName, entityLabel, key}` with NO
+ *   top-level entityId (the Analyzer's data alias is rooted at the state entity, and a DEVICE there resolves to nothing;
+ *   checked 13 Oct 2026; its handleAdditionalParams reads selectedEquipment first; D-055);
+ * - 'trend': the phone's Trend screen of the mobile dashboard "iMEX Mobile", `{entityId DEVICE, entityName, entityLabel,
+ *   key, selected: the first key}`;
+ * - any other state id: the Analyzer's parameters.
+ */
+export function analyzerTarget(setting: unknown, deviceId: string, node: { name: string; label?: string }, keys: string[]): { state: string; params: Record<string, unknown> } {
+  const state = typeof setting === 'string' && setting.trim() ? setting.trim() : 'analytics';
+  const entityId = { id: deviceId, entityType: 'DEVICE' };
+  const label = node.label || node.name;
+  if (state === 'trend') return { state, params: { entityId, entityName: node.name, entityLabel: label, key: keys, selected: keys[0] ?? null } };
+  return { state, params: { selectedEquipment: { entityName: node.name, entityLabel: label, entityId }, entityName: node.name, entityLabel: label, key: keys } };
+}
+
+/** D-057: the ThingsBoard dashboard has this state (a state list that cannot be read counts as yes). */
+export function dashHasState(tbCtx: any, id: string): boolean {
+  try {
+    const sc = tbCtx?.stateController;
+    const states = sc && (sc.states ?? sc.statesValue);
+    return !(states && typeof states === 'object' && Object.keys(states).length && !states[id]);
+  } catch {
+    return true;
+  }
 }
 
 /** A date and time for the ticket text ("12 Oct 2026, 1:05 PM"; the app's 12 / 24-hour clock applies). */
@@ -418,20 +447,23 @@ export function init(tbCtx: any) {
     const box = head.querySelector('.dbb-ract') as HTMLElement | null;
     if (!box) return;
     const here = () => st.deviceId === deviceId && box.isConnected;
-    if (ctx.perms.page('analyzer') !== 'hidden') {
+    // D-057: setting analyzerState ('analytics' by default; 'trend' on the phone dashboard "iMEX Mobile": its Trend screen,
+    // which counts as the machine's page there, so no Analyzer role is needed). Only where this dashboard has that state
+    // (the phone dashboard has no Analyzer).
+    const target = analyzerTarget(tbCtx.settings?.analyzerState, deviceId, node, []).state;
+    const trend = target === 'trend';
+    if (dashHasState(tbCtx, target) && (trend || ctx.perms.page('analyzer') !== 'hidden')) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'dbb-rbtn dbb-ran';
-      b.title = 'Open this machine in the Analyzer';
-      b.setAttribute('aria-label', 'Open this machine in the Analyzer');
-      b.innerHTML = `${ICON_SVG.chart}<span>Analyzer</span>`;
+      const tip = trend ? 'Show the trend of this machine' : 'Open this machine in the Analyzer';
+      b.title = tip;
+      b.setAttribute('aria-label', tip);
+      b.innerHTML = `${ICON_SVG.chart}<span>${trend ? 'Trend' : 'Analyzer'}</span>`;
       b.addEventListener('click', () => {
         const keys = analyzerKeys(shown, deviceId, node.profile, ctx.profileKeys[node.profile] ?? []);
-        const entityId = { id: deviceId, entityType: 'DEVICE' };
-        const eq = { entityName: node.name, entityLabel: node.label || node.name, entityId };
-        // no top-level entityId: the Analyzer's data alias is rooted at the state entity, and a DEVICE there resolves to
-        // nothing (the page stays empty; checked 13 Oct 2026). Its handleAdditionalParams reads selectedEquipment first.
-        tbCtx.stateController?.openState?.('analytics', { selectedEquipment: eq, entityName: node.name, entityLabel: node.label || node.name, key: keys }, false);
+        const t = analyzerTarget(tbCtx.settings?.analyzerState, deviceId, node, keys);
+        tbCtx.stateController?.openState?.(t.state, t.params, false);
       });
       box.appendChild(b);
     }

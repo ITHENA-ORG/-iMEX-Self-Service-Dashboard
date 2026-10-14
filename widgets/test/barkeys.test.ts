@@ -28,3 +28,36 @@ describe('analyzerKeys', () => {
     expect(analyzerKeys([], 'd1', 'P')).toEqual([]);
   });
 });
+
+// D-057: setting analyzerState of the renderer (the phone dashboard sets 'trend')
+import { analyzerTarget } from '../src/entries/renderer';
+describe('analyzerTarget', () => {
+  const node = { name: 'CMP-01', label: 'Compressor 1' };
+  it('opens the Analyzer by default, without a top-level entityId', () => {
+    for (const v of [undefined, '', '  ', 'analytics', 7]) {
+      const t = analyzerTarget(v, 'd1', node, ['a', 'b']);
+      expect(t.state).toBe('analytics');
+      expect(t.params).toEqual({ selectedEquipment: { entityName: 'CMP-01', entityLabel: 'Compressor 1', entityId: { id: 'd1', entityType: 'DEVICE' } }, entityName: 'CMP-01', entityLabel: 'Compressor 1', key: ['a', 'b'] });
+      expect('entityId' in t.params).toBe(false);
+    }
+  });
+  it("opens the phone's Trend screen with the machine, the keys and the first key selected", () => {
+    expect(analyzerTarget('trend', 'd1', node, ['a', 'b'])).toEqual({ state: 'trend', params: { entityId: { id: 'd1', entityType: 'DEVICE' }, entityName: 'CMP-01', entityLabel: 'Compressor 1', key: ['a', 'b'], selected: 'a' } });
+    expect(analyzerTarget('trend', 'd1', { name: 'X' }, []).params).toMatchObject({ entityLabel: 'X', key: [], selected: null });
+  });
+  it('another state id gets the Analyzer parameters', () => {
+    expect(analyzerTarget('my_analyzer', 'd1', node, ['a']).state).toBe('my_analyzer');
+  });
+});
+
+import { dashHasState } from '../src/entries/renderer';
+describe('dashHasState', () => {
+  it('is true for a state of the dashboard, or when the state list cannot be read', () => {
+    expect(dashHasState({ stateController: { states: { analytics: {}, machine: {} } } }, 'analytics')).toBe(true);
+    expect(dashHasState({ stateController: { states: { machine: {}, trend: {} } } }, 'analytics')).toBe(false);
+    expect(dashHasState({ stateController: { statesValue: { trend: {} } } }, 'trend')).toBe(true);
+    expect(dashHasState({ stateController: {} }, 'analytics')).toBe(true);
+    expect(dashHasState({}, 'analytics')).toBe(true);
+    expect(dashHasState({ stateController: { states: {} } }, 'x')).toBe(true);
+  });
+});

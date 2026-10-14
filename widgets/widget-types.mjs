@@ -36,8 +36,8 @@ export const settingsSchemas = {
     form: ['label', 'adminOnly', 'navbar', 'appName', 'homeState', 'homeLabel', 'listingState', 'listingLabel', 'machineState', 'machineLabel', 'customerId', 'lightStyle', 'chatEnabled', 'chatEnabledRoles', 'hideForRoles', 'dashboardList', 'overviewState', 'builderTop', 'headless'],
   },
   renderer: {
-    schema: { type: 'object', properties: { refreshSeconds: { title: 'Refresh every (s)', type: 'number', default: 10 }, chatEnabled: { title: 'Enable chat in builder', type: 'boolean', default: true }, customerId: { title: 'Customer id for tenant admins', type: 'string', default: '' } } },
-    form: ['refreshSeconds', 'chatEnabled', 'customerId'],
+    schema: { type: 'object', properties: { refreshSeconds: { title: 'Refresh every (s)', type: 'number', default: 10 }, chatEnabled: { title: 'Enable chat in builder', type: 'boolean', default: true }, customerId: { title: 'Customer id for tenant admins', type: 'string', default: '' }, analyzerState: { title: 'State that the Analyzer button of the bar opens (analytics = the Analyzer; trend = the phone Trend screen)', type: 'string', default: 'analytics' } } },
+    form: ['refreshSeconds', 'chatEnabled', 'customerId', 'analyzerState'],
   },
   listing: {
     schema: {
