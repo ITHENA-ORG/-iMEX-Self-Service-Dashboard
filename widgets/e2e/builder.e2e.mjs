@@ -1978,6 +1978,180 @@ test('dark mode (D-056): builder panels, dialogs and canvas are dark; a dark pre
   ok(!dark(await t.b(bgOf, '.dbb-right')), 'light mode: the panel is light again');
 });
 
+// ------------------------------------------------------------------ D-058 Builder entries on the pages
+
+/** Two dashboards apply to Pune Compressor 1 (its own and the customer-wide one), so the menu has "Show dashboard". */
+async function seedTwoForPc(t) {
+  await t.b(() => {
+    const now = Date.now();
+    const doc = (id, name) => ({ schemaVersion: 1, id, name, kind: 'device', profile: 'Compressor', version: 1, ownerId: 'u1', ownerName: 'Asha', updatedBy: 'u1', updatedAt: now, timeRange: 'realtime', copiedFrom: null,
+      widgets: [{ id: 'w1', type: 'value', title: name.toUpperCase(), x: 0, y: 0, w: 3, h: 2, binding: { mode: 'current' }, keys: ['dischargePressure'], settings: {} }] });
+    window.__tb.setAttrs('ASSET', 'store', { dbb_d_own1: doc('own1', 'Own board'), dbb_d_cw1: doc('cw1', 'Shared board'), dbb_assign_customer: { Compressor: { dashboardId: 'cw1', by: 'u1', at: now } }, dbb_assign_rev: 'v' + now });
+    window.__tb.setAttrs('DEVICE', 'pc', { dbb_assign: { dashboardId: 'own1', by: 'u1', at: now, mode: 'copy' } });
+    window.dispatchEvent(new CustomEvent('imex-dbb:changed'));
+  });
+  await t.page.waitForFunction(() => (window.__imexDbbActions?.items ?? []).filter((i) => i.group === 'switch').length === 2, null, { timeout: 8000 });
+}
+
+test('D-058: machine page bar "Edit dashboard": its menu has the edit actions, Show dashboard, New dashboard, Open Dashboard Builder; keyboard, outside click, dark', async (t) => {
+  await t.page.close();
+  Object.assign(t, await open('dev=pc'));
+  await seedTwoForPc(t);
+  await t.page.waitForSelector('.dbb-rhead .dbb-redit');
+  const b = await t.b(() => {
+    const e = document.querySelector('.dbb-redit');
+    const all = [...document.querySelectorAll('.dbb-ract .dbb-rbtn')].map((x) => x.getBoundingClientRect().right);
+    return { label: e.getAttribute('aria-label'), text: e.textContent.trim(), pop: e.getAttribute('aria-haspopup'), exp: e.getAttribute('aria-expanded'), last: e.getBoundingClientRect().right === Math.max(...all), title: e.title, svg: !!e.querySelector('svg') };
+  });
+  eq([b.label, b.text, b.pop, b.exp, b.last, b.svg], ['Edit dashboard', 'Edit dashboard', 'menu', 'false', true, true], `the button ${JSON.stringify(b)}`);
+  ok(!!b.title, 'tooltip');
+  await t.click('.dbb-redit');
+  await t.page.waitForSelector('.dbb-rmenu');
+  const m = await t.b(() => {
+    const el = document.querySelector('.dbb-rmenu');
+    const vis = [...el.querySelectorAll('button')].filter((x) => !x.closest('[hidden]')).map((x) => x.textContent.trim());
+    const r = el.getBoundingClientRect();
+    const br = document.querySelector('.dbb-redit').getBoundingClientRect();
+    return { head: el.querySelector('.dbb-rm-h b').textContent, vis, focus: document.activeElement.textContent.trim(), exp: document.querySelector('.dbb-redit').getAttribute('aria-expanded'), below: r.top >= br.bottom, right: Math.abs(r.right - br.right) <= 1 || r.right <= innerWidth - 8 };
+  });
+  eq(m.head, 'Pune Compressor 1', 'menu header: the machine');
+  eq(m.vis, ['Edit this dashboard', 'Alarm thresholds…', 'Show dashboard', 'New dashboard', 'Open Dashboard Builder'], 'main actions, Show dashboard (closed), then the Builder');
+  ok(m.focus === 'Edit this dashboard' && m.exp === 'true' && m.below && m.right, `focus on the first item, anchored below the button: ${JSON.stringify(m)}`);
+  // Show dashboard: Right opens it, the shown dashboard has a tick and aria-checked, Left closes it
+  await t.page.keyboard.press('ArrowDown');
+  await t.page.keyboard.press('ArrowDown');
+  eq(await t.b(() => document.activeElement.textContent.trim()), 'Show dashboard', 'arrow keys move');
+  await t.page.keyboard.press('ArrowRight');
+  const sw = await t.b(() => ({ rows: [...document.querySelectorAll('.dbb-rm-swl button')].map((x) => [x.textContent.trim(), x.getAttribute('aria-checked'), !!x.querySelector('svg')]), focus: document.activeElement.textContent.trim(), exp: document.querySelector('[data-sw]').getAttribute('aria-expanded'), bg: getComputedStyle(document.querySelector('.dbb-rm-swl button.on')).backgroundColor }));
+  eq(sw.rows, [['Own board', 'true', true], ['Shared board', 'false', false]], 'the dashboards that apply, the shown one ticked');
+  eq([sw.focus, sw.exp], ['Own board', 'true'], 'Right opens the group');
+  eq(sw.bg, 'rgba(0, 0, 0, 0)', 'no filled selection');
+  await t.page.keyboard.press('ArrowLeft');
+  eq(await t.b(() => [document.activeElement.textContent.trim(), document.querySelector('.dbb-rm-swl').hidden]), ['Show dashboard', true], 'Left closes it');
+  // Escape closes and gives the focus back
+  await t.page.keyboard.press('Escape');
+  eq(await t.b(() => [!!document.querySelector('.dbb-rmenu'), document.activeElement.classList.contains('dbb-redit'), document.querySelector('.dbb-redit').getAttribute('aria-expanded')]), [false, true, 'false'], 'Escape closes, focus on the button');
+  // a click outside closes; a second click on the button closes too
+  await t.click('.dbb-redit');
+  await t.page.mouse.click(300, 600);
+  ok(!(await t.page.$('.dbb-rmenu')), 'outside click closes');
+  await t.click('.dbb-redit');
+  await t.click('.dbb-redit');
+  ok(!(await t.page.$('.dbb-rmenu')), 'the button toggles');
+  // a switch item shows the other dashboard (no save)
+  await t.click('.dbb-redit');
+  await t.click('.dbb-rmenu [data-sw]');
+  await t.click('.dbb-rmenu [data-run="switch:cw1"]');
+  await t.page.waitForFunction(() => /SHARED BOARD/.test(document.querySelector('.dbb-rbody')?.textContent ?? ''), null, { timeout: 5000 });
+  ok(!(await t.page.$('.dbb-rmenu')), 'menu closed after an action');
+  // dark mode: the menu takes the app's dark surface
+  await t.b(switchMode, 'dark');
+  await t.click('.dbb-redit');
+  const bg = await t.b(bgOf, '.dbb-rmenu');
+  ok(dark(bg), `dark menu: ${bg}`);
+  await t.page.keyboard.press('Escape');
+  await t.b(switchMode, 'light');
+  // New dashboard: the Builder with its New dashboard dialog (cancelled, nothing saved)
+  await t.click('.dbb-redit');
+  await t.click('.dbb-rmenu [data-new]');
+  await t.page.waitForSelector('.dbb-overlay .dbb-modal :text("What is it for?")', { timeout: 6000 });
+  await t.modalBtn('cancel');
+  await t.click('.dbb-top [data-a="close"]');
+  await t.page.waitForFunction(() => !document.querySelector('.dbb-overlay'));
+  // Open Dashboard Builder: on this machine
+  await t.click('.dbb-redit');
+  await t.click('.dbb-rmenu [data-builder]');
+  await t.page.waitForSelector('.dbb-overlay .dbb-top select', { timeout: 6000 });
+  await t.page.waitForTimeout(400);
+  eq(await t.page.inputValue('.dbb-top [data-a="machine"]'), 'pc', 'Open Dashboard Builder: on the shown machine');
+});
+
+test('D-058: "Edit dashboard" at phone width, under html.imx-mobile, for viewers, and on the Dashboard Overview page', async (t) => {
+  await t.page.close();
+  Object.assign(t, await open('dev=pc&shell=1'));
+  await t.page.setViewportSize({ width: 390, height: 844 });
+  await t.page.waitForSelector('.dbb-rhead .dbb-redit');
+  await t.page.waitForTimeout(300);
+  const p = await t.b(() => {
+    const e = document.querySelector('.dbb-redit');
+    const h = document.querySelector('.dbb-rhead');
+    return { w: e.getBoundingClientRect().width, span: getComputedStyle(e.querySelector('span')).display, sw: h.scrollWidth, cw: h.clientWidth };
+  });
+  ok(p.w <= 30 && p.span === 'none' && p.sw <= p.cw + 1, `icon only and the bar fits: ${JSON.stringify(p)}`);
+  await t.click('.dbb-redit');
+  const r = await t.b(() => { const x = document.querySelector('.dbb-rmenu').getBoundingClientRect(); return [x.left, x.right, innerWidth]; });
+  ok(r[0] >= 8 && r[1] <= r[2] - 8 + 1, `menu inside the window at 390 px: ${r}`);
+  await t.page.close();
+  Object.assign(t, await open('dev=pc&shell=1&mobile=1'));
+  await t.page.waitForTimeout(1200);
+  ok(!(await t.page.$('.dbb-redit')), 'no Edit dashboard on the phone app (view only, D-054)');
+  await t.page.close();
+  Object.assign(t, await open('dev=pc&role=Viewer'));
+  await t.page.waitForSelector('.dbb-rhead .dbb-status-pill');
+  await t.page.waitForTimeout(800);
+  ok(!(await t.page.$('.dbb-redit')), 'no Edit dashboard for a viewer');
+  await t.page.close();
+  Object.assign(t, await open('dev=pc'));
+  await seedStandalone(t, 7);
+  await t.page.click('#nav .dbb-launch-btn');
+  await t.page.click('.dbb-emenu [data-m="__list"]');
+  await t.page.click('.dbb-dl [data-open="sa7"]');
+  await t.page.waitForFunction(() => /SA VALUE 7/.test(document.querySelector('.dbb-rbody')?.textContent ?? ''), null, { timeout: 5000 });
+  await t.page.waitForSelector('.dbb-rhead .dbb-redit');
+  await t.click('.dbb-redit');
+  eq(await t.b(() => [document.querySelector('.dbb-rm-h b').textContent, ...[...document.querySelectorAll('.dbb-rmenu button')].map((x) => x.textContent.trim())]), ['Energy board 07', 'Edit this dashboard', 'New dashboard', 'Open Dashboard Builder'], 'Dashboard Overview page: its edit action and the Builder');
+  await t.click('.dbb-rmenu [data-builder]');
+  await t.page.waitForSelector('.dbb-overlay .dbb-top select', { timeout: 6000 });
+  await t.page.waitForTimeout(400);
+  eq(await t.page.inputValue('.dbb-top [data-a="name"]'), 'Energy board 07', 'Open Dashboard Builder opens the overview shown');
+});
+
+test('D-058: Dashboards page: New dashboard and Open Dashboard Builder at the top for editors, once per page; none for viewers', async (t) => {
+  await t.page.close();
+  Object.assign(t, await open('dev=pc'));
+  await t.b(() => window.__mountLauncher({ headless: true }));
+  await t.page.waitForFunction(() => typeof window.IMEX_DBB?.dashboardPage === 'function');
+  const mount = (o) =>
+    t.b(async (o) => {
+      document.getElementById('dl-host')?.remove();
+      const wrap = document.createElement('div');
+      wrap.id = 'dl-host';
+      wrap.style.cssText = 'position:fixed;left:300px;top:80px;width:900px;height:600px;z-index:5;background:#fff';
+      if (o.banner) wrap.innerHTML = '<div class="imx-dl"><header class="imx-dl-head"><button data-el="new">New dashboard</button></header><div class="imx-dl-body"></div></div>';
+      document.body.appendChild(wrap);
+      await window.IMEX_DBB.dashboardPage(wrap.querySelector('.imx-dl-body') ?? wrap, o.opts);
+      return { btns: [...wrap.querySelectorAll('.dbb-dl .pacts button')].map((b) => [b.textContent.trim(), b.getAttribute('aria-label'), !!b.title]), empty: wrap.querySelector('.dbb-dl .empty')?.textContent ?? '' };
+    }, o);
+  let r = await mount({});
+  eq(r.btns, [['Open Dashboard Builder', 'Open Dashboard Builder', true], ['New dashboard', 'New dashboard', true]], 'both buttons for an editor');
+  ok(/New dashboard at the top of this page/.test(r.empty), `empty state points at the button: ${r.empty}`);
+  const pos = await t.b(() => {
+    const s = document.querySelector('#dl-host .search').getBoundingClientRect();
+    const n = document.querySelector('#dl-host [data-new]').getBoundingClientRect();
+    return { same: Math.abs(s.top - n.top) < 2, h: n.height, right: Math.round(document.querySelector('#dl-host .tools').getBoundingClientRect().right - n.right) };
+  });
+  ok(pos.same && pos.h === 40 && pos.right <= 24, `at the top right, 40 px like the search: ${JSON.stringify(pos)}`);
+  eq((await mount({ banner: true })).btns, [], 'the page has its own New dashboard: not twice');
+  eq((await mount({ banner: true, opts: { buttons: true } })).btns.length, 2, 'buttons: true shows them anyway');
+  eq((await mount({ opts: { buttons: false } })).btns, [], 'buttons: false hides them');
+  await mount({});
+  await t.click('#dl-host [data-new]');
+  await t.page.waitForSelector('.dbb-overlay .dbb-modal :text("What is it for?")', { timeout: 6000 });
+  await t.modalBtn('cancel');
+  await t.click('.dbb-top [data-a="close"]');
+  await t.page.waitForFunction(() => !document.querySelector('.dbb-overlay'));
+  await t.click('#dl-host [data-builder]');
+  await t.page.waitForSelector('.dbb-overlay .dbb-top select', { timeout: 6000 });
+  ok(true, 'Open Dashboard Builder opens the Builder');
+  await t.page.close();
+  Object.assign(t, await open('dev=pc&role=Viewer'));
+  await t.b(() => window.__mountLauncher({ headless: true }));
+  await t.page.waitForFunction(() => typeof window.IMEX_DBB?.dashboardPage === 'function');
+  r = await mount({});
+  eq(r.btns, [], 'no buttons for a viewer');
+  eq(await t.b(() => !!document.querySelector('#dl-host .dbb-dl')), true, 'the list is still drawn');
+});
+
 // ------------------------------------------------------------------ run
 
 const only = process.argv.slice(2).map((s) => s.toLowerCase());

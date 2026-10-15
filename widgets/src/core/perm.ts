@@ -78,7 +78,7 @@ const RANK: Record<string, number> = { hidden: 0, view: 1, full: 2 };
 const A = (id: string, label: string): CatalogueAction => ({ id, label });
 // the rows of the role editor = the side menu's pages (Notifications and Mobile app are always visible)
 export const CATALOGUE: CatalogueRow[] = [
-  { key: 'sites', label: 'Fleet overview', section: 'MONITOR', parent: null, states: ['default'], levels: HV, actions: [] },
+  { key: 'sites', label: 'Overview', section: 'MONITOR', parent: null, states: ['default'], levels: HV, actions: [] },
   { key: 'machines', label: 'Machines', section: 'MONITOR', parent: null, states: ['listing', 'machine'], levels: HV, actions: [] },
   { key: 'alarms', label: 'Alarms', section: 'MONITOR', parent: null, states: ['active_alerts', 'alert_history'], levels: HVF, actions: [A('alarms.acknowledge', 'Acknowledge alarms')] },
   { key: 'andon', label: 'Andon board', section: 'MONITOR', parent: null, states: ['andon'], levels: HVF, actions: [A('andon.layout', 'Edit board layout'), A('andon.boards', 'Manage saved boards')] },
@@ -105,9 +105,9 @@ export const CATALOGUE: CatalogueRow[] = [
     levels: HVF,
     actions: [A('reports.run', 'Run reports'), A('reports.edit', 'Edit reports'), A('reports.schedule', 'Schedule reports'), A('reports.settings', 'Report settings')],
   },
-  { key: 'users', label: 'Users', section: 'ADMIN', parent: null, states: ['user_management'], levels: HVF, actions: [] },
-  { key: 'alertrules.default', label: 'Default alerts', section: 'ADMIN', parent: 'Alert management', states: ['alert_management'], levels: HVF, actions: [A('alertrules.export', 'Export alert rules')] },
-  { key: 'alertrules.custom', label: 'Custom alerts', section: 'ADMIN', parent: 'Alert management', states: ['custom_alert'], levels: HVF, actions: [] },
+  { key: 'users', label: 'Users & roles', section: 'ADMIN', parent: null, states: ['user_management'], levels: HVF, actions: [] },
+  { key: 'alertrules.default', label: 'Default rules', section: 'ADMIN', parent: 'Alarm rules', states: ['alert_management'], levels: HVF, actions: [A('alertrules.export', 'Export alarm rules')] },
+  { key: 'alertrules.custom', label: 'Custom rules', section: 'ADMIN', parent: 'Alarm rules', states: ['custom_alert'], levels: HVF, actions: [] },
   { key: 'aisettings', label: 'AI settings', section: 'ADMIN', parent: null, states: ['aiml_settings'], levels: HVF, actions: [A('ai.jobs', 'Run AI jobs')] },
   { key: 'config', label: 'Configuration', section: 'ADMIN', parent: null, states: ['configuration'], levels: HVF, actions: [] },
 ];

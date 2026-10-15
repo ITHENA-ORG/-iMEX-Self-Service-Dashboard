@@ -23,8 +23,9 @@
 // D-050: the page gate of the app's roles (state machine = Machines, dashboard_overview = Dashboards): a hidden page
 // shows the app's "You don't have access to this page" instead. A machine must be granted to the user.
 //
-// Edit actions (dashboards.build only, UI-only check, D-012) are not drawn here: they are published with
-// publishActions() for the navbar's edit menu (D-020, see common.ts). Reloads on CHANGED_EVENT.
+// Edit actions (dashboards.build only, UI-only check, D-012) are published with publishActions() for an app menu
+// (D-020, see common.ts) and, since D-058, also offered by the bar's own "Edit dashboard" button (openBarMenu), with
+// New dashboard and Open Dashboard Builder: the app's side menu has no Builder item any more. Reloads on CHANGED_EVENT.
 //
 // Refresh (D-021): values come over the ThingsBoard WebSocket (core/live.ts). The grid is redrawn when a
 // change is pushed (at most every 2 s) and every 60 s; redraws read the live cache, so they make almost no
@@ -36,7 +37,7 @@ import * as store from '../core/store';
 import type { UserContext } from '../core/scope';
 import { normalizeRange, isShiftRange, rangeWindow } from '../core/schema';
 import { calendarFor, shiftWindowText } from '../core/shifts';
-import { ensureKitCss, pageBusy } from '../render/kit';
+import { ensureKitCss, pageBusy, withBusy } from '../render/kit';
 import type { Dashboard } from '../core/schema';
 import { Grid, GRID_CSS } from '../render/grid';
 import { CSS, ensureCss, esc, STATUS, ago, agoWords, applyTheme } from '../render/theme';
@@ -47,7 +48,7 @@ import { openBuilder } from '../builder/builder';
 import { BUILDER_CSS } from '../builder/styles';
 import { modal, confirmModal, toast } from '../builder/ui';
 import { audit } from '../core/audit';
-import { userContextFor, currentEntity, currentParam, RSTATE_KEY, CHANGED_EVENT, notifyChanged, publishActions, EditAction, scheduleRedraw, liveLend, liveRelease, pageGate, NO_ACCESS_HTML } from './common';
+import { userContextFor, currentEntity, currentParam, RSTATE_KEY, CHANGED_EVENT, notifyChanged, publishActions, EditAction, EditActions, scheduleRedraw, liveLend, liveRelease, pageGate, NO_ACCESS_HTML, isMobileApp } from './common';
 
 const R_CSS = `
 .dbb-rend{height:100%;display:flex;flex-direction:column;background:var(--plane);position:relative}
@@ -96,6 +97,40 @@ html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:focus-visible{box-shadow:0 0 
 html.imx-mobile .dbb-rbtn{width:40px;height:40px;padding:0}
 html.imx-mobile .dbb-rright .dbb-upd{order:3;flex-basis:100%;justify-content:flex-end}
 html.imx-mobile .dbb-rbtn span{display:none}
+/* D-058: "Edit dashboard" (dashboards.build only): always the last button of the bar; open = the hover look */
+.dbb-rbtn.dbb-redit{order:9}
+.dbb-rbtn.dbb-redit[aria-expanded="true"]{background:var(--hover);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn.dbb-redit[aria-expanded="true"]{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.34)}
+/* its menu (appended to <body>, anchored to the button): the side menu's card look, the app's theme tokens; no filled
+   selection (the dashboard shown has a tick) */
+.dbb-rmenu{position:fixed;z-index:10050;box-sizing:border-box;width:300px;max-width:calc(100vw - 16px);overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:2px;padding:8px;background:var(--imx-surface,#FFFFFF);color:var(--imx-text,#0F172A);border:1px solid var(--imx-line,#E3E8EF);border-radius:14px;box-shadow:0 14px 34px rgba(15,43,87,.18);font:14px/1.3 var(--imx-font,DM Sans,Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif);letter-spacing:normal;text-transform:none;-webkit-font-smoothing:antialiased;animation:dbb-rm-in .12s ease-out}
+.dbb-rmenu *{box-sizing:border-box;font-family:inherit}
+.dbb-rmenu *::before,.dbb-rmenu *::after{content:none}
+@keyframes dbb-rm-in{from{opacity:0;transform:translateY(-4px)}}
+@media (prefers-reduced-motion:reduce){.dbb-rmenu{animation:none}.dbb-rmenu .dbb-rm-sw svg{transition:none}}
+.dbb-rm-h{display:flex;flex-direction:column;gap:3px;padding:10px 12px 8px;min-width:0}
+.dbb-rm-h b{font-size:14px;font-weight:700;color:var(--imx-text,#0F172A);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbb-rm-h span{font-size:12px;color:var(--imx-muted,#5B6B82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbb-rm-hr{flex:none;height:1px;margin:4px 0;background:var(--imx-skel1,#EEF2F6)}
+.dbb-rmenu button{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:40px;padding:0 12px;border-radius:9px;font-family:inherit;font-size:14px;line-height:1.3;color:var(--imx-text,#0F172A);cursor:pointer;transition:background-color .12s}
+.dbb-rmenu button .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbb-rmenu button svg{flex:none;width:16px;height:16px}
+.dbb-rmenu button:hover{background:var(--imx-pt,#EFF4FF)}
+.dbb-rmenu button:focus-visible{outline:2px solid var(--imx-pr,#93B4F5);outline-offset:-2px}
+.dbb-rmenu button.on{font-weight:600;color:var(--imx-p2,#1D4ED8)}
+.dbb-rmenu button.danger{color:var(--imx-bad-tx,#B91C1C)}
+.dbb-rmenu button.pri{font-weight:600;color:var(--imx-p2,#1D4ED8)}
+.dbb-rmenu .dbb-rm-sw svg{color:var(--imx-muted,#5B6B82);transition:transform .12s}
+.dbb-rmenu .dbb-rm-sw[aria-expanded="true"] svg{transform:rotate(90deg)}
+.dbb-rm-swl{display:flex;flex-direction:column;gap:2px;padding-left:12px}
+.dbb-rm-swl[hidden]{display:none}
+html[data-imx-mode="dark"] .dbb-rmenu{background:var(--imx-surface,#121A2B);color:var(--imx-text,#E6EBF3);border-color:rgba(148,163,184,.30);box-shadow:0 0 0 1px rgba(0,0,0,.3),0 16px 40px rgba(0,0,0,.6)}
+html[data-imx-mode="dark"] .dbb-rm-h b,html[data-imx-mode="dark"] .dbb-rmenu button{color:var(--imx-text,#E6EBF3)}
+html[data-imx-mode="dark"] .dbb-rm-h span,html[data-imx-mode="dark"] .dbb-rmenu .dbb-rm-sw svg{color:var(--imx-muted,#97A6BC)}
+html[data-imx-mode="dark"] .dbb-rm-hr{background:var(--imx-skel1,#1C2639)}
+html[data-imx-mode="dark"] .dbb-rmenu button:hover{background:var(--imx-pt,#17243F)}
+html[data-imx-mode="dark"] .dbb-rmenu button.on,html[data-imx-mode="dark"] .dbb-rmenu button.pri{color:var(--imx-p2,#9EC5F4)}
+html[data-imx-mode="dark"] .dbb-rmenu button.danger{color:var(--imx-bad-tx,#FCA5A5)}
 .dbb-rhead-skel{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 .dbb-rhead-skel .imx-skel{flex:none;height:14px}
 .dbb-dark .dbb-rhead-skel .imx-skel{--imx-skel1:rgba(255,255,255,.07);--imx-skel2:rgba(255,255,255,.13)}
@@ -172,6 +207,142 @@ export function dashHasState(tbCtx: any, id: string): boolean {
 /** A date and time for the ticket text ("12 Oct 2026, 1:05 PM"; the app's 12 / 24-hour clock applies). */
 const tkTime = (ts: number) => new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+/** The page's edit actions plus the two Builder entries of the bar's "Edit dashboard" menu (D-058). */
+export interface BarMenu {
+  acts: Omit<EditActions, 'owner'>;
+  onNew(btn: HTMLElement): void;
+  onBuilder(btn: HTMLElement): void;
+}
+
+/** D-058: the open "Edit dashboard" menu (one per page) and how to close it. */
+let barMenu: { el: HTMLElement; btn: HTMLElement; close(focus?: boolean): void } | null = null;
+/** Closes the bar menu (if `within` is given: only when its button is inside that element). */
+export function closeBarMenu(within?: HTMLElement) {
+  if (barMenu && (!within || within.contains(barMenu.btn))) barMenu.close(false);
+}
+
+/**
+ * D-058: the bar's "Edit dashboard" menu, as the side menu's former "Dashboard Builder" flyout: a header (machine or
+ * dashboard, where its dashboard comes from), the page's edit actions, the 'switch' group under an expandable "Show
+ * dashboard" row (the one shown has a tick), a divider, "New dashboard" and "Open Dashboard Builder".
+ * Appended to <body> under the button (right edges aligned, kept inside the window, above the button when there is no
+ * room below). Keyboard: focus starts on the first item; Up / Down / Home / End move; Right opens "Show dashboard",
+ * Left closes it; Escape or Tab closes and gives the focus back to the button. A click outside closes it.
+ */
+export function openBarMenu(btn: HTMLButtonElement, m: BarMenu) {
+  if (barMenu?.btn === btn) return barMenu.close(true);
+  closeBarMenu();
+  const { acts } = m;
+  const main = acts.items.filter((x) => x.group !== 'switch');
+  const sw = acts.items.filter((x) => x.group === 'switch');
+  const row = (a: EditAction) =>
+    `<button type="button" role="${a.checked !== undefined ? 'menuitemradio' : 'menuitem'}" class="${a.danger ? 'danger' : ''}${a.checked ? ' on' : ''}" data-run="${esc(a.id)}"${a.hint ? ` title="${esc(a.hint)}"` : ''}${a.checked !== undefined ? ` aria-checked="${!!a.checked}"` : ''}><span class="t">${esc(a.label)}</span>${a.checked ? UI_ICON.tick : ''}</button>`;
+  const el = document.createElement('div');
+  el.className = 'dbb-rmenu';
+  el.setAttribute('role', 'menu');
+  el.setAttribute('aria-label', 'Edit dashboard');
+  el.innerHTML = `<div class="dbb-rm-h"><b>${esc(acts.title)}</b>${acts.subtitle ? `<span>${esc(acts.subtitle)}</span>` : ''}</div><div class="dbb-rm-hr" role="separator"></div>
+    ${main.map(row).join('')}
+    ${sw.length ? `<button type="button" role="menuitem" class="dbb-rm-sw" data-sw aria-haspopup="true" aria-expanded="false" title="The dashboards that apply here: pick the one to show"><span class="t">Show dashboard</span>${UI_ICON.chev}</button><div class="dbb-rm-swl" role="group" aria-label="Show dashboard" hidden>${sw.map(row).join('')}</div>` : ''}
+    ${main.length || sw.length ? '<div class="dbb-rm-hr" role="separator"></div>' : ''}
+    <button type="button" role="menuitem" data-new title="For a machine type, or an overview of several machines"><span class="t">New dashboard</span></button>
+    <button type="button" role="menuitem" class="pri" data-builder title="All dashboards, templates and machines"><span class="t">Open Dashboard Builder</span></button>`;
+  document.body.appendChild(el);
+  const swRow = el.querySelector<HTMLButtonElement>('[data-sw]');
+  const swList = el.querySelector<HTMLElement>('.dbb-rm-swl');
+  const place = () => {
+    if (!btn.isConnected) return close(false);
+    const r = btn.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    const vh = window.innerHeight;
+    el.style.maxHeight = '';
+    const h = el.offsetHeight;
+    const w = el.offsetWidth;
+    let top = r.bottom + 6;
+    if (top + h > vh - 8 && r.top - 6 - h >= 8) top = r.top - 6 - h;
+    top = Math.max(8, top);
+    el.style.top = `${Math.round(top)}px`;
+    el.style.left = `${Math.round(Math.max(8, Math.min(vw - w - 8, r.right - w)))}px`;
+    el.style.maxHeight = `${Math.max(120, vh - top - 8)}px`;
+  };
+  const setSw = (open: boolean) => {
+    if (!swRow || !swList) return;
+    swList.hidden = !open;
+    swRow.setAttribute('aria-expanded', String(open));
+    place();
+  };
+  const items = () => [...el.querySelectorAll<HTMLButtonElement>('button')].filter((b) => !b.closest('[hidden]'));
+  const onKey = (e: KeyboardEvent) => {
+    const list = items();
+    const i = list.indexOf(document.activeElement as HTMLButtonElement);
+    const go = (n: number) => {
+      e.preventDefault();
+      list[(n + list.length) % list.length]?.focus();
+    };
+    if (e.key === 'Escape' || e.key === 'Tab') {
+      e.preventDefault();
+      e.stopPropagation();
+      close(true);
+    } else if (e.key === 'ArrowDown') go(i + 1);
+    else if (e.key === 'ArrowUp') go(i < 0 ? -1 : i - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(-1);
+    else if (e.key === 'ArrowRight' && document.activeElement === swRow) {
+      e.preventDefault();
+      setSw(true);
+      swList?.querySelector<HTMLButtonElement>('button')?.focus();
+    } else if (e.key === 'ArrowLeft' && swList?.contains(document.activeElement)) {
+      e.preventDefault();
+      setSw(false);
+      swRow?.focus();
+    }
+  };
+  // Escape while the focus is outside the menu (e.g. on the page after a scroll) closes it too
+  const onOutKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && !el.contains(document.activeElement)) close(document.activeElement === btn);
+  };
+  const onDown = (e: Event) => {
+    const t = e.target as Node;
+    if (!el.contains(t) && !btn.contains(t)) close(false);
+  };
+  const onMove = () => place();
+  function close(focus = false) {
+    if (barMenu?.el !== el) return;
+    barMenu = null;
+    el.remove();
+    btn.setAttribute('aria-expanded', 'false');
+    el.removeEventListener('keydown', onKey);
+    window.removeEventListener('keydown', onOutKey, true);
+    document.removeEventListener('mousedown', onDown, true);
+    document.removeEventListener('touchstart', onDown, true);
+    window.removeEventListener('resize', onMove);
+    window.removeEventListener('scroll', onMove, true);
+    if (focus && btn.isConnected) btn.focus();
+  }
+  el.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
+    if (!b) return;
+    if (b === swRow) return setSw(swList?.hidden ?? false);
+    close(false);
+    const run = b.dataset.run;
+    if (run) acts.run(run);
+    else if (b.hasAttribute('data-new')) m.onNew(btn);
+    else m.onBuilder(btn);
+  });
+  barMenu = { el, btn, close };
+  btn.setAttribute('aria-expanded', 'true');
+  // on the menu itself: in the app a passive document-level keydown listener comes first, and ThingsBoard's zone.js
+  // then runs every document keydown listener as passive (preventDefault ignored: arrows would scroll the page)
+  el.addEventListener('keydown', onKey);
+  window.addEventListener('keydown', onOutKey, true);
+  document.addEventListener('mousedown', onDown, true);
+  document.addEventListener('touchstart', onDown, true);
+  window.addEventListener('resize', onMove);
+  window.addEventListener('scroll', onMove, true);
+  place();
+  items()[0]?.focus();
+}
+
 /** Counter for unique ids of renderer instances in this library copy (used as the publishActions owner). */
 let seq = 0;
 
@@ -235,6 +406,7 @@ export function init(tbCtx: any) {
   };
   const load = async (force = false) => {
     const seq = (st.loadSeq = (st.loadSeq ?? 0) + 1);
+    closeBarMenu(root); // D-058: the bar is drawn again
     const stale = () => seq !== st.loadSeq;
     // D-043: the app's page bar runs while the page resolves (first open, machine switch, another dashboard)
     pageBusy(`rend-${id}`, true);
@@ -267,7 +439,7 @@ export function init(tbCtx: any) {
       if (ent?.entityType === 'DEVICE') await showDevice(ctx, ent.id, stale);
       else if (standaloneId) await showStandalone(ctx, standaloneId, stale);
       else {
-        head.innerHTML = `<div class="dbb-ph" style="height:auto">Open a machine, or pick a dashboard from the Dashboard list in the navbar menu.</div>`;
+        head.innerHTML = `<div class="dbb-ph" style="height:auto">Open a machine, or pick a dashboard on the Dashboards page.</div>`;
         st.grid?.render([]);
         publishActions(id, null);
       }
@@ -391,7 +563,7 @@ export function init(tbCtx: any) {
     if (res.candidates.length > 1)
       for (const c of res.candidates) items.push({ id: `switch:${c.dashboard.id}`, label: c.dashboard.name, hint: c.sourceLabel, group: 'switch', checked: c.dashboard.id === st.shownId, icon: 'eye' });
     if (level === 'personal') items.push({ id: 'clearp', label: 'Clear my personal view', icon: 'reset' });
-    publishActions(id, {
+    const acts: Omit<EditActions, 'owner'> = {
       el: root,
       title: node.label,
       subtitle: `From: ${label}${dash ? ` · ${dash.name}` : ''}`,
@@ -407,7 +579,10 @@ export function init(tbCtx: any) {
           void load();
         }
       },
-    });
+    };
+    publishActions(id, acts);
+    // D-058: the same actions from the bar's "Edit dashboard" button (the side menu no longer has a Builder item)
+    editButton(acts, { deviceId }, () => st.deviceId === deviceId);
     // Saves a copy of the shared dashboard and assigns it to this device (`dbb_assign` mode `customised`); audited.
     async function customise() {
       if (!(await confirmModal(root, 'Customise for this machine?', `${node!.label} gets its own copy of “${dash!.name}”. It will stop receiving updates made to the shared dashboard.`, 'Customise'))) return;
@@ -432,6 +607,34 @@ export function init(tbCtx: any) {
         toast(root, e.message, 'err');
       }
     }
+  }
+
+  /**
+   * D-058: "Edit dashboard" (pencil) at the right end of the bar, for a role with dashboards.build (the caller only
+   * calls it then): its menu holds the page's edit actions, "New dashboard" (the Builder's New dashboard dialog) and
+   * "Open Dashboard Builder" (the Builder on this machine and its dashboard, or on the overview shown). Not on a phone
+   * (html.imx-mobile): dashboards are view-only there (D-054). Icon only under 1100 px, like the other bar buttons.
+   * `where.deviceId` / `where.dashboardId`: what the Builder opens on; `here()`: the page still shows it.
+   */
+  function editButton(acts: Omit<EditActions, 'owner'>, where: { deviceId?: string | null; dashboardId?: string | null }, here: () => boolean) {
+    const box = head.querySelector('.dbb-ract') as HTMLElement | null;
+    if (!box || isMobileApp() || !here()) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dbb-rbtn dbb-redit';
+    b.title = 'Edit this dashboard, switch it, or build a new one';
+    b.setAttribute('aria-label', 'Edit dashboard');
+    b.setAttribute('aria-haspopup', 'menu');
+    b.setAttribute('aria-expanded', 'false');
+    b.innerHTML = `${UI_ICON.edit}<span>Edit dashboard</span>`;
+    // the Builder from the menu: the user context again (a role changed meanwhile applies), busy while it loads
+    const builder = (btn: HTMLElement, startNew: boolean) =>
+      void withBusy(btn, async () => {
+        const ctx = await userContextFor(tbCtx, where.deviceId ?? null, true);
+        openBuilder({ ctx, deviceId: where.deviceId ?? null, dashboardId: startNew ? null : where.dashboardId ?? null, startNew, chatEnabled: tbCtx.settings?.chatEnabled !== false, onClose: (ch) => ch && notifyChanged() });
+      }).catch((e: any) => toast(root, `Could not open the Dashboard Builder: ${e?.message ?? e}`, 'err'));
+    b.addEventListener('click', () => openBarMenu(b, { acts, onNew: (x) => builder(x, true), onBuilder: (x) => builder(x, false) }));
+    box.appendChild(b);
   }
 
   /**
@@ -491,7 +694,7 @@ export function init(tbCtx: any) {
           b.setAttribute('aria-label', 'Create a ticket for this machine');
           b.innerHTML = `${UI_ICON.ticket}<span>Create ticket</span>`;
           b.addEventListener('click', () => void openTicket(ctx, deviceId, node, where, dash, range));
-          box.appendChild(b);
+          box.insertBefore(b, box.querySelector('.dbb-redit')); // D-058: Edit dashboard stays last (focus order = visual order)
         },
         () => {
           /* no service answer: no button */
@@ -536,14 +739,15 @@ export function init(tbCtx: any) {
     }
     const range = normalizeRange(d.timeRange);
     st.range = range;
-    head.innerHTML = `<div class="dbb-rtitle">${esc(d.name)}</div>${timeHtml(range)}`;
+    // D-058: the time window and the bar buttons as one group at the right end, as on the machine page
+    head.innerHTML = `<div class="dbb-rtitle">${esc(d.name)}</div><div class="dbb-rright">${timeHtml(range)}<span class="dbb-ract"></span></div>`;
     ensureGrid(ctx, null, range, d.theme).render(d.widgets);
-    publishActions(
-      id,
-      ctx.canBuild
-        ? { el: root, title: d.name, subtitle: `Dashboard overview · by ${d.ownerName}`, items: [{ id: 'edit', label: 'Edit this dashboard', hint: `Opens “${d.name}” in the Dashboard Builder`, icon: 'edit' }], run: () => openBuilder({ ctx, dashboardId: d.id, chatEnabled: tbCtx.settings?.chatEnabled !== false, onClose: (ch) => ch && notifyChanged() }) }
-        : null,
-    );
+    const acts: Omit<EditActions, 'owner'> | null = ctx.canBuild
+      ? { el: root, title: d.name, subtitle: `Dashboard overview · by ${d.ownerName}`, items: [{ id: 'edit', label: 'Edit this dashboard', hint: `Opens “${d.name}” in the Dashboard Builder`, icon: 'edit' }], run: () => openBuilder({ ctx, dashboardId: d.id, chatEnabled: tbCtx.settings?.chatEnabled !== false, onClose: (ch) => ch && notifyChanged() }) }
+      : null;
+    publishActions(id, acts);
+    const key = st.lastKey;
+    if (acts) editButton(acts, { dashboardId: d.id }, () => st.lastKey === key && !st.deviceId);
   }
 
   /**
@@ -625,6 +829,7 @@ export function init(tbCtx: any) {
     window.removeEventListener(CHANGED_EVENT, onChanged);
     stopRedraw();
     publishActions(id, null);
+    closeBarMenu(root);
     st.grid?.destroy();
   };
   // onStateChanged: reload only if the page key changed (the watch may already have done it).

@@ -240,8 +240,9 @@ export function init(tbCtx: any) {
       open: (o?: any) => open(tbCtx, o),
       newDashboard: () => open(tbCtx, { startNew: true }),
       dashboardList: async () => dashboardList(tbCtx, await isEditor()),
-      // D-041: the same list drawn inside an element of the app's own Dashboards page (no pop-up)
-      dashboardPage: async (host: HTMLElement) => dashboardList(tbCtx, await isEditor(), host),
+      // D-041: the same list drawn inside an element of the app's own Dashboards page (no pop-up); D-058: with
+      // "New dashboard" and "Open Dashboard Builder" at its top for editors (opts.buttons, see DashboardPageOpts)
+      dashboardPage: async (host: HTMLElement, opts?: DashboardPageOpts) => dashboardList(tbCtx, await isEditor(), host, opts),
       isEditor,
       actions: () => currentActions(),
     };
@@ -516,7 +517,15 @@ const DL_CSS = `
 .dbb-dl .pager button.on{background:#eaf2fd;color:#1f66bd;font-weight:700}
 .dbb-dl .pager button[disabled]{opacity:.35;cursor:default}
 .dbb-dl .pager svg{width:16px;height:16px}
-@media (max-width:560px){.dbb-dl .acts .edit{display:none}.dbb-dl .seg{display:none}}
+/* D-058: the page's New dashboard / Open Dashboard Builder at the right of the search row, 40 px high like the search;
+   the App UI page gives .btn.open / .btn.edit its theme colours; icon only (aria-label, title) on narrow pages */
+.dbb-dl .tools{flex-wrap:wrap}
+.dbb-dl .pacts{display:flex;gap:8px;margin-left:auto;flex:none}
+.dbb-dl .pacts .btn{height:40px;padding:0 14px;border-radius:10px;font-size:13.5px;gap:8px}
+.dbb-dl .pacts .btn svg{width:16px;height:16px}
+.dbb-dl .pacts .btn:focus-visible{outline:2px solid var(--imx-pr,#93B4F5);outline-offset:2px}
+@media (max-width:900px){.dbb-dl .pacts .pbld span{display:none}.dbb-dl .pacts .pbld{width:40px;padding:0;justify-content:center}}
+@media (max-width:560px){.dbb-dl .acts .edit{display:none}.dbb-dl .seg{display:none}.dbb-dl .pacts .btn span{display:none}.dbb-dl .pacts .btn{width:40px;padding:0;justify-content:center}}
 /* D-056: the app's dark mode (html[data-imx-mode="dark"]); light mode is untouched */
 html[data-imx-mode="dark"] .dbb-dl{background:rgba(2,6,15,.62)}
 html[data-imx-mode="dark"] .dbb-dl.dbb-dl-inline{background:none}
@@ -561,6 +570,8 @@ const DL_ICONS = {
   edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   left: '<path d="M15 18l-6-6 6-6"/>',
   right: '<path d="M9 18l6-6-6-6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  builder: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/>',
 };
 const dlsvg = (k: keyof typeof DL_ICONS) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DL_ICONS[k]}</svg>`;
 
@@ -591,12 +602,29 @@ const initials = (n: string) =>
  * click on the row / Enter) shows it in the Dashboard Overview state (openStandalone); editors also get Edit
  * (Dashboard Builder). Esc or a click on the backdrop closes it.
  */
+/** Options of the Dashboards page (`dashboardPage(host, opts)`, D-058). */
+export interface DashboardPageOpts {
+  /**
+   * "New dashboard" (primary) and "Open Dashboard Builder" (secondary) at the top of the list, for editors only.
+   * true = always, false = never; absent = unless the page around `host` already has its own (the App UI Dashboards
+   * page's banner buttons, `.imx-dl-head [data-el="new"]`), so the page never shows them twice.
+   */
+  buttons?: boolean;
+}
+
+/** D-058: whether the page around `host` already offers New dashboard (the App UI Dashboards page's banner). */
+export function hostHasOwnButtons(host: HTMLElement): boolean {
+  return !!host.closest('.imx-dl')?.querySelector('.imx-dl-head [data-el="new"]');
+}
+
 /**
  * The Dashboard list: as a pop-up (no `host`), or drawn inside `host` as a page (D-041, headless API
  * `dashboardPage`). Inside a host there is no backdrop, header or Escape; the list redraws when a dashboard was
  * saved (CHANGED_EVENT) and is removed with the returned `destroy()`.
+ * D-058: on the page, editors get "New dashboard" and "Open Dashboard Builder" at the top (`opts.buttons`); they
+ * replace the side menu's former "Dashboard Builder" sub-item.
  */
-export async function dashboardList(tbCtx: any, editor: boolean, host?: HTMLElement): Promise<{ destroy: () => void } | void> {
+export async function dashboardList(tbCtx: any, editor: boolean, host?: HTMLElement, opts: DashboardPageOpts = {}): Promise<{ destroy: () => void } | void> {
   ensureCss('dbb-css-dlist', DL_CSS);
   registerPlacement(tbCtx);
   // D-043: the page shows placeholder rows while the dashboards load (the list replaces them)
@@ -636,6 +664,8 @@ export async function dashboardList(tbCtx: any, editor: boolean, host?: HTMLElem
     } catch {
       applied = null;
     }
+  // D-058: the page's own New dashboard / Open Dashboard Builder (editors only; once per page, see DashboardPageOpts)
+  const buttons = !!host && editor && (opts.buttons ?? !hostHasOwnButtons(host));
   const wrap = document.createElement('div');
   wrap.className = host ? 'dbb-dl dbb-dl-inline' : 'dbb-dl';
   if (host) {
@@ -650,7 +680,11 @@ export async function dashboardList(tbCtx: any, editor: boolean, host?: HTMLElem
   wrap.innerHTML = `<div class="box">
     <div class="hd"><div class="logo">${dlsvg('grid')}</div><div class="ttl"><b>Dashboards</b><span>${editor ? 'Overviews, and the dashboards made for a machine type' : "Overviews that aren't tied to one machine"}</span></div><button class="x" data-close aria-label="Close" title="Close (Esc)">${dlsvg('x')}</button></div>
     <div class="tools"><label class="search">${dlsvg('search')}<input data-q type="text" placeholder="${editor ? 'Search by name, owner or machine type' : 'Search by name or owner'}" aria-label="Search dashboards" autocomplete="off"/></label>
-      <div class="seg" role="radiogroup" aria-label="Sort"><button data-sort="name" class="on">A–Z</button><button data-sort="recent">Recently updated</button></div></div>
+      <div class="seg" role="radiogroup" aria-label="Sort"><button data-sort="name" class="on">A–Z</button><button data-sort="recent">Recently updated</button></div>${
+        buttons
+          ? `<div class="pacts"><button type="button" class="btn edit pbld" data-builder title="Open the Dashboard Builder: all dashboards, templates and machines" aria-label="Open Dashboard Builder">${dlsvg('builder')}<span>Open Dashboard Builder</span></button><button type="button" class="btn open pnew" data-new title="Build a new dashboard: for a machine type, or an overview of several machines" aria-label="New dashboard">${dlsvg('plus')}<span>New dashboard</span></button></div>`
+          : ''
+      }</div>
     ${editor ? `<div class="kinds" role="tablist" aria-label="Kind"><button role="tab" data-kind="all" class="on">All</button><button role="tab" data-kind="standalone">Overviews</button><button role="tab" data-kind="device">Machine types</button></div>` : ''}
     <div class="list" data-rows role="list"></div>
     <div class="ft"><span data-count></span><div class="pager" data-pager></div></div></div>`;
@@ -712,7 +746,11 @@ export async function dashboardList(tbCtx: any, editor: boolean, host?: HTMLElem
           )
           .join('')
       : `<div class="empty"><div class="ic">${dlsvg(all.length ? 'search' : 'grid')}</div><b>${all.length ? 'No dashboard matches' : 'No dashboards yet'}</b>${
-          all.length ? 'Try another name, owner or machine type.' : editor ? 'In the Dashboard Builder, choose New dashboard to build one, or ask the chat for a fleet overview.' : 'Dashboards shared with you will appear here.'
+          all.length ? 'Try another name, owner or machine type.' : editor
+            ? host
+              ? 'Choose New dashboard at the top of this page to build one, or ask the chat in the Dashboard Builder for an overview.'
+              : 'Choose New dashboard in the edit menu to build one, or ask the chat in the Dashboard Builder for an overview.'
+            : 'Dashboards shared with you will appear here.'
         }</div>`;
     (wrap.querySelector('[data-count]') as HTMLElement).textContent = hits.length ? `Showing ${page * LIST_PAGE + 1}–${page * LIST_PAGE + shown.length} of ${hits.length}` : `0 of ${all.length}`;
     const nums = Array.from({ length: pages }, (_, i) => i).filter((i) => pages <= 7 || i === 0 || i === pages - 1 || Math.abs(i - page) <= 1);
@@ -771,6 +809,15 @@ export async function dashboardList(tbCtx: any, editor: boolean, host?: HTMLElem
     }
   };
   wrap.querySelector('[data-close]')!.addEventListener('click', close);
+  // D-058: New dashboard (the builder's New dashboard dialog) and Open Dashboard Builder (its start screen); busy while
+  // the builder loads; errors go to the app's toast (never ThingsBoard's)
+  const pageBtn = (sel: string, startNew: boolean) =>
+    wrap.querySelector<HTMLButtonElement>(sel)?.addEventListener('click', (e) => {
+      const b = e.currentTarget as HTMLButtonElement;
+      void withBusy(b, () => open(tbCtx, { startNew })).catch((err: any) => alertInline(wrap, `Could not open the Dashboard Builder: ${err?.message ?? err}`));
+    });
+  pageBtn('[data-new]', true);
+  pageBtn('[data-builder]', false);
   if (!host) wrap.addEventListener('mousedown', (e) => e.target === wrap && close());
   rows.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
@@ -797,7 +844,7 @@ export async function dashboardList(tbCtx: any, editor: boolean, host?: HTMLElem
       if (!alive || !host.isConnected) return void window.removeEventListener(CHANGED_EVENT, onChanged);
       alive = false;
       window.removeEventListener(CHANGED_EVENT, onChanged);
-      void dashboardList(tbCtx, editor, host);
+      void dashboardList(tbCtx, editor, host, opts);
     };
     window.addEventListener(CHANGED_EVENT, onChanged);
     return {

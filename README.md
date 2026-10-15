@@ -67,7 +67,8 @@ Older dashboards that break a limit still open; they can't be saved until trimme
 4. **Put the button in your real app.** Two options:
    - Add the widget **iMEX Navbar / edit menu** (bundle "iMEX Self-Service (POC)") to your app's header state. Its edit icon shows only for `Role` = Admin (setting `adminOnly`); with `navbar` off it renders only the icon, or
    - keep your own header button and call `window.IMEX_DBB.open({ deviceId })` from its action. That function is registered by the launcher widget, so the launcher widget must also be on the page (a small cell is enough).
-5. **Show the dashboards:** put the **iMEX Machine dashboard** widget in your machine-detail state. It reads the machine from the dashboard state entity, as the stand-in app does.
+   - In the iMEX app the launcher runs headless (setting `headless`): `window.IMEX_DBB` = `open(opts)`, `newDashboard()`, `dashboardList()`, `dashboardPage(host, { buttons })` (the Dashboards page; editors get "New dashboard" and "Open Dashboard Builder" at its top unless the page has its own, D-058), `isEditor()`, `actions()`.
+5. **Show the dashboards:** put the **iMEX Machine dashboard** widget in your machine-detail state. It reads the machine from the dashboard state entity, as the stand-in app does. For a role that may build dashboards its page bar has **Edit dashboard** (D-058): the page's edit actions, New dashboard and Open Dashboard Builder.
 
 The stand-in app on the demo is the dashboard **iMEX App (POC)** (home dashboard of the three sample users).
 
@@ -83,8 +84,8 @@ npm run setup:tb          # idempotent
 npm run backfill          # 7 days at 5-min intervals
 npm run simulator         # live telemetry every 10 s
 npm run teardown          # lists every POC entity (incl. widgets, dashboard, rule chain), deletes after you type DELETE
-npm test                  # 96 unit tests (store, scope, first-load call counts, chat ops, providers, live WebSocket, rules, limits, compatibility, generator)
-npm run test:e2e          # 67 end-to-end scenarios of the builder and machine page in Chromium (fake ThingsBoard, D-023, D-026)
+npm test                  # 260 unit tests (store, scope, first-load call counts, chat ops, providers, live WebSocket, rules, limits, compatibility, generator)
+npm run test:e2e          # 76 end-to-end scenarios of the builder and machine page in Chromium (fake ThingsBoard, D-023, D-026)
 node widgets/e2e/bench.mjs 5 60   # worst-case load test: 5 tabs, 40 machines, every value every second (D-028)
 npm run typecheck
 ```

@@ -50,11 +50,17 @@ export const ICON_SVG: Record<string, string> = {
 /**
  * Icons for page buttons only (not selectable as widget title icons, so not in `ICON_SVG` / the schema's `ICONS`).
  * `ticket`: Create ticket (a document with a plus), the same glyph as the Create ticket button on the app's Active
- * alerts rows.
+ * alarms rows. `edit`, `chev`, `tick`: the bar's "Edit dashboard" button and its menu (D-058).
  */
 export const UI_ICON: Record<string, string> = {
   ticket: S('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 12v6M9 15h6"/>'),
+  edit: S('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
+  chev: S('<path d="M9 6l6 6-6 6"/>'),
+  tick: S('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
 };
+
+/** Tooltips of the title icons in the Style tab where the internal name is not the app's word (D-058: "alarm"). */
+export const ICON_TITLE: Record<string, string> = { alert: 'alarm' };
 
 /** Palette icon per widget type (keys are the widget type ids from core/schema.ts). */
 export const WIDGET_ICON: Record<string, string> = {

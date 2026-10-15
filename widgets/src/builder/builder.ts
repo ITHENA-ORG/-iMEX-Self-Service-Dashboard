@@ -2253,7 +2253,7 @@ class Builder {
               <span class="dbb-nd-dot"><span></span></span>
               <div class="dbb-nd-txt">
                 <div class="dbb-nd-t">Overview</div>
-                <div class="dbb-nd-d">Several machines or locations, not tied to one machine. Opens from the Dashboard list.</div>
+                <div class="dbb-nd-d">Several machines or locations, not tied to one machine. Opens from the Dashboards page.</div>
               </div>
             </div>
           </div>

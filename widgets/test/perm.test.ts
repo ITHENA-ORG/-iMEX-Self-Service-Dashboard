@@ -21,6 +21,14 @@ describe('perm vectors (every runtime)', () => {
     expect(plain(b[1])).toEqual(V.builtins.viewer);
     for (const r of P.CATALOGUE) expect(!!r.label && r.actions.every((a) => !!a.label), `${r.key} has labels`).toBe(true);
   });
+  it("the labels follow the app's page names (D-058: the App UI catalogue of 15 Oct 2026)", () => {
+    const row = (k: string) => P.CATALOGUE.find((r) => r.key === k)!;
+    expect([row('sites').label, row('users').label]).toEqual(['Overview', 'Users & roles']);
+    expect([row('alertrules.default').label, row('alertrules.default').parent, row('alertrules.custom').label, row('alertrules.custom').parent]).toEqual(['Default rules', 'Alarm rules', 'Custom rules', 'Alarm rules']);
+    expect(row('alertrules.default').actions.map((a) => a.label)).toEqual(['Export alarm rules']);
+    // no page or action label says "alert" or "Fleet overview" any more (the app says Alarms / Overview)
+    for (const r of P.CATALOGUE) for (const t of [r.label, r.parent ?? '', ...r.actions.map((a) => a.label)]) expect(t, r.key).not.toMatch(/alert|fleet overview/i);
+  });
   it('parseStore', () => {
     for (const c of V.parseStore) {
       const s = P.parseStore(c.raw);

@@ -25,7 +25,7 @@ import type { KeyMeta } from '../core/types';
 import { esc, SWATCHES, PRESETS, loadFont, STATUS, safeUrl, appDarkMode } from '../render/theme';
 import { sanitizeHtml } from '../render/rich';
 import { valueType, ValueType, matchRule, bandsToRules } from '../render/rules';
-import { ICON_SVG } from '../render/icons';
+import { ICON_SVG, ICON_TITLE } from '../render/icons';
 import { sectionize } from './controls';
 
 /** Wraps path data in a 24x24 stroke icon for the rich-text toolbar. */
@@ -512,7 +512,7 @@ export function styleEditor(host: HTMLElement, o: StyleEditorOptions) {
   host.innerHTML = `<div class="dbb-form">
     <div class="dbb-sec">Title</div>
     <label class="dbb-check"><input type="checkbox" data-st="hideTitle" ${st.hideTitle ? '' : 'checked'}/> Show title</label>
-    <div class="dbb-field"><span>Icon</span><div class="dbb-icons"><button data-icon="" class="${!st.icon ? 'on' : ''}" title="No icon">∅</button>${ICONS.map((n) => `<button data-icon="${n}" class="${st.icon === n ? 'on' : ''}" title="${n}">${ICON_SVG[n]}</button>`).join('')}</div></div>
+    <div class="dbb-field"><span>Icon</span><div class="dbb-icons"><button data-icon="" class="${!st.icon ? 'on' : ''}" title="No icon">∅</button>${ICONS.map((n) => `<button data-icon="${n}" class="${st.icon === n ? 'on' : ''}" title="${ICON_TITLE[n] ?? n}">${ICON_SVG[n]}</button>`).join('')}</div></div>
     <div class="dbb-row"><div class="dbb-field half"><span>Icon colour</span>${colorInput('iconColor', st.iconColor, '#2a78d6')}</div><div class="dbb-field half"><span>Title colour</span>${colorInput('titleColor', st.titleColor, '#52514e')}</div></div>
     <div class="dbb-row">
       <label class="dbb-field half"><span>Title size</span><select data-st="titleSize"><option value="">Default</option>${[11, 12, 13, 14, 16, 18, 20, 24].map((n) => `<option ${st.titleSize === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>

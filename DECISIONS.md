@@ -680,3 +680,55 @@ A full read-only security review of widgets/src and the chat relay, then fixes, 
   attribute; the Theme tab says when a light theme is shown dark. Light output is identical (`cardVars(st, false)`).
 - Tests: `widgets/test/darkmode.test.ts` (14); E2E light -> dark -> light switch and a dark preset kept. Deployed to
   LOCAL with `deploy-node.mjs --go` (`dbb_lib_version` 2026-10-12T20:17:03.745Z).
+
+### D-058 Builder entries on the pages: Dashboards page buttons, machine page "Edit dashboard"; app wording, 15 Oct 2026 (product review, Tushar via Akshay)
+(D-057 is the number of commit 4424679, analyzerState / phone Trend; it has no entry here.)
+- **Why:** the side menu's "Dashboards" loses its sub-items "My dashboards" and "Dashboard Builder" and becomes one
+  item that opens the Dashboards page (Tushar: "the dashboard builder would come from that list of dashboards and a
+  new button at the top or edit button"). The "Dashboard Builder" sub-item did two things that now live on the pages.
+- **Dashboards page** (`dashboardList` host mode, `IMEX_DBB.dashboardPage(host, opts)`): for editors
+  (`dashboards.build`, the list's existing check) "Open Dashboard Builder" (secondary, the Builder's start screen,
+  `open()`) and "New dashboard" (primary, the New dashboard dialog, `open({startNew:true})`) at the right of the search
+  row, 40 px like the search, busy while the Builder loads, errors in the app's toast; icon only (aria-label + title)
+  for Open Dashboard Builder under 900 px and for both under 560 px. Viewers get none. `opts.buttons`: true / false;
+  absent = **unless the page around the host already has its own** (`.imx-dl` with `.imx-dl-head [data-el="new"]`):
+  the App UI Dashboards page (imex_dashboards_page) already shows "Dashboard Builder" and "New dashboard" in its
+  banner, so on LOCAL today the banner's buttons stay and ours are not drawn (never twice). When the App UI drops its
+  banner buttons, ours appear without a Builder change. Empty state: "Choose New dashboard at the top of this page…"
+  (pop-up list: "…in the edit menu…").
+- **Machine page bar** (renderer `editButton` + `openBarMenu`): "Edit dashboard" (pencil `UI_ICON.edit`, `dbb-rbtn`
+  pill, always the last button: DOM order = visual order, Create ticket is inserted before it) for `dashboards.build`.
+  Its menu (appended to <body>, anchored right-aligned under the button, flips above / clamps to the window, max
+  height): header (machine, "From: …"), the page's edit actions (the same object `publishActions` gets), the 'switch'
+  group under an expandable "Show dashboard" row (the shown dashboard has a tick and aria-checked; no filled selection),
+  a divider, "New dashboard", "Open Dashboard Builder" (the Builder on this machine and its dashboard, as the side
+  menu's `api.open()` did). Both reload the user context (as `launcher.open`) and open the renderer's own Builder.
+  Keyboard: focus on the first item, Up / Down / Home / End, Right / Left open / close "Show dashboard", Escape or
+  Tab close and return the focus; outside click (mousedown / touchstart) closes; re-drawing the bar closes it.
+  The key handler sits on the menu element: in the app a passive document-level keydown listener is registered
+  first and ThingsBoard's zone.js then runs every document keydown listener as passive (preventDefault ignored,
+  "Unable to preventDefault inside passive event listener"; arrows would scroll the page).
+- **Dashboard Overview page** (`dashboard_overview`, `showStandalone`): it has a bar (title, time window); it now has
+  the same right-hand group and "Edit dashboard" (Edit this dashboard, New dashboard, Open Dashboard Builder on the
+  overview shown).
+- **Phone:** under `html.imx-mobile` (the phone app) no button, dashboards stay view-only (D-054). At phone width in
+  the desktop app the button is icon only (28 px, aria-label) like Analyzer / Create ticket, and the menu fits the
+  window (8 px margins).
+- **Role catalogue copy** (`core/perm.ts`, labels only, keys / sections / order unchanged, as the App UI's
+  `_shared/perm.js` of today): sites "Overview", users "Users & roles", alertrules.default "Default rules",
+  alertrules.custom "Custom rules", their parent "Alarm rules", action "Export alarm rules". The built-in Supervisor
+  description ("… reports and alert rules.") is kept byte-identical to the App UI copy (it still says that there).
+- **Wording:** the Style tab's icon tooltip "alert" -> "alarm" (`ICON_TITLE`; the stored icon name stays `alert`);
+  the chat's "how the app works" text names the bar button and the Dashboards page instead of the pencil menu and the
+  listing page; the renderer's empty placeholder points at the Dashboards page; the New dashboard dialog's Overview
+  option "Opens from the Dashboards page". No other user-visible "alert" / "Fleet overview" in this repo.
+- **Tests:** `widgets/test/perm.test.ts` (+1: the new labels, no "alert" / "Fleet overview" label). E2E (+3): the bar
+  button and menu (items, Show dashboard with two applying dashboards, keyboard, outside click, toggle, switch, dark,
+  New dashboard dialog, Open Dashboard Builder on the machine); phone width / imx-mobile / viewer / Dashboard Overview
+  page; the Dashboards page buttons (editor, banner present, `buttons` true / false, New dashboard dialog, Builder,
+  viewer). 260 unit, 76 E2E pass.
+- **LOCAL** (deploy-node --go, backup `backups/2026-10-15/` first; `dbb_lib_version` written by the deploy), checked in
+  Chromium as akshayr+imex, light and dark: Dashboards page (banner buttons, no duplicates; ours with the banner
+  buttons removed in the DOM only), New dashboard dialog opened and cancelled, Blower 3's "Edit dashboard" menu (Build a
+  dashboard for this machine, Alarm thresholds…, New dashboard, Open Dashboard Builder), arrows / Escape / outside
+  click, the Dashboard Overview page's menu, 390 px. Nothing saved. Not on the server.

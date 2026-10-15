@@ -57,7 +57,7 @@ Since we run **one ThingsBoard tenant per customer**, each tenant gets its own w
 ```bash
 git clone <repo> imex-dbb && cd imex-dbb
 npm install
-npm test               # 96 unit tests against a fake ThingsBoard / fake WebSocket
+npm test               # 260 unit tests against a fake ThingsBoard / fake WebSocket
 npm run typecheck
 npm run build:widgets  # -> widgets/dist/imex-dbb.js, glue.json, widget-types/*.json
 ```
@@ -223,7 +223,7 @@ node widgets/harness/shot.mjs '[{"wait":2000,"shot":"machine"}]' 'index.html'   
 
 **Security rules for contributors (D-028):** every stored string is untrusted (customer users can write the store attributes directly, D-012). Put values into HTML only through `esc()` or `sanitizeHtml()`; colours only through the `Color` schema or `cssColor()`; ids through the `Id` schema; font names through `fontStack()`. The E2E test "stored XSS" must keep passing.
 
-**End-to-end test (D-023):** `npm run test:e2e` builds the harness and runs `widgets/e2e/builder.e2e.mjs`: 67 scenarios in Chromium (Playwright) covering every builder function and the machine page, about 5 minutes. `node widgets/e2e/builder.e2e.mjs chat save` runs only tests whose name contains a word. A failed test saves a screenshot `e2e-fail-*.png` in the system temp folder. On a new machine run `npx playwright install chromium` once. The harness stubs the chat relay (`window.__chatQueue`) and can switch the machine through the state URL only (`window.__urlSwitch('rd')`), like an app navbar. Run it before every redeploy.
+**End-to-end test (D-023):** `npm run test:e2e` builds the harness and runs `widgets/e2e/builder.e2e.mjs`: 76 scenarios in Chromium (Playwright) covering every builder function and the machine page, about 5 minutes. `node widgets/e2e/builder.e2e.mjs chat save` runs only tests whose name contains a word. A failed test saves a screenshot `e2e-fail-*.png` in the system temp folder. On a new machine run `npx playwright install chromium` once. The harness stubs the chat relay (`window.__chatQueue`) and can switch the machine through the state URL only (`window.__urlSwitch('rd')`), like an app navbar. Run it before every redeploy.
 
 ---
 
