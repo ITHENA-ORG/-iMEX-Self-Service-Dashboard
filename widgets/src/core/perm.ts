@@ -183,7 +183,7 @@ export function TEMPLATES(): Role[] {
   sup.config = 'view';
   for (const k of ['sites', 'machines', 'alarms', 'andon', 'dashboards', 'analyzer']) op[k] = 'view';
   return [
-    role(null, 'Supervisor', 'Runs the floor: alarms, Andon, reports and alert rules.', sup, { 'dashboards.build': true, 'dashboards.applyMany': true }, false, []),
+    role(null, 'Supervisor', 'Runs the floor: alarms, Andon, reports and alarm rules.', sup, { 'dashboards.build': true, 'dashboards.applyMany': true }, false, []),
     role(null, 'Operator', 'Watches the machines and acknowledges alarms.', op, { 'alarms.acknowledge': true }, false, []),
   ].map((r) => {
     r.builtIn = false;
