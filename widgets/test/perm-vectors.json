@@ -60,6 +60,19 @@
    ]
   },
   {
+   "key": "spc",
+   "section": "MONITOR",
+   "states": [
+    "spc"
+   ],
+   "levels": [
+    "hidden",
+    "view",
+    "full"
+   ],
+   "actions": []
+  },
+  {
    "key": "dashboards",
    "section": "INSIGHTS",
    "states": [
@@ -162,6 +175,32 @@
    ]
   },
   {
+   "key": "energy",
+   "section": "INSIGHTS",
+   "states": [
+    "energy"
+   ],
+   "levels": [
+    "hidden",
+    "view",
+    "full"
+   ],
+   "actions": []
+  },
+  {
+   "key": "value",
+   "section": "INSIGHTS",
+   "states": [
+    "value"
+   ],
+   "levels": [
+    "hidden",
+    "view",
+    "full"
+   ],
+   "actions": []
+  },
+  {
    "key": "users",
    "section": "ADMIN",
    "states": [
@@ -229,6 +268,19 @@
     "full"
    ],
    "actions": []
+  },
+  {
+   "key": "licence",
+   "section": "ADMIN",
+   "states": [
+    "licence"
+   ],
+   "levels": [
+    "hidden",
+    "view",
+    "full"
+   ],
+   "actions": []
   }
  ],
  "actions": [
@@ -266,6 +318,7 @@
     "machines": "view",
     "alarms": "full",
     "andon": "full",
+    "spc": "full",
     "dashboards": "full",
     "analyzer": "full",
     "ai.forecast": "view",
@@ -273,11 +326,14 @@
     "ai.maintenance": "view",
     "ai.relations": "full",
     "reports": "full",
+    "energy": "full",
+    "value": "full",
     "users": "full",
     "alertrules.default": "full",
     "alertrules.custom": "full",
     "aisettings": "full",
-    "config": "full"
+    "config": "full",
+    "licence": "full"
    },
    "actions": {
     "alarms.acknowledge": true,
@@ -309,13 +365,16 @@
     "machines": "view",
     "alarms": "view",
     "andon": "view",
+    "spc": "view",
     "dashboards": "view",
     "analyzer": "view",
     "ai.forecast": "view",
     "ai.anomalies": "view",
     "ai.maintenance": "view",
     "ai.relations": "view",
-    "reports": "view"
+    "reports": "view",
+    "energy": "view",
+    "value": "view"
    },
    "actions": {
     "reports.run": true
@@ -341,6 +400,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -348,11 +408,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -390,13 +453,16 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
      "ai.anomalies": "view",
      "ai.maintenance": "view",
      "ai.relations": "view",
-     "reports": "view"
+     "reports": "view",
+     "energy": "view",
+     "value": "view"
     },
     "actions": {
      "reports.run": true
@@ -415,6 +481,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
@@ -422,6 +489,8 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "view",
+     "value": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -499,6 +568,7 @@
     "machines": "view",
     "alarms": "full",
     "andon": "full",
+    "spc": "full",
     "dashboards": "full",
     "analyzer": "full",
     "ai.forecast": "view",
@@ -506,11 +576,14 @@
     "ai.maintenance": "view",
     "ai.relations": "full",
     "reports": "full",
+    "energy": "full",
+    "value": "full",
     "users": "full",
     "alertrules.default": "full",
     "alertrules.custom": "full",
     "aisettings": "full",
-    "config": "full"
+    "config": "full",
+    "licence": "full"
    },
    "actions": {
     "alarms.acknowledge": true,
@@ -542,13 +615,16 @@
     "machines": "view",
     "alarms": "view",
     "andon": "view",
+    "spc": "view",
     "dashboards": "view",
     "analyzer": "view",
     "ai.forecast": "view",
     "ai.anomalies": "view",
     "ai.maintenance": "view",
     "ai.relations": "view",
-    "reports": "view"
+    "reports": "view",
+    "energy": "view",
+    "value": "view"
    },
    "actions": {
     "reports.run": true
@@ -663,6 +739,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -670,11 +747,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -706,13 +786,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -807,6 +890,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -814,11 +898,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -856,13 +943,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -881,6 +971,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -888,6 +979,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -976,6 +1069,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -983,11 +1077,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -1069,7 +1166,7 @@
   },
   {
    "name": "the same as a JSON string",
-   "raw": "{\"v\":1,\"rev\":7,\"at\":1791205976606,\"by\":\"migration\",\"roles\":[{\"id\":\"admin\",\"name\":\"Admin\",\"builtIn\":true,\"locked\":true,\"desc\":\"Everything, including users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"dashboards\":\"full\",\"analyzer\":\"full\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"users\":\"full\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"full\",\"config\":\"full\"},\"actions\":{\"alarms.acknowledge\":true,\"andon.layout\":true,\"andon.boards\":true,\"dashboards.build\":true,\"dashboards.applyMany\":true,\"dashboards.deleteAny\":true,\"analyzer.export\":true,\"ai.relations.edit\":true,\"reports.run\":true,\"reports.edit\":true,\"reports.schedule\":true,\"reports.settings\":true,\"alertrules.export\":true,\"ai.jobs\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10c85640-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"viewer\",\"name\":\"Viewer\",\"builtIn\":true,\"locked\":false,\"desc\":\"Read only.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"view\",\"reports\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_sup001\",\"name\":\"Supervisor\",\"builtIn\":false,\"locked\":false,\"desc\":\"Runs the floor.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"users\":\"view\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"view\",\"config\":\"view\"},\"actions\":{\"dashboards.build\":true,\"dashboards.applyMany\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_op0001\",\"name\":\"Operator\",\"builtIn\":false,\"locked\":false,\"desc\":\"\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\"},\"actions\":{\"alarms.acknowledge\":true},\"manageRoles\":false,\"defaultScope\":[{\"id\":\"10aba680-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"r_lead01\",\"name\":\"Lead\",\"builtIn\":false,\"locked\":false,\"desc\":\"Manages users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"users\":\"full\",\"reports\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10cfa940-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]}]}",
+   "raw": "{\"v\":1,\"rev\":7,\"at\":1791205976606,\"by\":\"migration\",\"roles\":[{\"id\":\"admin\",\"name\":\"Admin\",\"builtIn\":true,\"locked\":true,\"desc\":\"Everything, including users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"full\",\"dashboards\":\"full\",\"analyzer\":\"full\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"full\",\"value\":\"full\",\"users\":\"full\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"full\",\"config\":\"full\",\"licence\":\"full\"},\"actions\":{\"alarms.acknowledge\":true,\"andon.layout\":true,\"andon.boards\":true,\"dashboards.build\":true,\"dashboards.applyMany\":true,\"dashboards.deleteAny\":true,\"analyzer.export\":true,\"ai.relations.edit\":true,\"reports.run\":true,\"reports.edit\":true,\"reports.schedule\":true,\"reports.settings\":true,\"alertrules.export\":true,\"ai.jobs\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10c85640-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"viewer\",\"name\":\"Viewer\",\"builtIn\":true,\"locked\":false,\"desc\":\"Read only.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"view\",\"reports\":\"view\",\"energy\":\"view\",\"value\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_sup001\",\"name\":\"Supervisor\",\"builtIn\":false,\"locked\":false,\"desc\":\"Runs the floor.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"view\",\"value\":\"view\",\"users\":\"view\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"view\",\"config\":\"view\"},\"actions\":{\"dashboards.build\":true,\"dashboards.applyMany\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_op0001\",\"name\":\"Operator\",\"builtIn\":false,\"locked\":false,\"desc\":\"\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\"},\"actions\":{\"alarms.acknowledge\":true},\"manageRoles\":false,\"defaultScope\":[{\"id\":\"10aba680-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"r_lead01\",\"name\":\"Lead\",\"builtIn\":false,\"locked\":false,\"desc\":\"Manages users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"users\":\"full\",\"reports\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10cfa940-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]}]}",
    "expect": {
     "source": "imexRoles",
     "rev": 7,
@@ -1117,13 +1214,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -1153,6 +1253,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -1160,11 +1261,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -1251,13 +1355,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -1285,6 +1392,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -1292,11 +1400,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -1374,6 +1485,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -1381,11 +1493,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -1417,13 +1532,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -1557,6 +1675,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -1564,11 +1683,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -1600,13 +1722,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -1713,6 +1838,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -1720,11 +1846,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -1756,13 +1885,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -1799,6 +1931,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -1806,11 +1939,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -1842,13 +1978,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -1889,6 +2028,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -1896,11 +2036,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -1938,13 +2081,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -1963,6 +2109,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -1970,6 +2117,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -2064,6 +2213,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -2071,11 +2221,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -2113,13 +2266,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -2138,6 +2294,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -2145,6 +2302,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -2240,6 +2399,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -2247,11 +2407,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -2289,13 +2452,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -2314,6 +2480,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -2321,6 +2488,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -2415,6 +2584,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -2422,11 +2592,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -2464,13 +2637,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -2489,6 +2665,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -2496,6 +2673,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -2606,6 +2785,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -2613,11 +2793,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -2655,13 +2838,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -2680,6 +2866,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -2687,6 +2874,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -2780,6 +2969,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -2787,11 +2977,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -2829,13 +3022,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -2854,6 +3050,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -2861,6 +3058,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -2954,6 +3153,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -2961,11 +3161,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -3003,13 +3206,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -3028,6 +3234,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -3035,6 +3242,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -3128,6 +3337,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -3135,11 +3345,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -3177,13 +3390,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -3202,6 +3418,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -3209,6 +3426,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -3328,6 +3547,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -3335,11 +3555,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -3377,13 +3600,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -3402,6 +3628,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -3409,6 +3636,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -3502,6 +3731,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -3509,11 +3739,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -3551,13 +3784,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -3576,6 +3812,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -3583,6 +3820,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -3676,6 +3915,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -3683,11 +3923,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -3725,13 +3968,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -3750,6 +3996,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -3757,6 +4004,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -3848,6 +4097,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -3855,11 +4105,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -3897,13 +4150,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -3922,6 +4178,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -3929,6 +4186,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -4023,6 +4282,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "full",
        "dashboards": "full",
        "analyzer": "full",
        "ai.forecast": "view",
@@ -4030,11 +4290,14 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "full",
+       "value": "full",
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "aisettings": "full",
-       "config": "full"
+       "config": "full",
+       "licence": "full"
       },
       "actions": {
        "alarms.acknowledge": true,
@@ -4072,13 +4335,16 @@
        "machines": "view",
        "alarms": "view",
        "andon": "view",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
        "ai.anomalies": "view",
        "ai.maintenance": "view",
        "ai.relations": "view",
-       "reports": "view"
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {
        "reports.run": true
@@ -4097,6 +4363,7 @@
        "machines": "view",
        "alarms": "full",
        "andon": "full",
+       "spc": "view",
        "dashboards": "view",
        "analyzer": "view",
        "ai.forecast": "view",
@@ -4104,6 +4371,8 @@
        "ai.maintenance": "view",
        "ai.relations": "full",
        "reports": "full",
+       "energy": "view",
+       "value": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -4193,6 +4462,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -4200,11 +4470,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -4232,6 +4505,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -4239,11 +4513,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -4277,13 +4554,16 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
      "ai.anomalies": "view",
      "ai.maintenance": "view",
      "ai.relations": "view",
-     "reports": "view"
+     "reports": "view",
+     "energy": "view",
+     "value": "view"
     },
     "actions": {
      "reports.run": true
@@ -4298,6 +4578,7 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
@@ -4305,11 +4586,14 @@
      "ai.maintenance": "view",
      "ai.relations": "view",
      "reports": "view",
+     "energy": "view",
+     "value": "view",
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "aisettings": "hidden",
-     "config": "hidden"
+     "config": "hidden",
+     "licence": "hidden"
     },
     "actions": {
      "reports.run": true
@@ -4327,6 +4611,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -4334,11 +4619,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -4369,6 +4657,7 @@
      "machines": "hidden",
      "alarms": "hidden",
      "andon": "hidden",
+     "spc": "hidden",
      "dashboards": "hidden",
      "analyzer": "hidden",
      "ai.forecast": "hidden",
@@ -4376,11 +4665,14 @@
      "ai.maintenance": "hidden",
      "ai.relations": "hidden",
      "reports": "hidden",
+     "energy": "hidden",
+     "value": "hidden",
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "aisettings": "hidden",
-     "config": "hidden"
+     "config": "hidden",
+     "licence": "hidden"
     },
     "actions": {},
     "manageRoles": false
@@ -4408,6 +4700,7 @@
      "machines": "hidden",
      "alarms": "full",
      "andon": "hidden",
+     "spc": "hidden",
      "dashboards": "hidden",
      "analyzer": "hidden",
      "ai.forecast": "hidden",
@@ -4415,11 +4708,14 @@
      "ai.maintenance": "hidden",
      "ai.relations": "hidden",
      "reports": "view",
+     "energy": "hidden",
+     "value": "hidden",
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "aisettings": "hidden",
-     "config": "hidden"
+     "config": "hidden",
+     "licence": "hidden"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -4444,6 +4740,7 @@
      "machines": "view",
      "alarms": "hidden",
      "andon": "hidden",
+     "spc": "hidden",
      "dashboards": "hidden",
      "analyzer": "hidden",
      "ai.forecast": "hidden",
@@ -4451,11 +4748,14 @@
      "ai.maintenance": "hidden",
      "ai.relations": "hidden",
      "reports": "hidden",
+     "energy": "hidden",
+     "value": "hidden",
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "aisettings": "hidden",
-     "config": "hidden"
+     "config": "hidden",
+     "licence": "hidden"
     },
     "actions": {},
     "manageRoles": false
@@ -4477,6 +4777,7 @@
      "machines": "hidden",
      "alarms": "hidden",
      "andon": "hidden",
+     "spc": "hidden",
      "dashboards": "hidden",
      "analyzer": "hidden",
      "ai.forecast": "hidden",
@@ -4484,11 +4785,14 @@
      "ai.maintenance": "hidden",
      "ai.relations": "hidden",
      "reports": "hidden",
+     "energy": "hidden",
+     "value": "hidden",
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "aisettings": "hidden",
-     "config": "hidden"
+     "config": "hidden",
+     "licence": "hidden"
     },
     "actions": {},
     "manageRoles": false
@@ -4510,6 +4814,7 @@
      "machines": "hidden",
      "alarms": "hidden",
      "andon": "hidden",
+     "spc": "hidden",
      "dashboards": "hidden",
      "analyzer": "hidden",
      "ai.forecast": "hidden",
@@ -4517,11 +4822,14 @@
      "ai.maintenance": "hidden",
      "ai.relations": "hidden",
      "reports": "hidden",
+     "energy": "hidden",
+     "value": "hidden",
      "users": "view",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "aisettings": "hidden",
-     "config": "hidden"
+     "config": "hidden",
+     "licence": "hidden"
     },
     "actions": {},
     "manageRoles": false
@@ -4560,6 +4868,7 @@
      "machines": "view",
      "alarms": "hidden",
      "andon": "hidden",
+     "spc": "hidden",
      "dashboards": "hidden",
      "analyzer": "hidden",
      "ai.forecast": "hidden",
@@ -4567,11 +4876,14 @@
      "ai.maintenance": "hidden",
      "ai.relations": "hidden",
      "reports": "view",
+     "energy": "hidden",
+     "value": "hidden",
      "users": "full",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "aisettings": "hidden",
-     "config": "hidden"
+     "config": "hidden",
+     "licence": "hidden"
     },
     "actions": {
      "reports.run": true
@@ -4592,6 +4904,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
@@ -4599,6 +4912,8 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "view",
+     "value": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -4619,6 +4934,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
@@ -4626,11 +4942,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "view",
+     "value": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "view",
-     "config": "view"
+     "config": "view",
+     "licence": "hidden"
     },
     "manageRoles": false,
     "actions": {
@@ -4663,13 +4982,16 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
      "ai.anomalies": "view",
      "ai.maintenance": "view",
      "ai.relations": "view",
-     "reports": "view"
+     "reports": "view",
+     "energy": "view",
+     "value": "view"
     },
     "actions": {
      "reports.run": true
@@ -4732,7 +5054,11 @@
     "in_app_alert": "view",
     "some_new_state": "view",
     "machine": "view",
-    "dashboard_overview": "view"
+    "dashboard_overview": "view",
+    "spc": "view",
+    "energy": "view",
+    "value": "view",
+    "licence": "hidden"
    }
   },
   {
@@ -4748,6 +5074,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -4755,11 +5082,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -4807,7 +5137,11 @@
    "canState": {
     "default": "view",
     "configuration": "full",
-    "aiml_settings": "full"
+    "aiml_settings": "full",
+    "spc": "full",
+    "energy": "full",
+    "value": "full",
+    "licence": "full"
    }
   },
   {
@@ -4846,6 +5180,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -4853,11 +5188,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -4889,6 +5227,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
@@ -4896,6 +5235,8 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "view",
+     "value": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -4927,13 +5268,16 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
      "ai.anomalies": "view",
      "ai.maintenance": "view",
      "ai.relations": "view",
-     "reports": "view"
+     "reports": "view",
+     "energy": "view",
+     "value": "view"
     },
     "actions": {
      "reports.run": true
@@ -4952,13 +5296,16 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
      "ai.anomalies": "view",
      "ai.maintenance": "view",
      "ai.relations": "view",
-     "reports": "view"
+     "reports": "view",
+     "energy": "view",
+     "value": "view"
     },
     "actions": {
      "reports.run": true
@@ -4984,6 +5331,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
@@ -4991,6 +5339,8 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "view",
+     "value": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -5015,13 +5365,16 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
      "ai.anomalies": "view",
      "ai.maintenance": "view",
      "ai.relations": "view",
-     "reports": "view"
+     "reports": "view",
+     "energy": "view",
+     "value": "view"
     },
     "actions": {
      "reports.run": true
@@ -5047,13 +5400,16 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
      "ai.anomalies": "view",
      "ai.maintenance": "view",
      "ai.relations": "view",
-     "reports": "view"
+     "reports": "view",
+     "energy": "view",
+     "value": "view"
     },
     "actions": {
      "reports.run": true
@@ -5216,6 +5572,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -5223,11 +5580,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -5853,6 +6213,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
@@ -5860,6 +6221,8 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "view",
+     "value": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -5950,6 +6313,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -5957,11 +6321,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "view",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -6001,6 +6368,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -6008,11 +6376,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -6052,6 +6423,7 @@
       "machines": "view",
       "alarms": "full",
       "andon": "full",
+      "spc": "full",
       "dashboards": "full",
       "analyzer": "full",
       "ai.forecast": "view",
@@ -6059,11 +6431,14 @@
       "ai.maintenance": "view",
       "ai.relations": "full",
       "reports": "full",
+      "energy": "full",
+      "value": "full",
       "users": "full",
       "alertrules.default": "full",
       "alertrules.custom": "full",
       "aisettings": "full",
-      "config": "full"
+      "config": "full",
+      "licence": "full"
      },
      "actions": {
       "alarms.acknowledge": true,
@@ -6105,13 +6480,16 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
      "ai.anomalies": "view",
      "ai.maintenance": "view",
      "ai.relations": "view",
-     "reports": "view"
+     "reports": "view",
+     "energy": "view",
+     "value": "view"
     },
     "actions": {
      "reports.run": true
@@ -6273,13 +6651,16 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
      "ai.anomalies": "view",
      "ai.maintenance": "view",
      "ai.relations": "view",
-     "reports": "view"
+     "reports": "view",
+     "energy": "view",
+     "value": "view"
     },
     "actions": {
      "reports.run": true
@@ -6504,6 +6885,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "full",
      "dashboards": "full",
      "analyzer": "full",
      "ai.forecast": "view",
@@ -6511,11 +6893,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "full",
+     "value": "full",
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "full",
-     "config": "full"
+     "config": "full",
+     "licence": "full"
     },
     "actions": {
      "alarms.acknowledge": true,
@@ -6551,6 +6936,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
@@ -6558,6 +6944,8 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "view",
+     "value": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -6590,6 +6978,7 @@
      "machines": "view",
      "alarms": "full",
      "andon": "full",
+     "spc": "view",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "view",
@@ -6597,11 +6986,14 @@
      "ai.maintenance": "view",
      "ai.relations": "full",
      "reports": "full",
+     "energy": "view",
+     "value": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "aisettings": "view",
-     "config": "view"
+     "config": "view",
+     "licence": "hidden"
     },
     "manageRoles": false,
     "actions": {
@@ -6629,6 +7021,7 @@
      "machines": "view",
      "alarms": "view",
      "andon": "view",
+     "spc": "hidden",
      "dashboards": "view",
      "analyzer": "view",
      "ai.forecast": "hidden",
@@ -6636,11 +7029,14 @@
      "ai.maintenance": "hidden",
      "ai.relations": "hidden",
      "reports": "hidden",
+     "energy": "hidden",
+     "value": "hidden",
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "aisettings": "hidden",
-     "config": "hidden"
+     "config": "hidden",
+     "licence": "hidden"
     },
     "actions": {
      "alarms.acknowledge": true
