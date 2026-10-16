@@ -55,7 +55,23 @@ const toServerIds = (s) => s.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 const T = await newTenantClient();
-const L = await targetClient(); // LOCAL: read only here
+// --snapshot=<file>: save LOCAL's widget types to a file and stop (nothing else is read or written);
+// --from=<file>: take the widget types from such a snapshot instead of LOCAL, so LOCAL may move on meanwhile
+const SNAP = (process.argv.find((a) => a.startsWith('--snapshot=')) || '').slice(11);
+const FROM = (process.argv.find((a) => a.startsWith('--from=')) || '').slice(7);
+let L;
+if (FROM) {
+  const snap = JSON.parse(readFileSync(FROM, 'utf8'));
+  L = { base: `snapshot ${FROM} (${snap.takenAt} of ${snap.base})`, all: async () => snap.list, api: async (_m, p) => snap.types[p.split('/').pop()] };
+} else L = await targetClient(); // LOCAL: read only here
+if (SNAP) {
+  const list = await L.all('/api/widgetTypes?tenantOnly=true');
+  const types = {};
+  for (const t of list) types[t.id.id] = await L.api('GET', `/api/widgetType/${t.id.id}`);
+  writeFileSync(SNAP, JSON.stringify({ base: L.base, takenAt: new Date().toISOString(), list, types }));
+  console.log(`snapshot of ${list.length} widget types from ${L.base} -> ${SNAP}`);
+  process.exit(0);
+}
 const last = JSON.parse(readFileSync(LAST_RUN, 'utf8'));
 say(`local ${L.base} -> new tenant ${T.base}   ${GO ? 'WRITING' : 'DRY RUN: nothing is written'}`);
 
