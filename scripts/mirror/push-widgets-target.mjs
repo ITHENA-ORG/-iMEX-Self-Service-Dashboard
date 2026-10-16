@@ -41,6 +41,8 @@ const BASES = {
   // on 10 Oct, so those saves are the base; any later server edit is still detected and merged
   // side menu: 13 Oct the developers edited AETHER (07:31, 07:39) on top of the 12 Oct 21:18 run; their edits were taken
   // into the UI repo by hand, so that run is the base
+  // sites page: 16 Oct 08:00 ai@imex.com added the ticket-cell width CSS; folded into the UI repo (U-066), so that save is the base
+  imex_sites_page: '2026-10-16T08:00:15',
   imex_side_menu: '2026-10-12T21:18:11', imex_page_header: '2026-10-09T13:10:59', imex_v5_alert_history_page: '2026-10-09T10:38:55',
 };
 const TEXT = ['controllerScript', 'templateHtml', 'templateCss'];
