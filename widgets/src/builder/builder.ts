@@ -52,7 +52,7 @@ import { RELATIVE_MODES, Dashboard, Widget, WidgetType, WIDGET_TYPES, WIDGET_LAB
 import { calendarFor, shiftWindowText } from '../core/shifts';
 import { ensureKitCss, topProgress, progressBar } from '../render/kit';
 import type { TopProgress } from '../render/kit';
-import { Grid, GRID_CSS, firstFit, resolveCollisions } from '../render/grid';
+import { Grid, GRID_CSS, firstFit, resolveCollisions, fitWarning } from '../render/grid';
 import { CSS, ensureCss, esc, el, applyTheme, PRESETS, loadFont, miniMarkdown as miniToHtml } from '../render/theme';
 import { bindingLabel, defaultWidgets, keyMeta } from '../render/widgets';
 import { WIDGET_ICON } from '../render/icons';
@@ -65,6 +65,7 @@ import { audit } from '../core/audit';
 import * as lic from '../core/licence';
 import { compatible, metaLookup, propKind } from '../core/compat';
 import type { KeyMeta } from '../core/types';
+import * as dfmt from '../core/datefmt';
 
 /** Options for {@link openBuilder}. */
 export interface BuilderOptions {
@@ -1107,6 +1108,8 @@ class Builder {
         onChange: (ws) => this.mutate((d) => (d.widgets = ws as Widget[])),
         onDrop: (t, x, y) => this.addWidget(t as WidgetType, { x, y }),
         onAction: (id, a) => (a === 'del' ? this.removeWidget(id) : this.duplicate(id)),
+        // D-061 (M10): the selected tile's value stopped (or started) fitting: the settings panel's note follows
+        onFit: (id) => id === this.selected && this.paintFitWarn(),
       });
       // Remember the theme the grid was built with (ad-hoc field) to detect theme changes below.
       (this.grid as any).__theme = themeSig;
@@ -1406,6 +1409,19 @@ class Builder {
    * widget types that don't fit (reason in the tooltip). Every change is a normal undo step
    * via `updateWidget`.
    */
+  /**
+   * D-061 (audit M10): the note at the top of the Widget tab when the selected tile is too narrow for its value (the
+   * canvas box's fit state, set by the Grid from renderWidget's fit check; the badge on the box says the same).
+   */
+  paintFitWarn() {
+    const el = this.root.querySelector('[data-fitwarn]') as HTMLElement | null;
+    if (!el) return;
+    const box = this.selected ? (this.root.querySelector(`.dbb-canvas .dbb-gbox[data-id="${window.CSS.escape(this.selected)}"]`) as HTMLElement | null) : null;
+    const state = box?.dataset.fit ?? '';
+    el.textContent = state ? fitWarning(state) : '';
+    el.style.display = state ? '' : 'none';
+  }
+
   renderSettings(panel: HTMLElement) {
     const w = this.draft.widgets.find((x) => x.id === this.selected);
     if (!w) return this.renderTheme(panel);
@@ -1457,6 +1473,7 @@ class Builder {
 
     panel.innerHTML = `
       <div class="dbb-form">
+        <div class="dbb-banner warn" data-fitwarn style="display:none"></div>
         <div class="dbb-sec">Widget</div>
         <label class="dbb-field"><span>${w.type === 'link' ? 'Button label' : 'Title'}</span><input data-s="title" value="${esc(w.title)}" maxlength="120" placeholder="${w.type === 'text' || w.type === 'image' || w.type === 'embed' ? 'Optional' : ''}"/></label>
         <label class="dbb-field"><span>Widget type</span><select data-s="type">${typeOpts}</select></label>
@@ -1600,6 +1617,7 @@ class Builder {
     on('[data-s="del"]', 'click', () => this.removeWidget(w.id));
     on('[data-s="dup"]', 'click', () => this.duplicate(w.id));
     sectionize(panel.querySelector('.dbb-form') as HTMLElement, 'widget');
+    this.paintFitWarn();
   }
 
   /**
@@ -2422,7 +2440,7 @@ class Builder {
     }
     this.setBusy(false);
     // D-027: wider dialog, Inter throughout, "New blank dashboard" on the right, roomier columns.
-    const fmt = (t: number) => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const fmt = (t: number) => dfmt.dateTime(t); // D-061 (M2): the app's format
     const rows = list
       .map(
         (d) => `<div class="dbb-od-row" role="button" tabindex="0" data-id="${esc(d.id)}">
@@ -2476,7 +2494,7 @@ class Builder {
         ? `<table class="dbb-table"><thead><tr><th>Version</th><th>Saved</th><th>By</th><th></th></tr></thead><tbody>${vs
             .map(
               (v) =>
-                `<tr><td>${Number(v.version)}</td><td>${esc(new Date(v.savedAt).toLocaleString())}</td><td>${esc(v.savedBy)}</td><td><button class="dbb-btn sm" data-v="${Number(v.version)}">Restore</button></td></tr>`,
+                `<tr><td>${Number(v.version)}</td><td>${esc(dfmt.dateTime(v.savedAt))}</td><td>${esc(v.savedBy)}</td><td><button class="dbb-btn sm" data-v="${Number(v.version)}">Restore</button></td></tr>`,
             )
             .join('')}</tbody></table><div class="dbb-hint">The last 10 versions are kept. Restoring saves a new version.</div>`
         : '<div class="dbb-hint">No earlier versions.</div>',

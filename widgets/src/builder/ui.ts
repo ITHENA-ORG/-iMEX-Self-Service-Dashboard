@@ -15,6 +15,7 @@
  */
 import { esc } from '../render/theme';
 import { kitToast } from '../render/kit';
+import * as dfmt from '../core/datefmt';
 
 /** Handle returned by `modal()`. */
 export interface ModalHandle {
@@ -117,7 +118,7 @@ export function relTime(ts: number): string {
   if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
   if (s < 172800) return 'yesterday';
   if (s < 30 * 86400) return `${Math.floor(s / 86400)} days ago`;
-  return new Date(ts).toLocaleDateString();
+  return dfmt.date(ts); // D-061 (M2): "16 Oct 2026", never a numeric date
 }
 
 /** Up to two initials of a name ("Blower Overview" -> "BO"). */

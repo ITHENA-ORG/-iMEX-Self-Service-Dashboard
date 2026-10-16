@@ -91,6 +91,9 @@ import type { UserContext, Node } from '../core/scope';
 import type { KeyMeta } from '../core/types';
 import { Widget, Binding, WIDGET_CAPS, WIDGET_LABELS, CONTENT_TYPES, MAX_SERIES, MAX_WIDGETS, rangeWindow, isShiftRange, normalizeRange, CardStyle, DashboardTheme, ColorRule } from '../core/schema';
 import { calendarFor } from '../core/shifts';
+import { viewWindow, hasEnded, presetLabel, chipLabel } from '../core/viewwindow';
+import type { ViewWindow } from '../core/viewwindow';
+import * as fmt from '../core/datefmt';
 import { cardSkeleton, topProgress, pageBusy } from './kit';
 import { compatible } from '../core/compat';
 import { SERIES, SERIES_DARK, STATUS, SEVERITY_COLOR, RAMP_BLUE, RAMP_ORANGE, esc, fmtNum, ago, miniMarkdown, fontStack, loadFont, safeUrl, darkColor } from './theme';
@@ -107,6 +110,11 @@ export interface RenderEnv {
   deviceId: string | null;
   /** Dashboard time range ('realtime' | '1h' | '2h' | '4h' | '8h'; older values are normalised). */
   timeRange: string;
+  /**
+   * D-061: the viewer's time window from the page's picker (core/viewwindow.ts). Set: every card shows this window, also
+   * one with its own range; null / missing: the dashboard's range (or the card's own).
+   */
+  view?: ViewWindow | null;
   theme?: DashboardTheme | null;
   /** Dark theme: charts use SERIES_DARK instead of SERIES. */
   dark?: boolean;
@@ -353,7 +361,7 @@ export function renderWidget(container: HTMLElement, w: Widget, env: RenderEnv, 
   const ic = icon(st?.icon);
   card.innerHTML = `${
     showTitle || desc
-      ? `<div class="dbb-card-h">${ic && showTitle ? `<span class="dbb-card-i">${ic}</span>` : ''}${showTitle ? `<div class="dbb-card-t" title="${esc(w.title)}">${esc(w.title || WIDGET_LABELS[w.type])}</div>` : ''}<span class="grow"></span>${
+      ? `<div class="dbb-card-h">${ic && showTitle ? `<span class="dbb-card-i">${ic}</span>` : ''}${showTitle ? `<div class="dbb-card-t" title="${esc(w.title || WIDGET_LABELS[w.type])}">${esc(w.title || WIDGET_LABELS[w.type])}</div>` : ''}<span class="grow"></span>${
           desc ? `<span class="dbb-info" tabindex="0" aria-label="About this widget">${INFO}<span class="dbb-info-pop">${desc}</span></span>` : ''
         }</div>`
       : ''
@@ -410,6 +418,14 @@ export function renderWidget(container: HTMLElement, w: Widget, env: RenderEnv, 
     try {
       const rule = await draw(body, w, env);
       if (!alive) return;
+      // D-061 (M10): a value too wide for its tile is drawn smaller (or cut, with the full value on hover); the
+      // Builder hears about tiles where that went far (event dbb-fit, Grid shows a warning on the box)
+      const fit = fitValue(body);
+      const fitState = fit === 'tight' || fit === 'cut' ? fit : '';
+      if ((card.dataset.fit ?? '') !== fitState) {
+        card.dataset.fit = fitState;
+        card.dispatchEvent(new CustomEvent('dbb-fit', { bubbles: true, detail: { id: w.id, state: fitState } }));
+      }
       // a type that drew nothing must not keep its placeholder
       if (body.firstElementChild?.classList.contains('dbb-skel')) body.innerHTML = '';
       firstDone();
@@ -458,7 +474,7 @@ async function rawSeries(deviceId: string, key: string, startTs: number, endTs: 
   // 60 s cache while the WebSocket is live (D-021); plain REST otherwise.
   const r = await api.getCached<Record<string, { ts: number; value: string }[]>>(
     `raw|${deviceId}|${key}|${winKey(startTs, endTs)}`,
-    `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${encodeURIComponent(key)}&startTs=${startTs}&endTs=${endTs}&agg=NONE&orderBy=ASC&limit=5000`,
+    `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${encodeURIComponent(key)}&startTs=${startTs}&endTs=${endTs}&agg=NONE&orderBy=ASC&limit=${rawLimit(startTs, endTs)}`,
     60e3,
   );
   return (r?.[key] ?? []).slice().sort((a, b) => a.ts - b.ts);
@@ -513,7 +529,95 @@ function ruleLabelPill(rule: ColorRule | null): string {
 
 /** Formats numeric values with `dec` decimals; anything else (text, booleans, empty) is escaped as is ('—' for null). Returns HTML. */
 /** Widget types that show latest values only: they need no time window (D-047). */
-const LATEST_ONLY = new Set(['value', 'gauge', 'status', 'progress', 'multivalue', 'table']);
+export const LATEST_ONLY = new Set(['value', 'gauge', 'status', 'progress', 'multivalue', 'table']);
+
+/**
+ * D-061: page size of a raw (agg NONE) read: 5000 points for windows up to about 11 h, more for the viewer's longer
+ * windows (one point per 8 s, the simulator sends one per 10 s), at most 100 000. A smaller limit would cut the window's
+ * end off (oldest first).
+ */
+export const rawLimit = (startTs: number, endTs: number) => Math.min(100000, Math.max(5000, Math.ceil((endTs - startTs) / 8000)));
+
+/**
+ * D-061: the chip in a card's title row naming the card's own time window ("4 h", "Shift") while the page shows the
+ * dashboard's window; `range` null removes it. A card without a title row gets the note as its tooltip instead.
+ */
+function windowChip(body: HTMLElement, range: string | null) {
+  const card = body.closest('.dbb-card') as HTMLElement | null;
+  if (!card) return;
+  const head = card.querySelector(':scope > .dbb-card-h') as HTMLElement | null;
+  let chip = card.querySelector(':scope > .dbb-card-h > .dbb-card-win') as HTMLElement | null;
+  const tip = range ? `This card has its own time window: ${presetLabel(range)}. Pick a time window at the top of the page to show every card for the same period.` : '';
+  if (!range) {
+    chip?.remove();
+    if (card.dataset.wintip) {
+      card.removeAttribute('title');
+      delete card.dataset.wintip;
+    }
+    return;
+  }
+  if (!head) {
+    card.title = tip;
+    card.dataset.wintip = '1';
+    return;
+  }
+  if (!chip) {
+    chip = document.createElement('span');
+    chip.className = 'dbb-card-win';
+    head.insertBefore(chip, head.querySelector(':scope > .dbb-info'));
+  }
+  chip.textContent = chipLabel(range);
+  chip.title = tip;
+  chip.setAttribute('aria-label', tip);
+}
+
+/** Smallest font size a tile's value is drawn at (px); the status pill's text stops at 10 px. */
+export const MIN_VALUE_PX = 12;
+/**
+ * D-061 (audit M10): fits the big value of a value / KPI / progress / status tile into its width. Too wide: the value's
+ * font is made smaller (not below MIN_VALUE_PX), and if it still does not fit the value is cut with an ellipsis; either
+ * way the full value is its tooltip. The unit and the change pill keep their size.
+ * @returns 'ok' (fits as drawn), 'shrunk' (fits at ≥ 60 % of its size), 'tight' (fits only below 60 %), 'cut', or null
+ *          when the card has no such value or is not laid out (hidden).
+ */
+export function fitValue(body: HTMLElement): 'ok' | 'shrunk' | 'tight' | 'cut' | null {
+  const pill = body.querySelector(':scope > .dbb-value > .dbb-pill') as HTMLElement | null;
+  const v = pill ? (pill.querySelector('.pt') as HTMLElement | null) : (body.querySelector('.dbb-value .vl > .v') as HTMLElement | null);
+  if (!v) return null;
+  const line = pill ?? (v.parentElement as HTMLElement);
+  const host = line.parentElement as HTMLElement;
+  const sizeOf = pill ?? v;
+  sizeOf.style.fontSize = '';
+  v.classList.remove('cut');
+  v.style.maxWidth = '';
+  const avail = host.getBoundingClientRect().width;
+  if (!avail) return null;
+  const need = line.getBoundingClientRect().width;
+  if (need <= avail + 0.5) {
+    if (v.dataset.fitTip) {
+      v.removeAttribute('title');
+      delete v.dataset.fitTip;
+    }
+    return 'ok';
+  }
+  if (!v.title || v.dataset.fitTip) {
+    v.title = (line.textContent ?? '').replace(/\s+/g, ' ').trim();
+    v.dataset.fitTip = '1';
+  }
+  const base = parseFloat(getComputedStyle(sizeOf).fontSize) || 30;
+  const sw = v.getBoundingClientRect().width;
+  const other = need - sw;
+  const min = pill ? 10 : MIN_VALUE_PX;
+  const f = Math.max(min, Math.floor((base * Math.max(0, avail - other - 1)) / Math.max(1, sw)));
+  sizeOf.style.fontSize = `${f}px`;
+  const after = line.getBoundingClientRect().width;
+  if (after > avail + 0.5) {
+    v.classList.add('cut');
+    v.style.maxWidth = `${Math.max(0, v.getBoundingClientRect().width - (after - avail) - 1)}px`;
+    return 'cut';
+  }
+  return f < base * 0.6 ? 'tight' : 'shrunk';
+}
 
 const fmtVal = (raw: unknown, dec: number) => (Number.isFinite(Number(raw)) && raw !== '' && raw !== null && typeof raw !== 'boolean' ? fmtNum(raw, dec) : esc(String(raw ?? '—')));
 
@@ -565,7 +669,10 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
   const devices = cap.multiDevice ? bound.devices.slice(0, MAX_SERIES) : bound.devices.slice(0, 1);
   const moreDevices = cap.multiDevice ? Math.max(0, bound.devices.length - MAX_SERIES) : 0;
   // Per-widget range overrides the dashboard's; 'realtime' becomes a rolling 1 h window (rangeWindow).
+  // D-061: the viewer's window (the page's picker) overrides both.
   const range = normalizeRange(s.timeRange ?? env.timeRange);
+  const view = env.view ?? null;
+  const ownRange = !view && s.timeRange != null && range !== normalizeRange(env.timeRange);
   // Property kind vs widget type (plain rules; see core/compat). Older dashboards may still hold a mismatch.
   for (const k of w.keys) {
     const c = compatible(w.type, keyMeta(ctx, bound.devices[0].profile, k), { donutMode: s.donutMode ?? (devices.length > 1 ? 'devices' : 'state') });
@@ -577,24 +684,48 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
   let startTs = Date.now() - 3600e3;
   let endTs = Date.now();
   let ended = false;
-  if (!LATEST_ONLY.has(w.type)) {
-    const cal = isShiftRange(range) ? await calendarFor(ctx, env.deviceId ?? d0.id) : null;
-    const win = rangeWindow(range, cal);
-    if (!win) return void placeholder(body, cal ? (range === 'shift' ? 'No shift now or in the last 14 days.' : 'No shift has ended in the last 14 days.') : "No shifts are set up for this machine's site. An admin sets them in Configuration › Shifts.");
+  // D-061: the window is resolved for the latest-value types too: a window that has ended shows its end values.
+  const shiftRange = view ? isShiftRange(view.range) : isShiftRange(range);
+  const cal = shiftRange ? await calendarFor(ctx, env.deviceId ?? d0.id) : null;
+  const win = view ? viewWindow(view, cal) : rangeWindow(range, cal);
+  if (win) {
     ({ startTs, endTs } = win);
-    ended = !!win.shift?.ended;
+    ended = !!win.shift?.ended || hasEnded(win);
+  } else if (!LATEST_ONLY.has(w.type)) {
+    const which = view ? view.range : range;
+    return void placeholder(body, cal ? (which === 'shift' ? 'No shift now or in the last 14 days.' : 'No shift has ended in the last 14 days.') : "No shifts are set up for this machine's site. An admin sets them in Configuration › Shifts.");
   }
-  // The current shift so far grows from the shift start: its series are cached by that start (api.series).
-  const fixedStart = isShiftRange(range) && !ended;
+  // D-061: a time-based card with its own stored range (no viewer choice) says so on the card, so the page's
+  // "Time window" never claims a period the card does not show.
+  windowChip(body, ownRange && !LATEST_ONLY.has(w.type) ? range : null);
+  // The current shift so far (or a custom window still running) grows from a fixed start: its series are cached by that
+  // start (api.series).
+  const fixedStart = (view ? view.range === 'shift' || view.range === 'custom' : isShiftRange(range)) && !ended;
+  // Values: the latest (live) ones, or for a window that has ended the last ones before its end (D-061).
+  const valuesOf = (id: string, keys: string[]) => (ended ? api.latestAt(id, keys, endTs) : api.latest(id, keys));
+  // Data age: "9s ago" while live; the reading's time for an ended window ("16 Oct, 1:58 PM").
+  const when = (ts: number) => (ended ? fmt.dateTime(ts, { short: true }) : ago(ts));
   // Sub-line under a value: machine name (unless it is the current machine) and data age.
-  const sub =(d: Node, ts: number) => `${w.binding.mode !== 'current' ? esc(d.label) + ' · ' : ''}${ago(ts)}`;
+  const sub = (d: Node, ts: number) => `${w.binding.mode !== 'current' ? esc(d.label) + ' · ' : ''}${esc(when(ts))}`;
+  // KPI comparison: what the change is measured against.
+  const vsText = view
+    ? view.range === 'shift'
+      ? ended ? 'vs the start of that shift' : 'vs the shift start'
+      : view.range === 'prevshift'
+        ? 'vs the start of that shift'
+        : view.range === 'custom'
+          ? 'vs the window start'
+          : `vs ${view.range.replace('h', ' h')} ago`
+    : isShiftRange(range)
+      ? ended ? 'vs the start of that shift' : 'vs the shift start'
+      : `vs ${range === 'realtime' ? '1 h' : range.replace('h', ' h')} ago`;
 
   // Single-value widgets: one key of one device, latest value (+ a series for the KPI trend).
   if (w.type === 'value' || w.type === 'gauge' || w.type === 'status' || w.type === 'progress' || w.type === 'kpi') {
     const key = w.keys[0];
     const meta = keyMeta(ctx, d0.profile, key);
-    const lv = (await api.latest(d0.id, [key]))[key];
-    if (!lv) return void placeholder(body, `Not available on this device (${d0.label} doesn't report ${meta.displayName})`);
+    const lv = (await valuesOf(d0.id, [key]))[key];
+    if (!lv) return void placeholder(body, ended ? `No ${meta.displayName} value before the end of this time window` : `Not available on this device (${d0.label} doesn't report ${meta.displayName})`);
     const v = Number(lv.value);
     const unit = s.unit ?? meta.unit;
     const dec = s.decimals ?? meta.decimals;
@@ -605,7 +736,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     if (w.type === 'value') {
       const vt = valueType(meta, lv.value);
       const shown = vt === 'number' ? fmtVal(lv.value, dec) : esc(rule?.label ?? stateLabel(lv.value, rules, meta, key));
-      body.innerHTML = `<div class="dbb-value"><div><span class="v">${shown}</span>${vt === 'number' ? `<span class="u">${esc(unit)}</span>` : ''}</div>${vt === 'number' ? ruleLabelPill(rule) : ''}<div class="s">${sub(d0, lv.ts)}</div></div>`;
+      body.innerHTML = `<div class="dbb-value"><div class="vl"><span class="v">${shown}</span>${vt === 'number' ? `<span class="u">${esc(unit)}</span>` : ''}</div>${vt === 'number' ? ruleLabelPill(rule) : ''}<div class="s">${sub(d0, lv.ts)}</div></div>`;
       return rule;
     }
     if (w.type === 'gauge') {
@@ -625,7 +756,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
         })
         .join('');
       // The fill bar already shows the rule colour, so a 'background' target doesn't tint the card too.
-      const txt = `<div class="dbb-value" style="height:auto"><div><span class="v">${fmtVal(lv.value, dec)}</span><span class="u">${esc(unit)}</span></div>${ruleLabelPill(rule)}<div class="s">${fmtNum(pct, 0)}% of ${fmtNum(max, 0)} ${esc(unit)} · ${ago(lv.ts)}</div></div>`;
+      const txt = `<div class="dbb-value" style="height:auto"><div class="vl"><span class="v">${fmtVal(lv.value, dec)}</span><span class="u">${esc(unit)}</span></div>${ruleLabelPill(rule)}<div class="s">${fmtNum(pct, 0)}% of ${fmtNum(max, 0)} ${esc(unit)} · ${esc(when(lv.ts))}</div></div>`;
       // D-043: the iMEX value meter (kit .imx-meter): rounded track, a fill fading from the colour to a lighter tone
       const col2 = `color-mix(in srgb, ${col} 62%, #ffffff)`;
       const aria = `role="meter" aria-valuemin="${esc(min)}" aria-valuemax="${esc(max)}" aria-valuenow="${esc(v)}" aria-label="${esc(`${w.title || meta.displayName}: ${fmtNum(pct, 0)}%`)}"`;
@@ -646,7 +777,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
         const good = s.upIsGood === false ? (dir === 'up' ? 'down' : dir === 'down' ? 'up' : 'flat') : dir;
         delta = `<span class="dbb-delta ${good}" title="Change since the start of the time range">${dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'} ${fmtNum(Math.abs(ch), 1)}%</span>`;
       }
-      body.innerHTML = `<div class="dbb-kpi"><div class="dbb-value" style="height:auto"><div class="row"><span><span class="v">${fmtVal(lv.value, dec)}</span><span class="u">${esc(unit)}</span></span>${delta}</div>${ruleLabelPill(rule)}<div class="s">${sub(d0, lv.ts)} · ${isShiftRange(range) ? (ended ? 'vs the start of that shift' : 'vs the shift start') : `vs ${range === 'realtime' ? '1 h' : esc(range.replace('h', ' h'))} ago`}</div></div>${s.sparkline !== false ? '<div class="dbb-spark"></div>' : ''}</div>`;
+      body.innerHTML = `<div class="dbb-kpi"><div class="dbb-value" style="height:auto"><div class="row"><span class="vl"><span class="v">${fmtVal(lv.value, dec)}</span><span class="u">${esc(unit)}</span></span>${delta}</div>${ruleLabelPill(rule)}<div class="s">${sub(d0, lv.ts)} · ${esc(vsText)}</div></div>${s.sparkline !== false ? '<div class="dbb-spark"></div>' : ''}</div>`;
       const sp = body.querySelector('.dbb-spark') as HTMLElement | null;
       // Next frame, so the sparkline host has its laid-out size.
       if (sp) requestAnimationFrame(() => sparkline(sp, pts, rule?.color ?? palette[0]));
@@ -654,7 +785,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     }
     // status: colour rules if the widget has its own; else legacy statusMap or a 1 = Running / 0 = Stopped default.
     // A latest value older than 5 min shows "Offline" regardless.
-    const offline = Date.now() - lv.ts > 5 * 60e3;
+    const offline = (ended ? endTs : Date.now()) - lv.ts > 5 * 60e3;
     let label: string;
     let color: string;
     if (rules.length && s.colorRules?.length) {
@@ -675,13 +806,13 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
       label = 'Offline';
       color = STATUS.neutral;
     }
-    body.innerHTML = `<div class="dbb-value"><div class="dbb-pill" style="--pill:${color}"><span class="dbb-dot"></span>${esc(label)}</div><div class="s" style="margin-top:8px">${sub(d0, lv.ts)}</div></div>`;
+    body.innerHTML = `<div class="dbb-value"><div class="dbb-pill" style="--pill:${color}"><span class="dbb-dot"></span><span class="pt">${esc(label)}</span></div><div class="s" style="margin-top:8px">${sub(d0, lv.ts)}</div></div>`;
     // The card is coloured only if a colorTarget was chosen explicitly; a synthetic rule carries the pill colour.
     return s.colorTarget && s.colorTarget !== 'value' ? ({ op: 'eq', value: '', color } as ColorRule) : null;
   }
 
   if (w.type === 'multivalue') {
-    const lv = await api.latest(d0.id, w.keys);
+    const lv = await valuesOf(d0.id, w.keys);
     body.innerHTML = `<div class="dbb-mv">${w.keys
       .map((k) => {
         const meta = keyMeta(ctx, d0.profile, k);
@@ -705,13 +836,13 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
       aggValue(d0.id, key, startTs, endTs, 'MIN', fixedStart),
       aggValue(d0.id, key, startTs, endTs, 'AVG', fixedStart),
       aggValue(d0.id, key, startTs, endTs, 'MAX', fixedStart),
-      api.latest(d0.id, [key]).then((l) => l[key]),
+      valuesOf(d0.id, [key]).then((l) => l[key]),
     ]);
     const cell = (k: string, v: number | string | null | undefined) => {
       const r = v == null ? null : matchRule(rules, v, key);
       return `<div><span class="k">${k}</span><span class="v" ${r ? `style="color:${r.color}"` : ''} title="${r?.label ? esc(r.label) : ''}">${v == null ? '—' : fmtVal(v, dec)}<span class="dbb-muted" style="font-weight:400"> ${esc(unit)}</span></span></div>`;
     };
-    body.innerHTML = `<div class="dbb-sum">${cell('Min', mn)}${cell('Avg', av)}${cell('Max', mx)}${cell('Now', lv?.value ?? null)}</div>`;
+    body.innerHTML = `<div class="dbb-sum">${cell('Min', mn)}${cell('Avg', av)}${cell('Max', mx)}${cell(ended ? 'At end' : 'Now', lv?.value ?? null)}</div>`;
     return undefined;
   }
 
@@ -766,7 +897,8 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
       );
       barChart(body, bars, { unit: s.unit ?? meta.unit, decimals: dec, thresholds: thr });
     } else {
-      const step = group === '15m' ? 15 * 60e3 : 3600e3;
+      // D-061: a viewer's window over 2 days gets one bar per day instead of up to 168 hourly bars
+      const step = group === '15m' ? 15 * 60e3 : endTs - startTs > 48 * 3600e3 ? 86400e3 : 3600e3;
       const r = await api.getCached<any>(
         `bar|${d0.id}|${key}|${agg}|${step}|${winKey(startTs, endTs)}`,
         `/api/plugins/telemetry/DEVICE/${d0.id}/values/timeseries?keys=${encodeURIComponent(key)}&startTs=${startTs}&endTs=${endTs}&agg=${agg}&interval=${step}&limit=1000&orderBy=ASC`,
@@ -774,9 +906,9 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
       );
       const pts: { ts: number; value: string }[] = r?.[key] ?? [];
       const bars = pts.map((p) => {
-        const dt = new Date(p.ts);
-        const label = dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: group === '15m' ? '2-digit' : undefined });
-        return { label, value: Number(p.value), color: col(Number(p.value), palette[0]), detail: `${d0.label} · ${dt.toLocaleString()}` };
+        // D-061 (M2): the app's date-time format
+        const label = step >= 86400e3 ? fmt.date(p.ts, { short: true }) : fmt.time(p.ts);
+        return { label, value: Number(p.value), color: col(Number(p.value), palette[0]), detail: `${d0.label} · ${fmt.dateTime(p.ts, { short: true })}` };
       });
       barChart(body, bars, { unit: s.unit ?? meta.unit, decimals: dec, thresholds: thr });
     }
@@ -881,7 +1013,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
   }
 
   if (w.type === 'table') {
-    const rows = await Promise.all(devices.map(async (d) => ({ d, v: await api.latest(d.id, w.keys) })));
+    const rows = await Promise.all(devices.map(async (d) => ({ d, v: await valuesOf(d.id, w.keys) })));
     // Column headers use the first device's profile; rows are machines, cells are latest values.
     const metas = w.keys.map((k) => keyMeta(ctx, devices[0].profile, k));
     // D-044 (user rule, 9 Oct 2026): every header and value centred (supersedes D-033's centred numbers and
@@ -922,7 +1054,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
       all
         .map(
           (a) =>
-            `<tr><td>${esc(new Date(a.startTs).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td><td>${esc(
+            `<tr><td>${esc(fmt.dateTime(a.startTs, { short: true }))}</td><td>${esc(
               ctx.nodes.get(a.originatorId)?.label ?? a.originatorLabel ?? a.originatorName,
             )}</td><td>${esc(a.type)}</td><td><span class="dbb-sev"><span class="dbb-dot" style="background:${SEVERITY_COLOR[a.severity] ?? STATUS.neutral}"></span>${esc(a.severity)}</span></td><td>${a.cleared ? 'Cleared' : 'Active'}${a.acknowledged ? ' · ack' : ''}</td></tr>`,
         )
@@ -983,8 +1115,8 @@ async function drawText(body: HTMLElement, w: Widget, env: RenderEnv): Promise<u
       values.locations = plural(f.locations, 'location');
     }
     const dev = env.deviceId ? env.ctx.nodes.get(env.deviceId) : null;
-    values.time = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-    values.date = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    values.time = fmt.time(Date.now());
+    values.date = fmt.date(Date.now());
     if (dev) {
       values.machine = dev.label;
       values.type = dev.profile;

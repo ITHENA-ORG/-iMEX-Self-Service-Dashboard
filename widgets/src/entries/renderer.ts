@@ -37,11 +37,16 @@ import * as store from '../core/store';
 import type { UserContext } from '../core/scope';
 import { normalizeRange, isShiftRange, rangeWindow } from '../core/schema';
 import { calendarFor, shiftWindowText } from '../core/shifts';
+import { loadView, saveView, viewLabel, viewWindow, presetLabel, hasEnded } from '../core/viewwindow';
+import type { ViewWindow } from '../core/viewwindow';
+import * as dfmt from '../core/datefmt';
+import { openWindowMenu, closeWindowMenu, TW_CSS, TW_CHEV } from './timepicker';
 import { ensureKitCss, pageBusy, withBusy } from '../render/kit';
 import type { Dashboard } from '../core/schema';
 import { Grid, GRID_CSS } from '../render/grid';
 import { CSS, ensureCss, esc, STATUS, ago, agoWords, applyTheme } from '../render/theme';
-import { defaultWidgets } from '../render/widgets';
+import { defaultWidgets, LATEST_ONLY } from '../render/widgets';
+import { CONTENT_TYPES } from '../core/schema';
 import { ICON_SVG, UI_ICON } from '../render/icons';
 import type { Widget } from '../core/schema';
 import { openBuilder } from '../builder/builder';
@@ -61,7 +66,21 @@ const R_CSS = `
 @keyframes dbb-pulse{50%{box-shadow:0 0 0 6px rgba(12,163,12,0)}}
 .dbb-status-pill{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px 3px 8px;background:color-mix(in srgb,var(--pill) 14%,transparent);color:var(--ink)}
 .dbb-status-pill .dbb-dot{width:8px;height:8px;background:var(--pill);box-shadow:0 0 0 3px color-mix(in srgb,var(--pill) 25%,transparent)}
-.dbb-tw{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 4px 0 11px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:12px;white-space:nowrap}
+.dbb-tw{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:8px;box-sizing:border-box;height:28px;margin-top:0;margin-bottom:0;padding:0 8px 0 11px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;line-height:1;white-space:nowrap;cursor:pointer;max-width:100%;min-width:0;transition:background .12s,border-color .12s}
+.dbb-tw:hover,.dbb-tw[aria-expanded="true"]{background:var(--hover);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.dbb-tw:focus{outline:none}
+.dbb-tw:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+.dbb-tw .v{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.dbb-tw .c{display:inline-flex;flex:none}
+.dbb-tw .c svg{width:14px;height:14px}
+.dbb-tw .v.mine{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 55%,transparent)}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-tw:hover,html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-tw[aria-expanded="true"]{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.34)}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-tw .v.mine{box-shadow:inset 0 0 0 1px rgba(125,211,252,.75)}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-tw:focus-visible{box-shadow:0 0 0 3px rgba(125,211,252,.45)}
+/* D-061 (A-046): Create ticket for a view-only role: shown locked */
+.dbb-rbtn.locked{opacity:.55;cursor:default}
+.dbb-rbtn.locked:hover{background:var(--surface);border-color:var(--line)}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn.locked:hover{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.18)}
 .dbb-tw .k{color:var(--ink-3);font-weight:500;display:inline-flex;align-items:center;gap:5px}
 .dbb-tw .k svg{width:14px;height:14px}
 .dbb-tw .v{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--ink);background:var(--grid);border-radius:999px;padding:3px 10px}
@@ -141,23 +160,33 @@ const HEAD_SKEL = `<div class="dbb-rhead-skel" aria-busy="true" aria-label="Load
 
 /** D-033: time window in words for the header ("Last 8 hours", "Live · last hour"; D-047 "Current shift"). */
 function windowLabel(range: string): string {
-  const n = normalizeRange(range);
-  if (n === 'realtime') return 'Live · last hour';
-  if (n === 'shift') return 'Current shift';
-  if (n === 'prevshift') return 'Previous shift';
-  const h = parseInt(n, 10);
-  return `Last ${h} hour${h === 1 ? '' : 's'}`;
+  // D-061: the app's preset words ("Last hour", "Last 4 hours"; core/viewwindow.ts)
+  return presetLabel(normalizeRange(range));
 }
 const CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
-/** D-033 header items: the dashboard's time window and when its newest data point arrived (filled by the ticker). */
-function timeHtml(range: string): string {
-  const live = normalizeRange(range) === 'realtime';
-  const tip = live
-    ? 'Dashboard time window: live values (updated as they arrive); charts show the last hour'
-    : isShiftRange(range)
-      ? 'Dashboard time window: charts and summaries cover this shift, from the shift settings of the machine\x27s site (Configuration › Shifts)'
-      : 'Dashboard time window: charts and summaries cover this period, ending now';
-  return `<span class="dbb-tw" title="${tip}"><span class="k">${CLOCK}<span>Time window</span></span><span class="v ${live ? 'live' : ''}">${esc(windowLabel(range))}</span></span><span class="dbb-upd" aria-live="off"><span class="d"></span><span class="t">Waiting for data…</span></span>`;
+/**
+ * D-033 header items: the page's time window and when its newest data point arrived (filled by the ticker).
+ * D-061 (audit H3): the window is a button that opens the Time window menu (entries/timepicker.ts); it names the window
+ * the cards show: the viewer's choice (outlined value) or the dashboard's own. `own` = cards with their own window.
+ */
+export function timeHtml(range: string, view: ViewWindow | null = null, own = 0): string {
+  const live = !view && normalizeRange(range) === 'realtime';
+  const label = view ? viewLabel(view) : windowLabel(range);
+  return `<button type="button" class="dbb-tw" aria-haspopup="menu" aria-expanded="false" title="${esc(windowTip(range, view, own))}"><span class="k">${CLOCK}<span>Time window</span></span><span class="v${live ? ' live' : ''}${view ? ' mine' : ''}">${esc(label)}</span><span class="c">${TW_CHEV}</span></button><span class="dbb-upd" aria-live="off"><span class="d"></span><span class="t">Waiting for data…</span></span>`;
+}
+/** D-061: the Time window pill's tooltip: what the cards show, who chose it, and how to change it. */
+export function windowTip(range: string, view: ViewWindow | null, own = 0): string {
+  const n = normalizeRange(range);
+  if (view)
+    return `Every card shows ${view.range === 'custom' ? viewLabel(view) : presetLabel(view.range).toLowerCase()} (your choice, kept for this page). The dashboard's own window: ${presetLabel(n).toLowerCase()}. Click to change.`;
+  const what =
+    n === 'realtime'
+      ? 'Live values; charts show the last hour'
+      : isShiftRange(n)
+        ? `Charts and values cover the ${n === 'shift' ? 'current' : 'previous'} shift, from the shift settings of the machine's site`
+        : `Charts and values cover the ${presetLabel(n).toLowerCase()}, ending now`;
+  const cards = own ? ` ${own} card${own > 1 ? 's have their' : ' has its'} own window (marked on the card).` : '';
+  return `${what} (the dashboard's window).${cards} Click to show another period.`;
 }
 /**
  * Storyboard round (12 Oct 2026): the properties the Analyzer opens with from the machine page bar. The keys the
@@ -206,7 +235,7 @@ export function dashHasState(tbCtx: any, id: string): boolean {
 }
 
 /** A date and time for the ticket text ("12 Oct 2026, 1:05 PM"; the app's 12 / 24-hour clock applies). */
-const tkTime = (ts: number) => new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const tkTime = (ts: number) => dfmt.dateTime(ts);
 
 /** The page's edit actions plus the two Builder entries of the bar's "Edit dashboard" menu (D-058). */
 export interface BarMenu {
@@ -344,6 +373,28 @@ export function openBarMenu(btn: HTMLButtonElement, m: BarMenu) {
   items()[0]?.focus();
 }
 
+/** D-061 (A-046): the refusal of a write to a view-only role, in the AI pages' words (AIML.VIEW_ONLY). */
+export const VIEW_ONLY = 'Your role can view only';
+/**
+ * D-061 (A-046): the role may write (the AI pages' AIML.canWrite and the service's can_write): a tenant administrator, or
+ * a role holding at least one page at Full. The built-in Viewer and any view-only custom role only view.
+ */
+export function mayWrite(ctx: Pick<UserContext, 'perms'> | null | undefined): boolean {
+  const p = ctx?.perms;
+  if (!p) return false;
+  if (p.unrestricted) return true;
+  const pages = p.eff?.pages ?? {};
+  return Object.keys(pages).some((k) => pages[k] === 'full');
+}
+/**
+ * D-061: the cards that show their own stored window instead of the dashboard's (time-based types with a
+ * settings.timeRange other than the dashboard's): the Time window pill's tooltip counts them, the cards carry a chip.
+ */
+export function ownWindowCards(widgets: Widget[], dashRange: string): number {
+  const d = normalizeRange(dashRange);
+  return widgets.filter((w) => !CONTENT_TYPES.has(w.type) && !LATEST_ONLY.has(w.type) && w.settings?.timeRange != null && normalizeRange(w.settings.timeRange) !== d).length;
+}
+
 /** Counter for unique ids of renderer instances in this library copy (used as the publishActions owner). */
 let seq = 0;
 
@@ -361,7 +412,7 @@ export function init(tbCtx: any) {
   ensureCss('dbb-css-core', CSS);
   ensureCss('dbb-css-grid', GRID_CSS);
   ensureCss('dbb-css-builder', BUILDER_CSS);
-  ensureCss('dbb-css-rend', R_CSS);
+  ensureCss('dbb-css-rend', R_CSS + TW_CSS);
   ensureKitCss();
   const host: HTMLElement = tbCtx.$container[0];
   const id = `r${++seq}`;
@@ -375,6 +426,14 @@ export function init(tbCtx: any) {
     /** Incremented by every load(); an older load that finishes late must not draw over a newer one. */
     loadSeq?: number;
     range?: string;
+    /** D-061: the viewer's time window (Time window menu), null = the dashboard's; kept per user and page. */
+    view?: ViewWindow | null;
+    /** D-061: the storage key part of the page shown (the machine id, or d:<dashboard id>). */
+    page?: string;
+    /** D-061: cards with their own stored window (named in the pill's tooltip). */
+    own?: number;
+    /** D-061: the end of the window shown when it has ended (null = it ends now). */
+    winEnd?: number | null;
     ticks?: number;
     /** The machine's status as the header pill shows it (Running / Stopped / Offline), for a ticket's text. */
     status?: string;
@@ -408,6 +467,7 @@ export function init(tbCtx: any) {
   const load = async (force = false) => {
     const seq = (st.loadSeq = (st.loadSeq ?? 0) + 1);
     closeBarMenu(root); // D-058: the bar is drawn again
+    closeWindowMenu(root);
     const stale = () => seq !== st.loadSeq;
     // D-043: the app's page bar runs while the page resolves (first open, machine switch, another dashboard)
     pageBusy(`rend-${id}`, true);
@@ -457,22 +517,65 @@ export function init(tbCtx: any) {
     const params = n ? { entityId: { id: n.id, entityType: n.entityType }, entityName: n.label, entityLabel: n.label } : {};
     tbCtx.stateController?.openState?.(stateId, params, false);
   };
-  // D-047: the header names the shift the window shows ("Morning · 06:00–14:00"); refreshed every 30 s by the ticker
-  const shiftLabel = (ctx: UserContext, deviceId: string) => {
+  // D-061: the shift calendar the page's window uses: the machine's, on a standalone dashboard the organisation's
+  // (the first top of the user's equipment)
+  const calOf = (ctx: UserContext, deviceId: string | null) => calendarFor(ctx, deviceId ?? ctx.rootIds[0] ?? null).catch(() => null);
+  // D-047: the header names the shift the window shows ("Morning · 06:00–14:00"); refreshed every 30 s by the ticker.
+  // D-061: also for the viewer's shift choice; and it notes the end of a window that has ended (st.winEnd, for the ticker).
+  const shiftLabel = (ctx: UserContext, deviceId: string | null) => {
     const range = st.range;
-    if (!range || !isShiftRange(range)) return;
-    void calendarFor(ctx, deviceId).then((cal) => {
-      if (st.range !== range || st.deviceId !== deviceId) return;
+    const view = st.view ?? null;
+    if (!range) return;
+    const shift = view ? isShiftRange(view.range) : isShiftRange(range);
+    const key = st.lastKey;
+    const done = (cal: any) => {
+      if (st.range !== range || st.view !== view || st.lastKey !== key) return;
+      const win = view ? viewWindow(view, cal) : rangeWindow(range, cal);
+      st.winEnd = win && (win.shift?.ended || hasEnded(win)) ? win.endTs : null;
+      if (!shift) return;
       const v = head.querySelector('.dbb-tw .v');
-      if (v) v.textContent = shiftWindowText(rangeWindow(range, cal), cal?.tz);
-    });
+      // D-061: the previous shift says so (the current one is the usual case and stays short)
+      const prev = (view ? view.range : range) === 'prevshift' && win?.shift;
+      if (v) v.textContent = `${prev ? 'Previous shift · ' : ''}${shiftWindowText(win, cal?.tz)}`;
+    };
+    if (!shift) return done(null);
+    void calOf(ctx, deviceId).then(done);
+  };
+  /**
+   * D-061: the bar's Time window pill: opens the menu; a choice is kept for this user and page (localStorage), redraws
+   * every card in place for the new window (Grid.setEnv), and the pill names it.
+   */
+  const wirePill = (ctx: UserContext, deviceId: string | null) => {
+    const b = head.querySelector('.dbb-tw') as HTMLButtonElement | null;
+    if (!b) return;
+    b.addEventListener('click', () =>
+      openWindowMenu(b, {
+        dashRange: st.range ?? 'realtime',
+        view: st.view ?? null,
+        cal: calOf(ctx, deviceId).then((cal) => ({ cal, tz: (cal as any)?.tz })),
+        onPick: (v) => {
+          st.view = v;
+          if (st.page) saveView(ctx.userId, st.page, v);
+          const old = head.querySelector('.dbb-tw');
+          if (old) {
+            const t = document.createElement('div');
+            t.innerHTML = timeHtml(st.range ?? 'realtime', v, st.own ?? 0);
+            old.replaceWith(t.firstElementChild!);
+          }
+          wirePill(ctx, deviceId);
+          shiftLabel(ctx, deviceId);
+          if (st.grid) ensureGrid(ctx, deviceId, st.range ?? 'realtime', st.theme ?? undefined);
+          (head.querySelector('.dbb-tw') as HTMLElement | null)?.focus();
+        },
+      }),
+    );
   };
   // Applies the dashboard theme and creates the read-only grid once, then only updates its environment.
   const ensureGrid = (ctx: UserContext, deviceId: string | null, range: string, theme?: Dashboard['theme']) => {
     const { dark, appDark } = applyTheme(root, theme);
     void body;
     st.theme = theme ?? null;
-    const env = { ctx, deviceId, timeRange: range, theme: theme ?? null, dark, appDark, navigate, busyKey: id };
+    const env = { ctx, deviceId, timeRange: range, view: st.view ?? null, theme: theme ?? null, dark, appDark, navigate, busyKey: id };
     if (!st.grid) st.grid = new Grid(gridHost, env, { editable: false });
     else st.grid.setEnv(env);
     return st.grid;
@@ -519,6 +622,11 @@ export function init(tbCtx: any) {
     const canReset = admin && level === 'device' && res.deviceAssignment?.mode === 'customised';
     const range = normalizeRange(dash?.timeRange ?? 'realtime');
     st.range = range;
+    // D-061: the viewer's window for this machine (kept per user), and the cards that keep their own window
+    st.page = deviceId;
+    st.view = loadView(ctx.userId, deviceId);
+    st.winEnd = null;
+    st.own = ownWindowCards(dash?.widgets ?? [], range);
     // One compact line: machine name (the page's title), then org › site · dashboard name, status, time range.
     // D-038: the title is back. It was left out on 28 Sep 2026 because the app's navbar showed the machine; with
     // the side menu there is no navbar, and nothing on the page said which machine or dashboard is open. An app
@@ -530,8 +638,9 @@ export function init(tbCtx: any) {
       ${sideMenu ? `<div class="dbb-rtitle" title="${esc(node.label)} (${esc(node.profile)})">${esc(node.label)}</div>` : ''}
       <div class="dbb-crumb" title="${esc(where)}${dash ? ` · Dashboard: ${esc(dash.name)}` : ''}">${esc(where)}${dash ? `<span class="dbb-crumb-d"> · ${esc(dash.name)}</span>` : ''}</div>
       <span class="dbb-status-pill" style="--pill:${STATUS.neutral}"><span class="dbb-dot"></span>…</span>
-      <div class="dbb-rright">${timeHtml(range)}<span class="dbb-ract"></span></div>`;
+      <div class="dbb-rright">${timeHtml(range, st.view, st.own)}<span class="dbb-ract"></span></div>`;
     st.status = undefined;
+    wirePill(ctx, deviceId);
     shiftLabel(ctx, deviceId);
     // the built-in layout uses every key the machine type sends, not only the catalogued ones (9 Oct 2026)
     if (!dash) {
@@ -666,9 +775,17 @@ export function init(tbCtx: any) {
       b.title = tip;
       b.setAttribute('aria-label', tip);
       b.innerHTML = `${ICON_SVG.chart}<span>${trend ? 'Trend' : 'Analyzer'}</span>`;
-      b.addEventListener('click', () => {
+      b.addEventListener('click', async () => {
         const keys = analyzerKeys(shown, deviceId, node.profile, ctx.profileKeys[node.profile] ?? []);
         const t = analyzerTarget(tbCtx.settings?.analyzerState, deviceId, node, keys);
+        // D-061: the Analyzer opens on the window this page shows (its imxFrom / imxTo, ms)
+        if (!trend) {
+          const view = st.view ?? null;
+          const shift = view ? isShiftRange(view.range) : isShiftRange(range);
+          const cal = shift ? await calendarFor(ctx, deviceId).catch(() => null) : null;
+          const win = view ? viewWindow(view, cal) : rangeWindow(range, cal);
+          if (win) Object.assign(t.params, { imxFrom: Math.round(win.startTs), imxTo: Math.round(win.endTs) });
+        }
         tbCtx.stateController?.openState?.(t.state, t.params, false);
       });
       box.appendChild(b);
@@ -692,10 +809,21 @@ export function init(tbCtx: any) {
           const b = document.createElement('button');
           b.type = 'button';
           b.className = 'dbb-rbtn dbb-rtk';
-          b.title = 'Create a ticket for this machine';
-          b.setAttribute('aria-label', 'Create a ticket for this machine');
-          b.innerHTML = `${UI_ICON.ticket}<span>Create ticket</span>`;
-          b.addEventListener('click', () => void openTicket(ctx, deviceId, node, where, dash, range));
+          // D-061 (A-046): the ticket service refuses a view-only role (403 "Your role can view only"): the button is
+          // shown locked with that reason instead of failing after the form
+          if (!mayWrite(ctx)) {
+            b.classList.add('locked');
+            b.setAttribute('aria-disabled', 'true');
+            b.title = VIEW_ONLY;
+            b.dataset.imxTip = VIEW_ONLY;
+            b.setAttribute('aria-label', `Create ticket: ${VIEW_ONLY}`);
+            b.innerHTML = `${UI_ICON.lock}<span>Create ticket</span>`;
+          } else {
+            b.title = 'Create a ticket for this machine';
+            b.setAttribute('aria-label', 'Create a ticket for this machine');
+            b.innerHTML = `${UI_ICON.ticket}<span>Create ticket</span>`;
+            b.addEventListener('click', () => void openTicket(ctx, deviceId, node, where, dash, range));
+          }
           box.insertBefore(b, box.querySelector('.dbb-redit')); // D-058: Edit dashboard stays last (focus order = visual order)
         },
         () => {
@@ -709,12 +837,16 @@ export function init(tbCtx: any) {
   async function openTicket(ctx: UserContext, deviceId: string, node: scope.Node, where: string, dash: Dashboard | null, range: string) {
     const T = (window as any).imxTicket;
     if (!T?.open) return;
-    let win = rangeWindow(range, null);
-    if (isShiftRange(range)) win = rangeWindow(range, await calendarFor(ctx, deviceId).catch(() => null));
+    // D-061: the window the page shows (the viewer's choice, else the dashboard's)
+    const view = st.view ?? null;
+    const shift = view ? isShiftRange(view.range) : isShiftRange(range);
+    const cal = shift ? await calendarFor(ctx, deviceId).catch(() => null) : null;
+    const win = view ? viewWindow(view, cal) : rangeWindow(range, cal);
     // "Last 8 hours, 12 Oct 2026, 4:05 AM - 12:05 PM" (the end's date only when it is another day)
     const sameDay = win && new Date(win.startTs).toDateString() === new Date(win.endTs).toDateString();
-    const endText = win ? (sameDay ? new Date(win.endTs).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : tkTime(win.endTs)) : '';
-    const shownWin = win ? `${windowLabel(range)}, ${tkTime(win.startTs)} - ${endText}` : windowLabel(range);
+    const endText = win ? (sameDay ? dfmt.time(win.endTs) : tkTime(win.endTs)) : '';
+    const name = view ? (view.range === 'custom' ? 'Custom' : presetLabel(view.range)) : windowLabel(range);
+    const shownWin = win ? `${name}, ${tkTime(win.startTs)} - ${endText}` : name;
     const lines = [
       `Machine: ${node.label || node.name}`,
       where ? `Location: ${where}` : '',
@@ -741,8 +873,14 @@ export function init(tbCtx: any) {
     }
     const range = normalizeRange(d.timeRange);
     st.range = range;
+    st.page = `d:${d.id}`;
+    st.view = loadView(ctx.userId, st.page);
+    st.winEnd = null;
+    st.own = ownWindowCards(d.widgets, range);
     // D-058: the time window and the bar buttons as one group at the right end, as on the machine page
-    head.innerHTML = `<div class="dbb-rtitle">${esc(d.name)}</div><div class="dbb-rright">${timeHtml(range)}<span class="dbb-ract"></span></div>`;
+    head.innerHTML = `<div class="dbb-rtitle">${esc(d.name)}</div><div class="dbb-rright">${timeHtml(range, st.view, st.own)}<span class="dbb-ract"></span></div>`;
+    wirePill(ctx, null);
+    shiftLabel(ctx, null);
     ensureGrid(ctx, null, range, d.theme).render(d.widgets);
     const acts: Omit<EditActions, 'owner'> | null = mayBuild(ctx) // D-059: role AND licence
       ? { el: root, title: d.name, subtitle: `Dashboard overview · by ${d.ownerName}`, items: [{ id: 'edit', label: 'Edit this dashboard', hint: `Opens “${d.name}” in the Dashboard Builder`, icon: 'edit' }], run: () => openBuilder({ ctx, dashboardId: d.id, chatEnabled: tbCtx.settings?.chatEnabled !== false, onClose: (ch) => ch && notifyChanged() }) }
@@ -792,7 +930,7 @@ export function init(tbCtx: any) {
   // every refreshSeconds (10 s) in realtime and every 60 s for historic ranges, as before.
   const stopRedraw = scheduleRedraw(
     () => st.grid?.refreshAll(),
-    () => (st.range && st.range !== 'realtime' ? 60e3 : (tbCtx.settings?.refreshSeconds ?? 10) * 1000),
+    () => ((st.range && st.range !== 'realtime') || st.view ? 60e3 : (tbCtx.settings?.refreshSeconds ?? 10) * 1000),
   );
   // ThingsBoard does not always call onStateChanged (e.g. an app navbar that switches the machine by
   // changing the state URL), so also watch the page key every 500 ms, like the navbar widget does.
@@ -802,9 +940,18 @@ export function init(tbCtx: any) {
   // D-033: "Updated x ago" from the newest data point the widgets received (api data clock), every second.
   const tick = () => {
     st.ticks = (st.ticks ?? 0) + 1;
-    if (st.ticks % 30 === 0 && st.ctx && st.deviceId) shiftLabel(st.ctx, st.deviceId);
+    if (st.ticks % 30 === 0 && st.ctx) shiftLabel(st.ctx, st.deviceId ?? null);
     const el = head.querySelector('.dbb-upd') as HTMLElement | null;
     if (!el) return;
+    // D-061: a window that has ended is not live: say so instead of "Updated 3 h ago"
+    const end = st.winEnd ?? (st.view?.range === 'custom' && st.view.to! < Date.now() - 90e3 ? st.view.to! : null);
+    if (end) {
+      const t = el.querySelector('.t') as HTMLElement;
+      t.innerHTML = `Not live · ended <b>${esc(dfmt.dateTime(end, { short: true }))}</b>`;
+      el.className = 'dbb-upd';
+      el.title = 'This time window has ended: the cards show it as it was, with the values at its end. Pick a window that ends now (e.g. Last hour) for live values.';
+      return;
+    }
     const ts = api.lastDataTs();
     const t = el.querySelector('.t') as HTMLElement;
     if (!ts) {
@@ -817,7 +964,7 @@ export function init(tbCtx: any) {
     const txt = agoWords(ts);
     t.innerHTML = `Updated <b>${esc(txt)}</b>`;
     el.className = `dbb-upd ${age < 2 * 60e3 ? 'fresh' : age > 15 * 60e3 ? 'old' : ''}`;
-    el.title = `Newest data point on this dashboard: ${new Date(ts).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    el.title = `Newest data point on this dashboard: ${dfmt.dateTime(ts, { seconds: true })}`;
   };
   const ticker = setInterval(tick, 1000);
   // D-056: the app switched light / dark: the theme again (a light dashboard follows the app), every card redrawn
@@ -835,6 +982,7 @@ export function init(tbCtx: any) {
     stopRedraw();
     publishActions(id, null);
     closeBarMenu(root);
+    closeWindowMenu(root);
     st.grid?.destroy();
   };
   // onStateChanged: reload only if the page key changed (the watch may already have done it).

@@ -37,6 +37,7 @@ import { CSS, ensureCss, esc, loadFont } from '../render/theme';
 import { userContext, userPerms, userContextFor, stateEntity, notifyChanged, currentState, currentActions, ACTIONS_EVENT, EditAction, RSTATE_KEY, CHANGED_EVENT, liveLend, liveRelease, NO_ACCESS_HTML } from './common';
 import * as scope from '../core/scope';
 import { ensureKitCss, withBusy, kitToast, skeletonRows } from '../render/kit';
+import * as dfmt from '../core/datefmt';
 
 const MENU_ICONS: Record<string, string> = {
   edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
@@ -590,7 +591,7 @@ function relTime(ts: number): string {
   if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
   if (s < 172800) return 'yesterday';
   if (s < 30 * 86400) return `${Math.floor(s / 86400)} days ago`;
-  return new Date(ts).toLocaleDateString();
+  return dfmt.date(ts); // D-061 (M2): "16 Oct 2026", never a numeric date
 }
 
 /** Up to two initials of a name ("Ithena Fleet Overview" -> "IF"). */

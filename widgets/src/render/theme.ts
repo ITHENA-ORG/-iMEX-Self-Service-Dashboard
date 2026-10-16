@@ -34,6 +34,7 @@
  */
 
 import type { DashboardTheme } from '../core/schema';
+import { axis as fmtAxis } from '../core/datefmt';
 
 /** Categorical series colours (light surfaces), in assignment order. Charts cycle through them. */
 export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
@@ -309,6 +310,10 @@ html[data-imx-mode="dark"] .dbb-root{--surface:${APP_DARK.surface};--surface-2:$
 .dbb-value .v{font-size:var(--card-value-size,30px);font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--card-value-color,var(--ink));font-family:var(--card-value-font,inherit);letter-spacing:-.01em}
 .dbb-value .u{font-size:14px;color:var(--ink-2);margin-left:4px;font-weight:400}
 .dbb-value .s{font-size:11px;color:var(--ink-3);margin-top:4px}
+.dbb-value .vl{white-space:nowrap}
+.dbb-value .v.cut{display:inline-block;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.dbb-pill .pt.cut{display:inline-block;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.dbb-card-win{flex:none;font-size:11px;font-weight:600;line-height:1;color:var(--ink-2);background:var(--grid);border-radius:999px;padding:4px 8px;white-space:nowrap;cursor:default}
 .dbb-value .lbl{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;margin-top:6px;color:#fff}
 .dbb-kpi{display:flex;flex-direction:column;height:100%;justify-content:var(--card-justify,space-between);gap:6px}
 .dbb-kpi .dbb-value{flex:0 0 auto}
@@ -343,7 +348,7 @@ html[data-imx-mode="dark"] .dbb-root{--surface:${APP_DARK.surface};--surface-2:$
 .dbb-sum .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dbb-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
 .dbb-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
-.dbb-pill{display:inline-flex;align-items:center;gap:8px;font-size:18px;font-weight:600;padding:6px 14px 6px 10px;border-radius:999px;background:color-mix(in srgb,var(--pill) 14%,transparent);color:var(--ink)}
+.dbb-pill{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-size:18px;font-weight:600;padding:6px 14px 6px 10px;border-radius:999px;background:color-mix(in srgb,var(--pill) 14%,transparent);color:var(--ink)}
 .dbb-pill .dbb-dot{width:12px;height:12px;background:var(--pill);box-shadow:0 0 0 4px color-mix(in srgb,var(--pill) 25%,transparent)}
 .dbb-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--ink-2);padding-bottom:4px}
 .dbb-legend span{display:inline-flex;align-items:center;gap:5px}
@@ -438,11 +443,12 @@ export function fmtNum(v: unknown, decimals = 1): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-/** Axis label for a timestamp: time of day for spans up to 36 h, else date (+ hour up to 8 days). */
+/**
+ * Axis label for a timestamp: time of day for spans up to 36 h ("4:40 AM"), else the day ("15 Oct", with the hour up to
+ * 8 days). D-061 (M2): the app's date-time format (core/datefmt.ts), never a numeric date.
+ */
 export function fmtTime(ts: number, spanMs: number): string {
-  const d = new Date(ts);
-  if (spanMs <= 36 * 3600e3) return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + (spanMs <= 8 * 86400e3 ? ` ${d.toLocaleTimeString(undefined, { hour: '2-digit' })}` : '');
+  return fmtAxis(ts, spanMs);
 }
 
 /** Relative age of a timestamp: "12s ago", "5 min ago", "3 h ago", "2 d ago". */

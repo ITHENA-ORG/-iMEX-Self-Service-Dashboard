@@ -68,6 +68,8 @@ export interface GridOptions {
   onDrop?(type: string, x: number, y: number): void;
   /** Quick actions on the selected widget (builder). */
   onAction?(id: string, action: 'dup' | 'del'): void;
+  /** D-061: a tile's value fit changed ('' = fits, 'tight' = only much smaller, 'cut'). */
+  onFit?(id: string, state: string): void;
   /** Widget ids to highlight (e.g. widgets just changed by chat). */
   highlight?: Set<string>;
 }
@@ -420,6 +422,22 @@ export class Grid {
         }),
       );
       box.appendChild(tools);
+      // D-061 (audit M10): a tile whose value only fits much smaller, or is cut, gets a warning badge (renderWidget's
+      // fit check sends dbb-fit); the Builder's settings panel says the same for the selected widget
+      const warn = document.createElement('span');
+      warn.className = 'dbb-gwarn';
+      warn.setAttribute('role', 'img');
+      warn.innerHTML = FIT_ICON;
+      box.appendChild(warn);
+      box.addEventListener('dbb-fit', (e) => {
+        const state = (e as CustomEvent).detail?.state ?? '';
+        box.classList.toggle('fitwarn', !!state);
+        box.dataset.fit = state;
+        const tip = state ? fitWarning(state) : '';
+        warn.title = tip;
+        warn.setAttribute('aria-label', tip);
+        this.opts.onFit?.(box.dataset.id!, state);
+      });
       box.addEventListener('mousedown', () => this.opts.onSelect?.(box.dataset.id!));
       this.wireDrag(box, bar, 'move');
       this.wireDrag(box, rz, 'resize');
@@ -518,7 +536,19 @@ export class Grid {
 }
 
 /** Grid-only styles (boxes, drag/resize handles, quick tools, drop ghost). Inject with ensureCss. */
+/** D-061: the warning badge of a tile whose value does not fit (a triangle with an exclamation mark). */
+const FIT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>';
+/** D-061: what the badge and the settings panel say about a tile's value fit. */
+export function fitWarning(state: string): string {
+  return state === 'cut'
+    ? 'This tile is too narrow for its value: the value is cut (the full value shows on hover). Make the tile wider.'
+    : 'This tile is narrow for its value: the value is drawn much smaller. Make the tile wider.';
+}
 export const GRID_CSS = `
+.dbb-gwarn{position:absolute;left:6px;bottom:6px;z-index:3;display:none;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#FEF3C7;color:#B45309;box-shadow:0 1px 3px rgba(0,0,0,.18);cursor:help}
+.dbb-gwarn svg{width:14px;height:14px}
+.dbb-gbox.fitwarn .dbb-gwarn{display:inline-flex}
+.dbb-dark .dbb-gwarn{background:#4A3410;color:#FCD34D}
 .dbb-gbox{transition:left .15s,top .15s,width .15s,height .15s}
 .dbb-gbox.dragging{transition:none;z-index:10;opacity:.92}
 .dbb-gbox.dragging .dbb-card{box-shadow:0 12px 32px rgba(16,24,40,.22)}

@@ -259,6 +259,27 @@ export async function latest(deviceId: string, keys: string[], quiet = false): P
 }
 
 /**
+ * D-061: the last value per key at or before `endTs` (a window that has ended: the values a card shows for it), looking
+ * back at most 30 days. REST: GET values/timeseries?agg=NONE&orderBy=DESC&limit=1 over [endTs − 30 d, endTs] (ThingsBoard
+ * applies the limit per key). Kept 5 minutes while the WebSocket is live (getCached). Does not move the data clock.
+ */
+export async function latestAt(deviceId: string, keys: string[], endTs: number): Promise<Latest> {
+  if (!keys.length) return {};
+  const end = Math.floor(endTs);
+  const r = await getCached<Record<string, { ts: number; value: string }[]>>(
+    `at|${deviceId}|${keys.join(',')}|${Math.floor(end / 60e3)}`,
+    `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${encodeURIComponent(keys.join(','))}&startTs=${end - 30 * 86400e3}&endTs=${end}&agg=NONE&orderBy=DESC&limit=1`,
+    5 * 60e3,
+  );
+  const out: Latest = {};
+  for (const k of keys) {
+    const p = r?.[k]?.[0];
+    if (p && p.value !== null && p.value !== undefined && String(p.value) !== '') out[k] = { ts: p.ts, value: toNum(p.value) };
+  }
+  return out;
+}
+
+/**
  * How long `latest()` / `latestMany()` wait for a WebSocket subscription that is still being set up before
  * falling back to REST (D-022). Short enough that a slow socket costs little; long enough for the usual case.
  */

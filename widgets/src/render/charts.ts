@@ -31,6 +31,7 @@
  * heatmap(host, rows, cols, {bucketMs, colorOf, ...})  machines x time-bucket grid.
  */
 import { esc, fmtNum, fmtTime } from './theme';
+import * as fmt from '../core/datefmt';
 import type { ColorRule } from '../core/schema';
 import { matchRule } from './rules';
 
@@ -321,7 +322,7 @@ export function lineChart(host: HTMLElement, series: Series[], opts: LineOpts) {
     xh.setAttribute('x1', String(x(anyTs)));
     xh.setAttribute('x2', String(x(anyTs)));
     xh.style.display = '';
-    tip.innerHTML = `<div style="opacity:.7;margin-bottom:3px">${esc(new Date(anyTs).toLocaleString())}</div>${rows}`;
+    tip.innerHTML = `<div style="opacity:.7;margin-bottom:3px">${esc(fmt.dateTime(anyTs, { short: true }))}</div>${rows}`;
     placeTip(box, tip, px, ev.clientY - r.top);
   });
   svg.addEventListener('mouseleave', () => {
@@ -639,7 +640,7 @@ export function stateTimeline(host: HTMLElement, rows: TimelineRow[], o: { start
     const s = r?.segments[Number(t.getAttribute('data-k'))];
     if (!s) return void (tip.style.display = 'none');
     const br = box.getBoundingClientRect();
-    tip.innerHTML = `<div style="opacity:.7">${esc(r.label)}</div><b>${esc(s.label)}</b> · ${dur(s.end - s.start)}<div style="opacity:.7">${esc(new Date(s.start).toLocaleString())} – ${esc(new Date(s.end).toLocaleTimeString())}</div>`;
+    tip.innerHTML = `<div style="opacity:.7">${esc(r.label)}</div><b>${esc(s.label)}</b> · ${dur(s.end - s.start)}<div style="opacity:.7">${esc(fmt.range(s.start, s.end, { short: true }))}</div>`;
     placeTip(box, tip, ev.clientX - br.left, ev.clientY - br.top);
   });
   svg.addEventListener('mouseleave', () => (tip.style.display = 'none'));
@@ -675,7 +676,8 @@ export function heatmap(host: HTMLElement, rows: HeatRow[], cols: number[], o: {
   const m = { l: rows.length > 1 || rows[0]?.label ? labelW : 4, r: 2, t: 2, b: 16 };
   const cw = (W - m.l - m.r) / cols.length;
   const ch = Math.max(8, Math.min(40, (H - m.t - m.b) / rows.length));
-  const fmtT = (t: number) => new Date(t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  // D-061 (M2): the app's format; the day too when the columns span more than 36 h (a viewer's long window)
+  const fmtT = (t: number) => esc(fmtTime(t, cols.length * o.bucketMs));
   let g = '';
   rows.forEach((row, r) => {
     if (m.l > 4) g += `<text x="${m.l - 6}" y="${m.t + r * ch + ch / 2 + 3.5}" text-anchor="end" font-size="10" ${AX}>${esc(row.label.length > 22 ? row.label.slice(0, 21) + '…' : row.label)}</text>`;
@@ -684,7 +686,7 @@ export function heatmap(host: HTMLElement, rows: HeatRow[], cols: number[], o: {
     });
   });
   const yb = m.t + rows.length * ch + 12;
-  const every = Math.max(1, Math.ceil(46 / cw));
+  const every = Math.max(1, Math.ceil((cols.length * o.bucketMs > 36 * 3600e3 ? 78 : 46) / cw));
   cols.forEach((t, c) => {
     if (c % every === 0) g += `<text x="${m.l + c * cw}" y="${yb}" text-anchor="start" font-size="10" ${AX}>${fmtT(t)}</text>`;
   });
@@ -710,7 +712,7 @@ export function heatmap(host: HTMLElement, rows: HeatRow[], cols: number[], o: {
     if (!row || t.getAttribute('data-r') === null) return void (tip.style.display = 'none');
     const v = row.cells[c];
     const hr = host.getBoundingClientRect();
-    tip.innerHTML = `<div style="opacity:.7">${esc(row.label ? row.label + ' · ' : '')}${fmtT(cols[c])}–${fmtT(cols[c] + o.bucketMs)}</div>${v == null ? 'No data' : `<b>${fmtNum(v, o.decimals ?? 1)}</b> ${esc(o.unit ?? '')}`}`;
+    tip.innerHTML = `<div style="opacity:.7">${esc(row.label ? row.label + ' · ' : '')}${esc(fmt.range(cols[c], cols[c] + o.bucketMs, { short: true }))}</div>${v == null ? 'No data' : `<b>${fmtNum(v, o.decimals ?? 1)}</b> ${esc(o.unit ?? '')}`}`;
     placeTip(host, tip, ev.clientX - hr.left, ev.clientY - hr.top);
   });
   svg.addEventListener('mouseleave', () => (tip.style.display = 'none'));

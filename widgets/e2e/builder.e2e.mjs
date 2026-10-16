@@ -1049,6 +1049,146 @@ test('machine page header: one line; machine name as the title (D-038, with the 
   ok(upd.acts && upd.acts.left - upd.right <= 24 && upd.head - upd.acts.right <= 24 && Math.abs(upd.acts.top - upd.top) < 12, 'Updated, then the bar buttons, at the right end of the row');
 });
 
+test('D-061 Time window picker: presets, shifts, custom period, kept after reload, cards follow, own-window chip', async (t) => {
+  await t.page.close();
+  const s = await open('dev=pc&shell=1');
+  Object.assign(t, s);
+  // a dashboard with a 1 h window, a line chart with its own 4 h and a value tile (again after a reload: the fake
+  // ThingsBoard lives in the page)
+  const inject = () => t.b(() => {
+    const now = Date.now();
+    const d = { schemaVersion: 1, id: 'tw1', name: 'TW board', kind: 'device', profile: 'Compressor', version: 1, ownerId: 'u1', ownerName: 'A', updatedBy: 'u1', updatedAt: now, timeRange: '1h', copiedFrom: null,
+      widgets: [
+        { id: 'l1', type: 'line', title: 'TREND', x: 0, y: 0, w: 8, h: 4, binding: { mode: 'current' }, keys: ['powerKw'], settings: { timeRange: '4h' } },
+        { id: 'v1', type: 'value', title: 'POWER', x: 8, y: 0, w: 4, h: 2, binding: { mode: 'current' }, keys: ['powerKw'], settings: {} },
+      ] };
+    window.__tb.setAttrs('ASSET', 'store', { dbb_d_tw1: d });
+    window.__tb.setAttrs('DEVICE', 'pc', { dbb_assign: { dashboardId: 'tw1', mode: 'linked', by: 'u1', at: now } });
+    window.__tb.setAttrs('ASSET', 'store', { dbb_assign_rev: 'v' + now });
+    window.dispatchEvent(new Event('imex-dbb:changed'));
+  });
+  await inject();
+  await t.page.waitForFunction(() => /TREND/.test(document.querySelector('.dbb-rbody')?.textContent ?? ''), null, { timeout: 6000 });
+  await t.page.waitForTimeout(600);
+  const pill = () => t.b(() => ({ label: document.querySelector('.dbb-tw .v')?.textContent, title: document.querySelector('.dbb-tw')?.title, mine: document.querySelector('.dbb-tw .v')?.classList.contains('mine') }));
+  let p = await pill();
+  eq(p.label, 'Last hour', 'dashboard window named');
+  ok(/1 card has its own window/.test(p.title), `tooltip counts the own-window card: ${p.title}`);
+  eq(await t.b(() => document.querySelector('.dbb-gbox[data-id="l1"] .dbb-card-win')?.textContent), '4 h', 'the 4 h chart says so');
+  // the menu
+  await t.click('.dbb-tw');
+  await t.page.waitForSelector('.dbb-twmenu');
+  const items = await t.b(() => [...document.querySelectorAll('.dbb-twmenu [data-v] .t, .dbb-twmenu [data-custom] .t')].map((x) => x.textContent));
+  eq(items, ['Dashboard default', 'Last hour', 'Last 4 hours', 'Last 8 hours', 'Last 24 hours', 'Current shift', 'Previous shift', 'Custom…'], 'menu items');
+  ok(await t.b(() => document.querySelector('.dbb-twmenu [data-v="default"]').classList.contains('on')), 'default ticked');
+  await t.page.waitForTimeout(400);
+  const shiftRow = await t.b(() => ({ dis: document.querySelector('.dbb-twmenu [data-v="shift"]').getAttribute('aria-disabled'), sub: document.querySelector('.dbb-twmenu [data-v="shift"] .s').textContent }));
+  ok(shiftRow.dis === 'true' ? /No shifts set up|No shift/.test(shiftRow.sub) : !/Looking up/.test(shiftRow.sub), `shift row: ${JSON.stringify(shiftRow)}`);
+  await t.click('.dbb-twmenu [data-v="24h"]');
+  await t.page.waitForTimeout(500);
+  p = await pill();
+  eq([p.label, p.mine], ['Last 24 hours', true], 'pill names the choice');
+  eq(await t.b(() => document.querySelector('.dbb-gbox[data-id="l1"] .dbb-card-win')), null, 'chip gone: every card follows the choice');
+  const key = await t.b(() => Object.keys(localStorage).find((k) => k.startsWith('dbb-tw:')));
+  ok(key && key.endsWith(':pc'), `kept per user and machine (${key})`);
+  // kept after a reload
+  await t.page.reload();
+  await t.page.waitForFunction(() => document.querySelector('.dbb-tw .v')?.textContent === 'Last 24 hours', null, { timeout: 6000 });
+  ok(true, 'still Last 24 hours after reload');
+  await inject();
+  await t.page.waitForFunction(() => /TREND/.test(document.querySelector('.dbb-rbody')?.textContent ?? ''), null, { timeout: 6000 });
+  await t.page.waitForTimeout(400);
+  eq((await pill()).label, 'Last 24 hours', 'the choice applies to the dashboard loaded again');
+  // custom period: yesterday 6:00 AM to 2:00 PM
+  await t.click('.dbb-tw');
+  await t.click('.dbb-twmenu [data-custom]');
+  await t.page.waitForSelector('.dbb-twc:not([hidden]) .dbb-twc-g');
+  const y = await t.b(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 1);
+    return d.getTime();
+  });
+  // yesterday may be in the previous month
+  if (!(await t.b((y) => !!document.querySelector(`.dbb-twc [data-day="${y}"]`), y))) await t.click('.dbb-twc [data-m="-1"]');
+  await t.click(`.dbb-twc [data-day="${y}"]`);
+  await t.click(`.dbb-twc [data-day="${y}"]`);
+  await t.page.fill('.dbb-twc [data-t="from"]', '6:00 am');
+  await t.page.fill('.dbb-twc [data-t="to"]', '14:00');
+  await t.click('.dbb-twc [data-apply]');
+  await t.page.waitForTimeout(600);
+  p = await pill();
+  ok(/^\d{1,2} [A-Z][a-z]{2}, (6:00 AM|06:00) – (2:00 PM|14:00)$/.test(p.label), `custom label: ${p.label}`);
+  ok(/Not live · ended/.test(await t.page.textContent('.dbb-upd')), 'not live for a past period');
+  ok(/^\d{1,2} [A-Z][a-z]{2}, /.test((await t.page.textContent('.dbb-gbox[data-id="v1"] .dbb-value .s')) ?? ''), 'the value tile shows the reading time at the period end');
+  // a bad custom period is refused with the reason (the menu opens on the presets; Custom… shows the calendar)
+  await t.click('.dbb-tw');
+  await t.page.waitForSelector('.dbb-twmenu [data-custom].on');
+  ok(await t.b(() => document.querySelector('.dbb-twmenu .dbb-twc').hidden), 'presets first');
+  await t.click('.dbb-twmenu [data-custom]');
+  await t.page.waitForSelector('.dbb-twc:not([hidden])');
+  ok(await t.b(() => getComputedStyle(document.querySelector('.dbb-twmenu [data-v="1h"]')).display === 'none'), 'presets make way for the calendar');
+  await t.page.fill('.dbb-twc [data-t="to"]', '5:00 am');
+  await t.click('.dbb-twc [data-apply]');
+  ok(/after the start/.test(await t.page.textContent('.dbb-twc-err')), 'end before start refused');
+  await t.page.keyboard.press('Escape');
+  await t.page.waitForFunction(() => !document.querySelector('.dbb-twmenu'));
+  // back to the dashboard's window
+  await t.click('.dbb-tw');
+  await t.click('.dbb-twmenu [data-v="default"]');
+  await t.page.waitForTimeout(400);
+  p = await pill();
+  eq([p.label, p.mine], ['Last hour', false], 'default again');
+  eq(await t.b(() => Object.keys(localStorage).filter((k) => k.startsWith('dbb-tw:')).length), 0, 'choice forgotten');
+});
+
+test('D-061 value tiles: a value too wide is drawn smaller or cut with its full text on hover; the Builder warns', async (t) => {
+  await t.page.close();
+  const s = await open('dev=pc');
+  Object.assign(t, s);
+  await t.b(() => {
+    const now = Date.now();
+    const d = { schemaVersion: 1, id: 'fit1', name: 'Fit board', kind: 'device', profile: 'Compressor', version: 1, ownerId: 'u1', ownerName: 'A', updatedBy: 'u1', updatedAt: now, timeRange: 'realtime', copiedFrom: null,
+      widgets: [
+        { id: 'n1', type: 'value', title: 'A very long title for a narrow tile', x: 0, y: 0, w: 1, h: 3, binding: { mode: 'current' }, keys: ['powerKw'], settings: { style: { valueSize: 60 } } },
+        { id: 'n2', type: 'value', title: 'Wide', x: 1, y: 0, w: 6, h: 3, binding: { mode: 'current' }, keys: ['powerKw'], settings: {} },
+      ] };
+    window.__tb.setAttrs('ASSET', 'store', { dbb_d_fit1: d });
+    window.__tb.setAttrs('DEVICE', 'pc', { dbb_assign: { dashboardId: 'fit1', mode: 'linked', by: 'u1', at: now } });
+    window.__tb.setAttrs('ASSET', 'store', { dbb_assign_rev: 'v' + now });
+    window.dispatchEvent(new Event('imex-dbb:changed'));
+  });
+  await t.page.waitForFunction(() => document.querySelector('.dbb-gbox[data-id="n1"] .dbb-value .v'), null, { timeout: 6000 });
+  await t.page.waitForTimeout(400);
+  const r = await t.b(() => {
+    const v = document.querySelector('.dbb-gbox[data-id="n1"] .dbb-value .v');
+    const line = v.parentElement.getBoundingClientRect();
+    const host = v.parentElement.parentElement.getBoundingClientRect();
+    return { fs: parseFloat(getComputedStyle(v).fontSize), fits: line.width <= host.width + 1 || v.classList.contains('cut'), tip: v.title, fit: v.closest('.dbb-card').dataset.fit, title: document.querySelector('.dbb-gbox[data-id="n1"] .dbb-card-t').title,
+      wide: parseFloat(getComputedStyle(document.querySelector('.dbb-gbox[data-id="n2"] .dbb-value .v')).fontSize) };
+  });
+  ok(r.fs < 60, `narrow value drawn smaller (${r.fs}px)`);
+  ok(r.fits, 'it fits (or is cut)');
+  ok(r.tip.length > 0, `full value on hover (${r.tip})`);
+  ok(r.fit === 'tight' || r.fit === 'cut', `marked ${r.fit}`);
+  eq(r.title, 'A very long title for a narrow tile', 'full title on hover');
+  eq(r.wide, 30, 'a tile with room keeps its size');
+  // the Builder (same two tiles on its canvas): badge on the box and a note in the Widget tab
+  await t.page.close();
+  Object.assign(t, await open('page=builder&dev=pc'));
+  await t.b(() => window.__b.mutate((d) => (d.widgets = [
+    { id: 'n1', type: 'value', title: 'A very long title for a narrow tile', x: 0, y: 0, w: 1, h: 3, binding: { mode: 'current' }, keys: ['powerKw'], settings: { style: { valueSize: 60 } } },
+    { id: 'n2', type: 'value', title: 'Wide', x: 1, y: 0, w: 6, h: 3, binding: { mode: 'current' }, keys: ['powerKw'], settings: {} },
+  ])));
+  await t.page.waitForFunction(() => document.querySelector('.dbb-canvas .dbb-gbox[data-id="n1"]'), null, { timeout: 8000 });
+  await t.page.waitForFunction(() => document.querySelector('.dbb-canvas .dbb-gbox[data-id="n1"]')?.classList.contains('fitwarn'), null, { timeout: 6000 });
+  ok(/too narrow|narrow for its value/.test(await t.b(() => document.querySelector('.dbb-canvas .dbb-gbox[data-id="n1"] .dbb-gwarn').title)), 'badge tooltip');
+  await t.page.click('.dbb-canvas .dbb-gbox[data-id="n1"] .dbb-card', { timeout: 4000 });
+  await t.page.waitForTimeout(300);
+  ok(/Make the tile wider/.test(await t.b(() => document.querySelector('.dbb-right [data-fitwarn]')?.textContent ?? '')), 'note in the Widget tab');
+  eq(await t.b(() => document.querySelector('.dbb-canvas .dbb-gbox[data-id="n2"]').classList.contains('fitwarn')), false, 'no badge on the wide tile');
+});
+
 test('machine page follows a machine picked in an app navbar (URL-only state change)', async (t) => {
   await t.page.close();
   const s = await open('dev=pc');

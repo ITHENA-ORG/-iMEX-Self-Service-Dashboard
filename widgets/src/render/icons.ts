@@ -57,6 +57,8 @@ export const UI_ICON: Record<string, string> = {
   edit: S('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
   chev: S('<path d="M9 6l6 6-6 6"/>'),
   tick: S('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  /** D-061: a write the role may not use (Create ticket for a view-only role). */
+  lock: S('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
 };
 
 /** Tooltips of the title icons in the Style tab where the internal name is not the app's word (D-058: "alarm"). */

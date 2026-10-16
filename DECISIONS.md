@@ -790,3 +790,60 @@ A full read-only security review of widgets/src and the chat relay, then fixes, 
   built-in role gets that built-in's default level for any later page it has no stored level for (a
   stored level, Hidden included, still wins); custom roles keep new pages hidden and newKeys(role) lists
   them for the role editor. Vectors byte-identical with App UI tests/perm-vectors.json.
+
+### D-061 Machine page: a real Time window picker (H3), the app's date format (M2), tiles that fit (M10), Create ticket for view-only roles (A-046), 16 Oct 2026 (usability round 5, coordinator for Akshay)
+- **Why (audit H3):** the bar said "Time window · Last 1 hour" while the trend showed 4 h (the card's own stored range),
+  and the pill looked clickable but did nothing. **M2:** five date formats incl. numeric D/M ("16/10/2026, 4:57:07 AM"
+  in chart tooltips). **M10:** the LOCAL Compressor dashboard had a 1-column "Alert Status" tile reading "Norm",
+  "Compressor Loaded H…", and both Alarm Status and Alert Status. **A-046:** the ticket service now refuses view-only
+  roles (403 "Your role can view only"); the bar's Create ticket must not lead there.
+- **Time window picker** (`entries/timepicker.ts` new, `core/viewwindow.ts` new, `entries/renderer.ts`): the pill is a
+  button; its menu (the bar menu's look, `.dbb-rmenu.dbb-twmenu`): Dashboard default (named) · Last hour / 4 / 8 / 24
+  hours · Current shift / Previous shift (each with the shift it shows, from `core/shifts.ts calendarFor` = the same
+  imexShifts chain the App UI's shift directory reads; greyed out with the reason when none) · Custom… (month
+  calendar, Monday first, start / end day, free-typed times "6:30 am" / "18:30" shown back in the app clock; 5 min to
+  7 days, start within a year; the presets make way for the calendar so it fits 768 px). Labels = the app's preset
+  words (imxShell.rangePresets: "Last hour", "Last 4 hours" …; 8 h added, the Builder's longest stored range).
+  The choice is kept per user and page in localStorage (`dbb-tw:<userId>:<deviceId>` or `:d:<dashboardId>`), survives a
+  reload, and "Dashboard default" forgets it. No choice = the dashboard's window, as before.
+- **Truthful label:** with a choice EVERY card follows it (`RenderEnv.view` overrides the dashboard's and the card's own
+  range; Grid.setEnv redraws in place). Without one, a time-based card with its own stored range shows a chip in its
+  title row ("4 h", tooltip: its window and how to show every card for the same period) and the pill's tooltip counts
+  them (`ownWindowCards`). The pill's value is outlined when it is the viewer's choice. Previous shift reads "Previous
+  shift · Night · 6:00 PM–6:00 AM". The pill's tooltip is put away while its menu is open.
+- **Values follow too:** a window that has ended (previous shift, a past custom period) shows the last value before its
+  end in value / gauge / status / progress / KPI / multi-value / table tiles and Summary's "At end" cell
+  (`api.latestAt`: agg NONE, DESC, limit 1 per key, 30 days back, 5 min cache); sub-lines show the reading time
+  ("15 Oct, 1:59 PM") instead of "9s ago"; status Offline is judged at the window end; the bar says "Not live · ended
+  15 Oct, 2:00 PM" instead of "Updated …". KPI comparison text follows the window ("vs 8 h ago", "vs the window start").
+  So no card type is left that cannot follow; text-widget {{key}} placeholders stay live values (as before).
+  Note: a dashboard saved with the Previous shift range now shows end-of-shift values in its value tiles (was: live).
+- **Longer windows:** raw reads (state donut / timeline) page `rawLimit` = max(5000, span / 8 s) ≤ 100 000; bar charts
+  over 2 days group per day; heatmap labels add the day over 36 h. With a choice the safety redraw is every 60 s
+  (pushes still redraw windows that end now).
+- **Analyzer button carries the window:** `imxFrom` / `imxTo` (ms) of the window shown at click time (rolling windows
+  resolved then), with the existing selectedEquipment + key list, never a top-level entityId. LOCAL: Last 8 hours →
+  Analyzer on Compressor 1, 3:00 AM–11:00 AM (8.00 h).
+- **Create ticket (A-046):** `mayWrite(ctx)` = tenant admin or a role with at least one page at Full (the AI pages'
+  AIML.canWrite / the service's can_write). Otherwise the button is shown locked (lock icon, aria-disabled, tooltip
+  "Your role can view only") and opens nothing.
+- **Dates (M2, `core/datefmt.ts` new):** `imxShell.fmt` when the page has it (feature-detected), else a TypeScript copy
+  with the same output: "16 Oct 2026, 4:57 AM", short "16 Oct, 4:57 AM", 12 / 24 h from the app clock
+  (imxShell.hour12 → __imxClockFns → browser). Used by chart axes (`theme.fmtTime` → `datefmt.axis`), line / timeline /
+  heatmap tooltips, bar labels, the alarm list, text {{date}} / {{time}}, shift texts, the ticket text, the "Newest data
+  point" tooltip, the Builder's Open dialog and Version history, the start screen / Dashboard list dates (were numeric).
+- **Tiles that fit (M10):** `render/widgets.ts fitValue` after every draw: a value / KPI / progress value or status pill
+  wider than its tile is drawn smaller (≥ 12 px; pill ≥ 10 px), else cut with an ellipsis; the full value is its
+  tooltip; card titles always carry their full text as tooltip. Below 60 % of its size or cut = `dbb-fit` event → the
+  Builder's canvas box gets an amber warning badge and the Widget tab a note ("… Make the tile wider.", `fitWarning`).
+- **LOCAL data (M10):** "Compressor dashboard" (`dbb_d_dmul0xrqjowcwg`, v18 → v19, the previous version in its Version
+  history; backup `backups/2026-10-16/dbb_d_dmul0xrqjowcwg.before-d061.json`): the 1-column "Alert Status" tile removed,
+  Parameter Overview = Alarm Status, Load Status, Run Status (one alarm status), new layout (KPI 3 / Summary 6 / Loaded
+  Hours 3; gauges 3 + 3 / Multi-value 6; Parameter Overview 3 / trend 6 / Inlet Air Temperature 3). Script
+  `scratch/r5/fix-compressor.mjs` (git-ignored). The trend keeps its own 4 h (now marked "4 h").
+- **Tests:** `widgets/test/viewwindow.test.ts` (new, 23: datefmt fallback + shell delegation, presets / labels / windows /
+  ended / custom checks / storage, parseTime, pill words, own-window count, mayWrite, latestAt, rawLimit). 300 unit.
+  E2E +2 (picker: menu items, shift rows, choice + chip, kept after reload, custom period, refused period, default
+  again; tiles: shrink / tooltip / Builder badge + note). Deployed to LOCAL (deploy-node --go, backups
+  `backups/2026-10-16/d061/`); verified on Compressor 1 at 1440×900 and 1366×768, light and dark, admin and viewer
+  (screens: App UI repo `screens/round3/dbb-r5/`). Not on the server.

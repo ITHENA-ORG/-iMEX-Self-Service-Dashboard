@@ -20,6 +20,7 @@ import * as scope from './scope';
 import type { UserContext } from './scope';
 import { calendar, isValidTimeZone, offset } from './shiftcal';
 import type { ShiftCalendar } from './shiftcal';
+import * as dfmt from './datefmt';
 
 const TTL = 5 * 60e3;
 
@@ -164,9 +165,9 @@ export function shiftWindowText(win: ShownWindow | null | undefined, tz = 'UTC')
   const { name, start, end } = win.shift;
   const t = (ts: number) => {
     try {
-      return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: tz });
+      return dfmt.time(ts, { tz }); // D-061 (M2): the app's format and clock
     } catch {
-      return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      return dfmt.time(ts);
     }
   };
   let where = '';
