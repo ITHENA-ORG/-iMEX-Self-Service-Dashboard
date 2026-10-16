@@ -151,6 +151,16 @@ html[data-imx-mode="dark"] .dbb-rm-hr{background:var(--imx-skel1,#1C2639)}
 html[data-imx-mode="dark"] .dbb-rmenu button:hover{background:var(--imx-pt,#17243F)}
 html[data-imx-mode="dark"] .dbb-rmenu button.on,html[data-imx-mode="dark"] .dbb-rmenu button.pri{color:var(--imx-p2,#9EC5F4)}
 html[data-imx-mode="dark"] .dbb-rmenu button.danger{color:var(--imx-bad-tx,#FCA5A5)}
+/* D-063: "?" Help for this page at the right end of the bar (the App UI page header's button: 36 x 36, 18 px icon); on the
+   app's dark page banner (html.imx-menu-shift) the page header's colours, in light and dark mode alike */
+.dbb-rhelp{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;margin:-4px 0;border-radius:10px;color:var(--ink-3);cursor:pointer;transition:background-color .14s ease,color .14s ease}
+.dbb-rhelp svg{flex:none;width:18px;height:18px}
+.dbb-rhelp:hover{background:var(--hover);color:var(--ink)}
+.dbb-rhelp:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 60%,transparent);outline-offset:1px}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rhelp{color:rgba(219,229,245,.82)}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rhelp:hover{background:rgba(255,255,255,.12);color:#FFFFFF}
+html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rhelp:focus-visible{outline:2px solid rgba(255,255,255,.7);outline-offset:1px}
+.dbb-rhelp[hidden],html.imx-mobile .dbb-rhelp{display:none !important}
 .dbb-rhead-skel{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 .dbb-rhead-skel .imx-skel{flex:none;height:14px}
 .dbb-dark .dbb-rhead-skel .imx-skel{--imx-skel1:rgba(255,255,255,.07);--imx-skel2:rgba(255,255,255,.13)}
@@ -231,6 +241,32 @@ export function dashHasState(tbCtx: any, id: string): boolean {
     return !(states && typeof states === 'object' && Object.keys(states).length && !states[id]);
   } catch {
     return true;
+  }
+}
+
+/** D-063: the App UI's Help state and its "?" glyph (imex_page_header: 18 px, stroke 2). */
+export const HELP_STATE = 'help';
+const HELP_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"></circle><path d="M9.2 9.2a2.9 2.9 0 0 1 5.6 1c0 2-2.8 2.6-2.8 4.1"></path><path d="M12 17.6h.01"></path></svg>';
+/**
+ * D-063: the page the bar's "?" names to Help (its `helpFrom`), as the App UI's page header: the current state id
+ * (`fallback` when it cannot be read); null = no "?": the dashboard has no Help state (a state list that cannot be
+ * read counts as no, unlike dashHasState), or this is the Help page.
+ */
+export function helpFrom(tbCtx: any, fallback: string): string | null {
+  try {
+    const sc = tbCtx?.stateController;
+    const states = sc && (sc.states ?? sc.statesValue);
+    if (!(states && typeof states === 'object' && states[HELP_STATE])) return null;
+    let at = '';
+    try {
+      at = sc.getStateId?.() || '';
+    } catch {
+      /* the fallback */
+    }
+    at = at || fallback;
+    return at === HELP_STATE ? null : at;
+  } catch {
+    return null;
   }
 }
 
@@ -639,6 +675,7 @@ export function init(tbCtx: any) {
       <div class="dbb-crumb" title="${esc(where)}${dash ? ` · Dashboard: ${esc(dash.name)}` : ''}">${esc(where)}${dash ? `<span class="dbb-crumb-d"> · ${esc(dash.name)}</span>` : ''}</div>
       <span class="dbb-status-pill" style="--pill:${STATUS.neutral}"><span class="dbb-dot"></span>…</span>
       <div class="dbb-rright">${timeHtml(range, st.view, st.own)}<span class="dbb-ract"></span></div>`;
+    helpButton('machine'); // D-063
     st.status = undefined;
     wirePill(ctx, deviceId);
     shiftLabel(ctx, deviceId);
@@ -746,6 +783,45 @@ export function init(tbCtx: any) {
       }).catch((e: any) => toast(root, `Could not open the Dashboard Builder: ${e?.message ?? e}`, 'err'));
     b.addEventListener('click', () => openBarMenu(b, { acts, onNew: (x) => builder(x, true), onBuilder: (x) => builder(x, false) }));
     box.appendChild(b);
+  }
+
+  /**
+   * D-063: "?" Help for this page, the last item of the bar (the App UI page header's button, U-062 / U-066): opens the
+   * app's Help page told which page it was opened from (state 'help' with { helpFrom: the current state id }, as the
+   * side menu's Help does), with the app's page bar until the Help page is ready (key 'nav' + window.__imxNav, which
+   * the next page's side menu settles). Not when the dashboard has no Help state, and not on a phone (html.imx-mobile).
+   * `fallback`: the state id to name when the current one cannot be read.
+   */
+  function helpButton(fallback: string) {
+    if (isMobileApp() || !helpFrom(tbCtx, fallback)) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dbb-rhelp';
+    b.dataset.imxTip = 'Help for this page';
+    b.setAttribute('aria-label', 'Help for this page');
+    b.innerHTML = HELP_SVG;
+    b.addEventListener('click', () => {
+      const at = helpFrom(tbCtx, fallback);
+      if (!at) return;
+      const w = window as any;
+      const bar = (on: boolean) => {
+        try {
+          window.dispatchEvent(new CustomEvent('imx-progress', { detail: { key: 'nav', on, max: 15000 } }));
+        } catch {
+          /* very old browser */
+        }
+      };
+      w.__imxNav = { at: Date.now(), to: HELP_STATE };
+      bar(true);
+      try {
+        tbCtx.stateController.openState(HELP_STATE, { helpFrom: at }, false);
+      } catch (x) {
+        w.__imxNav = null;
+        bar(false);
+        console.warn('[dbb] help', x);
+      }
+    });
+    head.appendChild(b);
   }
 
   /**
@@ -879,6 +955,7 @@ export function init(tbCtx: any) {
     st.own = ownWindowCards(d.widgets, range);
     // D-058: the time window and the bar buttons as one group at the right end, as on the machine page
     head.innerHTML = `<div class="dbb-rtitle">${esc(d.name)}</div><div class="dbb-rright">${timeHtml(range, st.view, st.own)}<span class="dbb-ract"></span></div>`;
+    helpButton('dashboard_overview'); // D-063
     wirePill(ctx, null);
     shiftLabel(ctx, null);
     ensureGrid(ctx, null, range, d.theme).render(d.widgets);

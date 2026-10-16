@@ -852,3 +852,34 @@ A full read-only security review of widgets/src and the chat relay, then fixes, 
 - The bar's "Analyzer" button needed only the role; the end-to-end licence test found it still shown with the
   analyzer module unlicensed (its target route was refused by the side menu). It now also needs
   licHas('analyzer'); the phone dashboard's Trend button (state 'trend') stays core.
+
+### D-063 "?" Help for this page on the machine page bar and the Dashboard Overview bar, 16 Oct 2026 (coordinator, Akshay's "finish everything ? related work")
+- **Why:** the App UI put a "?" (Help for this page) on every page banner (U-062 page header, U-066 banner pages); the
+  two banners this repo draws (the renderer's machine bar and the bar of a dashboard opened from Dashboards) had none.
+- **What** (`entries/renderer.ts`): `helpButton(fallback)` adds `.dbb-rhelp` as the last item of the bar, after the
+  time window / Updated / Analyzer / Create ticket / Edit dashboard group: the App UI page header's button (36 × 36,
+  radius 10, the same 18 px "?" glyph, `data-imx-tip` + aria-label "Help for this page"); on the app's dark banner
+  (html.imx-menu-shift) the page header's colours (rgba(219,229,245,.82), hover rgba(255,255,255,.12) / white, focus
+  ring rgba(255,255,255,.7)) in light and dark mode alike; outside the app the bar's own tokens. Click: as the App UI
+  (`imxHelpButton`): `window.__imxNav = {at, to:'help'}`, page bar key 'nav' (imx-progress, max 15 s; the next page's
+  side menu settles it), `openState('help', {helpFrom: <current state id>}, false)`. `helpFrom(tbCtx, fallback)`
+  (exported): the current state id (fallback 'machine' / 'dashboard_overview' when it cannot be read); null = no "?"
+  when the dashboard has no 'help' state (an unreadable state list counts as no) or on the Help page. Not on a phone
+  (html.imx-mobile; also hidden by CSS). Not on the no-access / error / placeholder headers.
+- **Layout:** the existing buttons are unchanged (icon-only at ≤ 1100 px as before). The machine bar was already two rows
+  in the app at 1100 / 1366 / 1440 (title, path, status; then the time window group); the "?" ends the second row.
+  The Dashboard Overview bar stays one row. No overflow at any of the three widths (measured).
+- **Help mapping (App UI, not changed here):** helpFrom 'dashboard_overview' → topic Dashboards (find / read / kinds /
+  edit / machine page / machine bar guides first: right). helpFrom 'machine' → topic Machines (states listing +
+  machine): its first six guides are about the machine LIST (find, cards, Analyzer trend, views, board, line); the
+  machine page's own guides (dashboards-read, dashboards-machine-time-window, dashboards-machine-bar,
+  dashboards-machine-page, machines-open) are not offered first. Needs a per-state choice in the Help content (coordinator).
+- **Tests:** `widgets/test/barkeys.test.ts` +3 (helpFrom: names the state, fallback, null without Help / unreadable /
+  on Help) = 303 unit. E2E +1 (harness `?help=1`: states list with 'help' + 'analytics', `window.__stateParams`):
+  36 × 36 / 18 px / last / tooltip / banner colour / right of every item, no overflow at 1440 and 1100 (buttons still
+  icon-only), click → state 'help' {helpFrom:'machine'}; Dashboard Overview from the list → {helpFrom:
+  'dashboard_overview'}; none without a Help state; none on a phone. Full suite: 79 scenarios, all passed; typecheck clean.
+- **LOCAL:** deployed (deploy-node --go; backups `backups/2026-10-16/d063/`), dbb_lib_version 2026-10-16T10:20:09.310Z.
+  Checked with `scratch/d063-check.mjs` (read-only) on Compressor 1 and "All Plants Across the Globe" opened from the
+  Dashboards list, light + dark, 1440×900 / 1366×768 / 1100×800: tooltip "Help for this page"; the click lands on Help
+  with "Help for the page you were on: Dashboards" / "Machines". Not on the server.

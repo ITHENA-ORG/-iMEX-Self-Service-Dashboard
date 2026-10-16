@@ -2292,6 +2292,70 @@ test('D-058: Dashboards page: New dashboard and Open Dashboard Builder at the to
   eq(await t.b(() => !!document.querySelector('#dl-host .dbb-dl')), true, 'the list is still drawn');
 });
 
+test('D-063: "?" Help for this page at the right end of the machine bar and the Dashboard Overview bar; opens Help with helpFrom; hidden without Help and on a phone', async (t) => {
+  await t.page.close();
+  Object.assign(t, await open('dev=pc&shell=1&help=1'));
+  await t.page.setViewportSize({ width: 1440, height: 900 });
+  await t.page.waitForSelector('.dbb-rhead .dbb-rhelp');
+  await t.page.waitForTimeout(400);
+  const geo = () =>
+    t.b(() => {
+      const h = document.querySelector('.dbb-rhead');
+      const b = h.querySelector('.dbb-rhelp');
+      const r = b.getBoundingClientRect();
+      const others = [...h.querySelectorAll('.dbb-rbtn, .dbb-tw')].map((x) => x.getBoundingClientRect());
+      const s = getComputedStyle(b);
+      return {
+        last: h.lastElementChild === b,
+        w: r.width,
+        h: r.height,
+        svg: b.querySelector('svg').getBoundingClientRect().width,
+        tip: b.getAttribute('data-imx-tip'),
+        aria: b.getAttribute('aria-label'),
+        color: s.color,
+        rightmost: others.every((o) => o.right <= r.left + 1 && Math.abs(o.top + o.height / 2 - (r.top + r.height / 2)) < 20),
+        fits: h.scrollWidth <= h.clientWidth + 1,
+        iconOnly: [...h.querySelectorAll('.dbb-rbtn span')].every((x) => getComputedStyle(x).display === 'none'),
+      };
+    });
+  let g = await geo();
+  ok(g.last && g.w === 36 && g.h === 36 && g.svg === 18, `36 x 36, 18 px icon, last in the bar: ${JSON.stringify(g)}`);
+  eq([g.tip, g.aria], ['Help for this page', 'Help for this page'], 'tooltip and label');
+  eq(g.color, 'rgba(219, 229, 245, 0.82)', 'the page header colour on the banner');
+  ok(g.rightmost && g.fits, `right of every other bar item, same row, no overflow: ${JSON.stringify(g)}`);
+  await t.page.setViewportSize({ width: 1100, height: 800 });
+  await t.page.waitForTimeout(300);
+  g = await geo();
+  ok(g.iconOnly && g.fits && g.rightmost, `1100 px: the bar buttons stay icon-only, the "?" at the right end: ${JSON.stringify(g)}`);
+  await t.click('.dbb-rhelp');
+  await t.page.waitForTimeout(200);
+  eq(await t.b(() => [window.__stateId(), window.__stateParams()]), ['help', { helpFrom: 'machine' }], 'opens Help told it came from the machine page');
+  // the Dashboard Overview page (a dashboard opened from the Dashboards list)
+  await t.page.close();
+  Object.assign(t, await open('dev=pc&shell=1&help=1'));
+  await seedStandalone(t, 7);
+  await t.page.click('#nav .dbb-launch-btn');
+  await t.page.click('.dbb-emenu [data-m="__list"]');
+  await t.page.click('.dbb-dl [data-open="sa7"]');
+  await t.page.waitForFunction(() => /SA VALUE 7/.test(document.querySelector('.dbb-rbody')?.textContent ?? ''), null, { timeout: 5000 });
+  await t.page.waitForSelector('.dbb-rhead .dbb-rhelp');
+  ok(await t.b(() => document.querySelector('.dbb-rhead').lastElementChild.classList.contains('dbb-rhelp')), 'the "?" ends the Dashboard Overview bar');
+  await t.click('.dbb-rhelp');
+  await t.page.waitForTimeout(200);
+  eq(await t.b(() => [window.__stateId(), window.__stateParams()]), ['help', { helpFrom: 'dashboard_overview' }], 'opens Help told it came from the Dashboard Overview page');
+  // no Help state on the dashboard: no "?"; a phone: no "?"
+  await t.page.close();
+  Object.assign(t, await open('dev=pc&shell=1'));
+  await t.page.waitForSelector('.dbb-rhead .dbb-status-pill');
+  await t.page.waitForTimeout(600);
+  ok(!(await t.page.$('.dbb-rhelp')), 'no "?" when the dashboard has no Help page');
+  await t.page.close();
+  Object.assign(t, await open('dev=pc&shell=1&help=1&mobile=1'));
+  await t.page.waitForSelector('.dbb-rhead .dbb-status-pill');
+  await t.page.waitForTimeout(600);
+  ok(!(await t.page.$('.dbb-rhelp')), 'no "?" on a phone');
+});
+
 // ------------------------------------------------------------------ run
 
 const only = process.argv.slice(2).map((s) => s.toLowerCase());

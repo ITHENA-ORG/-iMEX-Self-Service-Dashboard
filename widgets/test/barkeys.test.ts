@@ -61,3 +61,25 @@ describe('dashHasState', () => {
     expect(dashHasState({ stateController: { states: {} } }, 'x')).toBe(true);
   });
 });
+
+import { helpFrom, HELP_STATE } from '../src/entries/renderer';
+describe('helpFrom (D-063: the bar\'s "?" Help for this page)', () => {
+  const sc = (states: any, id?: any) => ({ stateController: { states, getStateId: () => id } });
+  it('names the current state when the dashboard has the Help state', () => {
+    expect(HELP_STATE).toBe('help');
+    expect(helpFrom(sc({ help: {}, machine: {} }, 'machine'), 'machine')).toBe('machine');
+    expect(helpFrom(sc({ help: {}, dashboard_overview: {} }, 'dashboard_overview'), 'machine')).toBe('dashboard_overview');
+    expect(helpFrom({ stateController: { statesValue: { help: {} }, getStateId: () => 'machine_view' } }, 'machine')).toBe('machine_view');
+  });
+  it('falls back to the given page when the state id cannot be read', () => {
+    expect(helpFrom(sc({ help: {} }, ''), 'dashboard_overview')).toBe('dashboard_overview');
+    expect(helpFrom({ stateController: { states: { help: {} }, getStateId: () => { throw new Error('x'); } } }, 'machine')).toBe('machine');
+  });
+  it('is null without a Help state, when the state list cannot be read, and on the Help page itself', () => {
+    expect(helpFrom(sc({ machine: {} }, 'machine'), 'machine')).toBeNull();
+    expect(helpFrom(sc(undefined, 'machine'), 'machine')).toBeNull();
+    expect(helpFrom({}, 'machine')).toBeNull();
+    expect(helpFrom(null, 'machine')).toBeNull();
+    expect(helpFrom(sc({ help: {} }, 'help'), 'machine')).toBeNull();
+  });
+});

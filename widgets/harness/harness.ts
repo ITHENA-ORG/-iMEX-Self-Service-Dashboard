@@ -150,14 +150,19 @@ let state: any = BENCH ? { dbbDashboardId: 'bench' } : { entityId: { id: new URL
 };
 // States of the fake app dashboard; ?noOverview=1 simulates an app without the Dashboard Overview state.
 const states = ['default', 'listing', 'machine', ...(new URLSearchParams(location.search).get('noOverview') ? [] : ['dashboard_overview'])];
+// ?help=1 (D-063): the app's Help page and Analyzer exist, and the state list can be read (stateController.states)
+const withHelp = new URLSearchParams(location.search).has('help');
+if (withHelp) states.push('help', 'analytics');
 let stateId = 'machine';
 (window as any).__stateId = () => stateId;
+(window as any).__stateParams = () => state;
 const mk = (sel: string, settings: any) => ({
   $container: [document.querySelector(sel)],
   settings,
   stateController: {
     getStateParams: () => state,
     getStateId: () => stateId,
+    ...(withHelp ? { states: Object.fromEntries(states.map((x) => [x, { name: x }])) } : {}),
     // Like ThingsBoard: opening an unknown state does nothing.
     openState: (s: string, p: any) => {
       if (!states.includes(s)) return;
