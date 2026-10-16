@@ -50,3 +50,4 @@ Newest first. One row per change; details in `DECISIONS.md`. Rows that also belo
 | 2026-10-05 | (D-038) | ◆ Machine page header starts with the machine name as the title, then org › site · dashboard name | `widgets/src/entries/renderer.ts` |
 | 2026-10-05 | (D-035) | Local copy: long-lived local authToken script; read-only screenshots of the server | `scripts/mirror/local-authtoken.mjs`, `scripts/mirror/shots-source.mjs` |
 | 2026-10-16 | (D-060) | Role catalogue: built-in roles follow later pages (BASE_KEYS, newKeys) — synced with App UI U-059 | `widgets/src/core/perm.ts`, `widgets/test/perm.test.ts` |
+| 2026-10-16 | (D-062) | Machine-page Analyzer button also needs the analyzer licence | `widgets/src/entries/renderer.ts` |

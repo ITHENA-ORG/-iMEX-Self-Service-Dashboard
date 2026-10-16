@@ -847,3 +847,8 @@ A full read-only security review of widgets/src and the chat relay, then fixes, 
   again; tiles: shrink / tooltip / Builder badge + note). Deployed to LOCAL (deploy-node --go, backups
   `backups/2026-10-16/d061/`); verified on Compressor 1 at 1440×900 and 1366×768, light and dark, admin and viewer
   (screens: App UI repo `screens/round3/dbb-r5/`). Not on the server.
+
+### D-062 Machine-page Analyzer button follows the analyzer licence, 16 Oct 2026 (E2E licence proof, coordinator)
+- The bar's "Analyzer" button needed only the role; the end-to-end licence test found it still shown with the
+  analyzer module unlicensed (its target route was refused by the side menu). It now also needs
+  licHas('analyzer'); the phone dashboard's Trend button (state 'trend') stays core.

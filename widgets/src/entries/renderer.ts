@@ -53,7 +53,7 @@ import { openBuilder } from '../builder/builder';
 import { BUILDER_CSS } from '../builder/styles';
 import { modal, confirmModal, toast } from '../builder/ui';
 import { audit } from '../core/audit';
-import { mayBuild, builderLicensed, onLicenceChange } from '../core/licence';
+import { mayBuild, builderLicensed, onLicenceChange, licHas } from '../core/licence';
 import { userContextFor, currentEntity, currentParam, RSTATE_KEY, CHANGED_EVENT, notifyChanged, publishActions, EditAction, EditActions, scheduleRedraw, liveLend, liveRelease, pageGate, NO_ACCESS_HTML, isMobileApp } from './common';
 
 const R_CSS = `
@@ -767,7 +767,7 @@ export function init(tbCtx: any) {
     // (the phone dashboard has no Analyzer).
     const target = analyzerTarget(tbCtx.settings?.analyzerState, deviceId, node, []).state;
     const trend = target === 'trend';
-    if (dashHasState(tbCtx, target) && (trend || ctx.perms.page('analyzer') !== 'hidden')) {
+    if (dashHasState(tbCtx, target) && (trend || (ctx.perms.page('analyzer') !== 'hidden' && licHas('analyzer')))) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'dbb-rbtn dbb-ran';
