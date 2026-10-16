@@ -99,6 +99,8 @@ node widgets/deploy/deploy-node.mjs --go   # deploys
 node widgets/deploy/check-tb.mjs           # read-only: what is deployed (builds, states, relay, store, key set/empty)
 ```
 
+**Server (chat relay chain only).** `node widgets/deploy/deploy-node.mjs --target=server --go-ahead="iMEX - AI Features" [--base=<file>] [--go]` updates only the existing rule chain "DBB Chat relay (POC)" on the server tenant (`TGT_TB_*` in `.env`; the widgets go through `scripts/mirror/push-widgets-target.mjs`). It keeps the LLM config asset the server's store already uses (relation `UsesLlmConfig`; never creates or writes one), needs the keeper chain (App UI `relay.mjs --install`), and merges 3-way by node name against what it last deployed (`mirror-data/target-chat-chain.json`, written after each `--go`; `--base=<file>` for the first run), so the developers' hand edits on the server stay; a node changed on both sides stops the run until `--take-ours=<node,...>` or `--keep-server=<node,...>`. Dry run by default, with the diff. Offline selftest: `node --test widgets/deploy/chat-chain-selftest.mjs`.
+
 ### Option B: manual import (no console scripting)
 
 1. Import `widgets/dist/widget-types/imex_dbb_launcher.json` and `imex_dbb_renderer.json` into a widget bundle.

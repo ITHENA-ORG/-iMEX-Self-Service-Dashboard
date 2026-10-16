@@ -53,64 +53,25 @@
 // can find them. Only the DashboardStore profile is checked for the marker before reuse; the rule chain,
 // bundle, widget types and dashboard are matched by name/fqn and updated without that check.
 //
-// Returns {log, dashboardId, storeId, ruleChainId, bundleId}. Throws on the first failing REST call.
-window.DBB_DEPLOY = async function (opts) {
-  const o = Object.assign(
-    {
-      customerTitle: 'ITHENA',
-      storeName: 'DBB-STORE-ITHENA',
-      appTitle: 'iMEX App (POC)',
-      appName: 'iMEX · ITHENA',
-      bundleTitle: 'iMEX Self-Service (POC)',
-      llmModel: 'claude-sonnet-5',
-      openaiModel: 'chat-latest',
-      geminiModel: 'gemini-flash-latest',
-      llmConfigName: 'DBB-LLM-CONFIG',
-      profileKeys: {},
-      userEmails: [],
-    },
-    opts || {},
-  );
-  const MARK = '[poc=true]'; // same marker as scripts/lib/model.ts POC_MARKER
-  const log = [];
-  const say = (m) => (log.push(m), console.log('[DBB deploy] ' + m));
-  const h = () => ({ 'X-Authorization': 'Bearer ' + localStorage.getItem('jwt_token'), 'Content-Type': 'application/json' });
-  // Minimal REST helper: JSON in/out; returns null for 404 when allow404, throws on other non-2xx.
-  const api = async (method, path, body, allow404) => {
-    const r = await fetch(path, { method, headers: h(), body: body === undefined ? undefined : JSON.stringify(body) });
-    const t = await r.text();
-    if (r.status === 404 && allow404) return null;
-    if (!r.ok) throw new Error(`${method} ${path} -> ${r.status}: ${t.slice(0, 300)}`);
-    return t ? JSON.parse(t) : null;
-  };
-  // Reads every page of a ThingsBoard PageData endpoint.
-  const all = async (path) => {
-    const out = [];
-    for (let p = 0; ; p++) {
-      const r = await api('GET', `${path}${path.includes('?') ? '&' : '?'}pageSize=100&page=${p}`);
-      out.push(...r.data);
-      if (!r.hasNext) return out;
-    }
-  };
-  if (!window.__dbbLib || !window.__dbbGlue) throw new Error('library not loaded');
+// Defaults of DBB_DEPLOY's options (also used when deploy-node.mjs --target=server builds the chat chain alone).
+window.DBB_DEPLOY_DEFAULTS = {
+  customerTitle: 'ITHENA',
+  storeName: 'DBB-STORE-ITHENA',
+  appTitle: 'iMEX App (POC)',
+  appName: 'iMEX · ITHENA',
+  bundleTitle: 'iMEX Self-Service (POC)',
+  llmModel: 'claude-sonnet-5',
+  openaiModel: 'chat-latest',
+  geminiModel: 'gemini-flash-latest',
+  llmConfigName: 'DBB-LLM-CONFIG',
+  profileKeys: {},
+  userEmails: [],
+};
 
-  // --- customer
-  const customer = await api('GET', `/api/tenant/customers?customerTitle=${encodeURIComponent(o.customerTitle)}`);
-  const cid = customer.id.id;
-
-  // --- rule chain for chat relay (multi-provider, D-021)
-  // The API key is NOT stored in the rule chain or in any widget. It lives on a tenant-owned asset
-  // (`llmConfigName`, default DBB-LLM-CONFIG) that is never assigned to a customer, so customer users
-  // cannot read it (a customer-assigned asset's attributes are readable by every user of that customer).
-  // The chain reads it server-side through the relation store --UsesLlmConfig--> config asset.
-  const rcName = 'DBB Chat relay (POC)';
-  let rc = (await all(`/api/ruleChains?textSearch=${encodeURIComponent(rcName)}`)).find((x) => x.name === rcName);
-  if (!rc) rc = await api('POST', '/api/ruleChain', { name: rcName, type: 'CORE', debugMode: false, configuration: { description: `${MARK} Relays Dashboard Builder chat requests to the LLM (Claude, OpenAI or Gemini, picked from the key on ${o.llmConfigName}).` } });
-  const existingMeta = await api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
-  // A key pasted into the old single-provider "Call LLM" node (before D-021) is migrated to the config asset below.
-  const oldRest = (existingMeta.nodes || []).find((n) => n.name === 'Call LLM');
-  const oldKey = oldRest && oldRest.configuration && oldRest.configuration.headers && oldRest.configuration.headers['x-api-key'];
-  const legacyKey = oldKey && !/PASTE_/.test(oldKey) && !oldKey.includes('${') ? oldKey : null;
+// Step 2's rule chain "DBB Chat relay (POC)" as metadata { nodes, connections } (node 0 first). o = DBB_DEPLOY's
+// options (llmModel, openaiModel, geminiModel, llmConfigName); keeperChainId = the id of the chain "iMEX Licence keeper"
+// (App UI scripts/relay.mjs), or null: then no "Recount (licence keeper)" node. Pure: no REST calls.
+window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
   // TBEL scripts. The builder writes `dbb_chat_req` = {reqId, userId, body} on the store asset, where body =
   // {system, messages, tools, tool_choice (Anthropic format), openai: {tools, tool_choice}, gemini: {tools, toolConfig}}
   // (core/chat.ts buildRequest). Replies go to `dbb_chat_resp_<userId>` =
@@ -284,7 +245,7 @@ window.DBB_DEPLOY = async function (opts) {
     'else if (err.contains("404")) { err = "The " + p + " model was not found. Set dbb_llm_model_" + p + " on the LLM config asset."; }',
     'else if (err.contains("429")) { err = "The " + p + " API is rate-limited or out of credit. Try again later or switch the key."; }',
     // provider-side capacity problems (Gemini 503 UNAVAILABLE, Claude 529 overloaded_error): not our bug, say so plainly
-    'else if (err.contains("503") || err.contains("529") || err.contains("UNAVAILABLE") || err.contains("overloaded")) { err = "The " + p + " service is overloaded right now (a temporary problem on the provider\'s side). Try again in a minute. If it keeps happening, use a paid key or another provider\'s key on " + "DBB-LLM-CONFIG."; }',
+    'else if (err.contains("503") || err.contains("529") || err.contains("UNAVAILABLE") || err.contains("overloaded")) { err = "The " + p + " service is overloaded right now (a temporary problem on the provider\'s side). Try again in a minute. If it keeps happening, use a paid key or another provider\'s key on ' + o.llmConfigName + '."; }',
     // network problems between ThingsBoard and the provider (seen as "WebClientRequestException: null" / timeouts, D-024)
     'else if (err.contains("WebClientRequestException") || err.contains("ReadTimeout") || err.contains("timed out") || err.contains("Connection reset")) { err = "Could not reach the " + p + " service (a network problem between ThingsBoard and the provider). Try again in a moment."; }',
     'else if (body != "") { err = p + " rejected the request: " + body; }',
@@ -385,8 +346,7 @@ window.DBB_DEPLOY = async function (opts) {
   ];
   // the keeper chain (App UI scripts/relay.mjs) recounts the month after each point; without it the count follows on
   // the keeper's next recount
-  const keeperChain = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Licence keeper')}`)).find((x) => x.name === 'iMEX Licence keeper');
-  if (keeperChain) nodes.push(/* 16 */ { type: 'org.thingsboard.rule.engine.flow.TbRuleChainInputNode', name: 'Recount (licence keeper)', configurationVersion: 1, configuration: { ruleChainId: keeperChain.id.id, forwardMsgToDefaultRuleChain: false }, additionalInfo: { layoutX: 2300, layoutY: 120 } });
+  if (keeperChainId) nodes.push(/* 16 */ { type: 'org.thingsboard.rule.engine.flow.TbRuleChainInputNode', name: 'Recount (licence keeper)', configurationVersion: 1, configuration: { ruleChainId: keeperChainId, forwardMsgToDefaultRuleChain: false }, additionalInfo: { layoutX: 2300, layoutY: 120 } });
   // D-066: no debug on any node (the LLM key and the user's request pass through them)
   for (const nd of nodes) nd.debugSettings = { failuresEnabled: false, allEnabled: false, allEnabledUntil: 0 };
   const connections = [
@@ -413,7 +373,55 @@ window.DBB_DEPLOY = async function (opts) {
   connections.push({ fromIndex: 7, toIndex: 9, type: 'Success' }, { fromIndex: 7, toIndex: 8, type: 'Failure' }, { fromIndex: 8, toIndex: 9, type: 'Success' });
   // D-066: a parsed reply = one provider call that answered: metered on the keeper
   connections.push({ fromIndex: 7, toIndex: 13, type: 'Success' }, { fromIndex: 13, toIndex: 14, type: 'Success' }, { fromIndex: 14, toIndex: 15, type: 'Success' });
-  if (keeperChain) connections.push({ fromIndex: 15, toIndex: 16, type: 'Success' });
+  if (keeperChainId) connections.push({ fromIndex: 15, toIndex: 16, type: 'Success' });
+  return { nodes, connections };
+};
+
+// Returns {log, dashboardId, storeId, ruleChainId, bundleId}. Throws on the first failing REST call.
+window.DBB_DEPLOY = async function (opts) {
+  const o = Object.assign({}, window.DBB_DEPLOY_DEFAULTS, opts || {});
+  const MARK = '[poc=true]'; // same marker as scripts/lib/model.ts POC_MARKER
+  const log = [];
+  const say = (m) => (log.push(m), console.log('[DBB deploy] ' + m));
+  const h = () => ({ 'X-Authorization': 'Bearer ' + localStorage.getItem('jwt_token'), 'Content-Type': 'application/json' });
+  // Minimal REST helper: JSON in/out; returns null for 404 when allow404, throws on other non-2xx.
+  const api = async (method, path, body, allow404) => {
+    const r = await fetch(path, { method, headers: h(), body: body === undefined ? undefined : JSON.stringify(body) });
+    const t = await r.text();
+    if (r.status === 404 && allow404) return null;
+    if (!r.ok) throw new Error(`${method} ${path} -> ${r.status}: ${t.slice(0, 300)}`);
+    return t ? JSON.parse(t) : null;
+  };
+  // Reads every page of a ThingsBoard PageData endpoint.
+  const all = async (path) => {
+    const out = [];
+    for (let p = 0; ; p++) {
+      const r = await api('GET', `${path}${path.includes('?') ? '&' : '?'}pageSize=100&page=${p}`);
+      out.push(...r.data);
+      if (!r.hasNext) return out;
+    }
+  };
+  if (!window.__dbbLib || !window.__dbbGlue) throw new Error('library not loaded');
+
+  // --- customer
+  const customer = await api('GET', `/api/tenant/customers?customerTitle=${encodeURIComponent(o.customerTitle)}`);
+  const cid = customer.id.id;
+
+  // --- rule chain for chat relay (multi-provider, D-021)
+  // The API key is NOT stored in the rule chain or in any widget. It lives on a tenant-owned asset
+  // (`llmConfigName`, default DBB-LLM-CONFIG) that is never assigned to a customer, so customer users
+  // cannot read it (a customer-assigned asset's attributes are readable by every user of that customer).
+  // The chain reads it server-side through the relation store --UsesLlmConfig--> config asset.
+  const rcName = 'DBB Chat relay (POC)';
+  let rc = (await all(`/api/ruleChains?textSearch=${encodeURIComponent(rcName)}`)).find((x) => x.name === rcName);
+  if (!rc) rc = await api('POST', '/api/ruleChain', { name: rcName, type: 'CORE', debugMode: false, configuration: { description: `${MARK} Relays Dashboard Builder chat requests to the LLM (Claude, OpenAI or Gemini, picked from the key on ${o.llmConfigName}).` } });
+  const existingMeta = await api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
+  // A key pasted into the old single-provider "Call LLM" node (before D-021) is migrated to the config asset below.
+  const oldRest = (existingMeta.nodes || []).find((n) => n.name === 'Call LLM');
+  const oldKey = oldRest && oldRest.configuration && oldRest.configuration.headers && oldRest.configuration.headers['x-api-key'];
+  const legacyKey = oldKey && !/PASTE_/.test(oldKey) && !oldKey.includes('${') ? oldKey : null;
+  const keeperChain = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Licence keeper')}`)).find((x) => x.name === 'iMEX Licence keeper');
+  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeperChain ? keeperChain.id.id : null);
   // Replaces all nodes and connections of the chain (passing the current version for optimistic locking).
   await api('POST', '/api/ruleChain/metadata', { ruleChainId: rc.id, version: existingMeta.version, firstNodeIndex: 0, nodes, connections, ruleChainConnections: null });
   say(`rule chain "${rcName}" written (Claude / OpenAI / Gemini, key read from ${o.llmConfigName})`);

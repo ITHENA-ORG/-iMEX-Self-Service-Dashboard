@@ -6,8 +6,36 @@
 // catalogue already stored on the store asset (dbb_profile_keys) is passed back unchanged, because DBB_DEPLOY
 // overwrites it and its own default `{}` would wipe it. `userEmails` defaults to [] (home dashboards untouched).
 // The JWT is held in memory only (tb-node.mjs); the script prints DBB_DEPLOY's log, never the token.
+//
+// Server mode: ONLY the chat relay chain (D-066 gate + meter) on the server tenant, nothing else (the Builder widgets
+// go through scripts/mirror/push-widgets-target.mjs; the store, profile, LLM config asset and relation stay as they are):
+//   node widgets/deploy/deploy-node.mjs --target=server --go-ahead="iMEX - AI Features" [--base=<file>]
+//        [--take-ours=<node,...>] [--keep-server=<node,...>] [--go]
+// Dry run by default. TGT_TB_* from .env (a tenant admin of exactly that tenant; never the SRC_TB_* tenant). Updates the
+// existing "DBB Chat relay (POC)" in place with the LLM config asset the server's store already uses, keeps the
+// developers' hand edits (3-way merge against what we last deployed: mirror-data/target-chat-chain.json, or --base for
+// the first run) and prints the diff. chat-chain-server.mjs / chat-chain-merge.mjs; selftest: chat-chain-selftest.mjs.
 import { readFileSync, existsSync } from 'node:fs';
 import { tbLogin, serverAttrs } from './tb-node.mjs';
+
+const argOf = (k) => { const a = process.argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : undefined; };
+const SERVER_TENANT = 'iMEX - AI Features';
+if (process.argv.some((a) => a.startsWith('--target'))) {
+  if (argOf('target') !== 'server') { console.error('REFUSED: --target takes only "server" (LOCAL is the default without --target)'); process.exit(2); }
+  const goAhead = argOf('go-ahead');
+  if (goAhead !== SERVER_TENANT) { console.error(`REFUSED: the server needs Akshay's go-ahead: --go-ahead="${SERVER_TENANT}"`); process.exit(2); }
+  const { newTenantClient } = await import('../../scripts/mirror/clients.mjs');
+  const c = await newTenantClient();
+  const t = await c.api('GET', `/api/tenant/${c.tenantId}`);
+  if (!t || t.title !== goAhead) { console.error(`REFUSED: TGT_TB_* log in to tenant "${t && t.title}", not "${goAhead}"`); process.exit(2); }
+  globalThis.window = globalThis;
+  await import('./deploy-browser.js');
+  const chain = (o, keeperChainId) => window.DBB_CHAT_CHAIN(Object.assign({}, window.DBB_DEPLOY_DEFAULTS, o), keeperChainId);
+  const go = process.argv.includes('--go');
+  console.log(`target ${c.base}, tenant "${t.title}" — chat relay chain only — ${go ? 'WRITING' : 'DRY RUN (--go writes)'}`);
+  const { serverChatChain } = await import('./chat-chain-server.mjs');
+  process.exit(await serverChatChain(c, { go, base: argOf('base'), takeOurs: argOf('take-ours'), keepServer: argOf('keep-server') }, chain));
+}
 
 const opts = Object.assign(
   { customerTitle: 'ITHENA', storeName: 'DBB-STORE-ITHENA', userEmails: [] },
