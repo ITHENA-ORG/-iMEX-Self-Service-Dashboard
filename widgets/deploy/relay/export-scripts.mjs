@@ -16,7 +16,8 @@ const grab = (name) => {
   // the array literal only uses string and template literals that reference `o`
   return new Function('o', `return ${src.slice(i + `const ${name} = `.length, j + 1)};`)(o).join('\n');
 };
-for (const [name, file] of [['buildScript', 'build-llm-request.tbel'], ['parseScript', 'parse-llm-reply.tbel'], ['errScript', 'error-reply.tbel']]) {
+// D-066: the licence and quota gate too
+for (const [name, file] of [['buildScript', 'build-llm-request.tbel'], ['parseScript', 'parse-llm-reply.tbel'], ['errScript', 'error-reply.tbel'], ['gateScript', 'licence-quota-gate.tbel']]) {
   writeFileSync(join(here, file), grab(name) + '\n');
   console.log('wrote', file);
 }

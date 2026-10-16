@@ -101,11 +101,11 @@ describe('live property keys (catalogue as an overlay)', () => {
   it('mergeKeys and readableKey', () => {
     expect(scope.readableKey('dischargePressure')).toBe('Discharge Pressure');
     expect(scope.readableKey('oil_temp')).toBe('Oil temp');
-    expect(scope.guessKey('discharge_pressure_bar')).toEqual({ name: 'Discharge pressure', unit: 'bar' });
-    expect(scope.guessKey('vibration_x_mm_s')).toEqual({ name: 'Vibration x', unit: 'mm/s' });
-    expect(scope.guessKey('motor_current_a')).toEqual({ name: 'Motor current', unit: 'A' });
+    // D-064: no unit is guessed from a key's suffix (units come from the machine model / the catalogue)
+    expect(scope.guessKey('line_pressure_bar')).toEqual({ name: 'Line pressure bar', unit: '' });
+    expect(scope.guessKey('motor_temp_f')).toEqual({ name: 'Motor temp f', unit: '' });
     expect(scope.guessKey('phase_a')).toEqual({ name: 'Phase a', unit: '' });
-    expect(scope.guessKey('Compressor_Status_1')).toEqual({ name: 'Compressor Status 1', unit: '' });
+    expect(scope.guessKey('Machine_Status_1')).toEqual({ name: 'Machine Status 1', unit: '' });
     const named = new Map([['b', { label: 'Bee', unit: 'u' }]]);
     expect(scope.mergeKeys([], ['c', 'b', 'a', 'x_30min', 'y_2hrs', 'aiml_z'], named).map((k) => k.key)).toEqual(['b', 'a', 'c']);
   });

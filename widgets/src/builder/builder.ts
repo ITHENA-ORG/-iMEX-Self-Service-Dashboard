@@ -450,8 +450,8 @@ class Builder {
   }
 
   /**
-   * D-059: the monthly AI quota (core/licence llmCheck: the five llm_* counts of this month on System Configuration
-   * against limits.llmCallsPerMonth). `fresh` reads it again (before every chat turn); otherwise a read younger than
+   * D-059 / D-066: the monthly AI quota note (core/licence llmCheck: the server's count of this month, imexAiUsage via
+   * the side menu, against limits.llmCallsPerMonth; the chat relay chain enforces it server-side). `fresh` reads it again (before every chat turn); otherwise a read younger than
    * QUOTA_REUSE_MS is reused (the chat note). Redraws the chat panel when the note changes.
    */
   async checkQuota(fresh = false): Promise<lic.LlmQuota> {
@@ -1450,7 +1450,7 @@ class Builder {
       ['current', 'This machine', 'Whichever machine the dashboard is opened for.', !!(this.deviceId || this.draft.profile)],
       ['fixed', 'Specific machines', cap.multiDevice ? `Pick up to ${MAX_DEVICES} machines.` : 'Pick one machine.', true],
       ['siblings', "Same-type machines at this machine's location", 'Machines of a type at the location of the machine the dashboard is opened for.', cap.multiDevice && !!this.deviceId],
-      ['nearest', 'Nearest machine of a type', 'E.g. the site weather station.', !cap.multiDevice && !!this.deviceId],
+      ['nearest', 'Nearest machine of a type', 'E.g. a sensor or meter that serves the whole site.', !cap.multiDevice && !!this.deviceId],
       ['nodeQuery', 'All machines of a type under a location', 'Includes machines added later.', cap.multiDevice],
     ];
     const srcList = SRC.filter((x) => x[3] || x[0] === b.mode);
@@ -1556,7 +1556,7 @@ class Builder {
         if (mode === 'current') x.binding = { mode: 'current' };
         if (mode === 'fixed') x.binding = { mode: 'fixed', deviceIds: this.deviceId ? [this.deviceId] : ([devices[0]?.id].filter(Boolean) as string[]) };
         if (mode === 'siblings') x.binding = { mode: 'siblings', profile: curProf };
-        // "Nearest" usually means another type (e.g. the site weather station), so default to a different profile.
+        // "Nearest" usually means another type (e.g. a site-wide sensor or meter), so default to a different profile.
         if (mode === 'nearest') x.binding = { mode: 'nearest', profile: allProfiles.find((p) => p !== curProf) ?? curProf };
         // D-050: the first location the user holds in full ('all' grant), else the first visible top
         if (mode === 'nodeQuery') x.binding = { mode: 'nodeQuery', nodeId: this.ctx.allRoots[0] ?? this.ctx.rootIds[0] ?? nodes[0]?.id, profile: curProf };
@@ -1921,7 +1921,7 @@ class Builder {
         ${this.preChat ? `<button class="dbb-btn sm" data-a="discard">Discard chat changes</button>` : ''}
         ${this.undo.length && this.preChat ? `<button class="dbb-btn sm" data-a="cundo">Undo last</button>` : ''}
       </div>
-      <form class="dbb-chat-form"><textarea class="dbb-chat-in" rows="3" maxlength="1000" placeholder="e.g. Show discharge pressure and temperature for the last 8 hours, with alarms"></textarea>
+      <form class="dbb-chat-form"><textarea class="dbb-chat-in" rows="3" maxlength="1000" placeholder="e.g. Show the main values of this machine for the last 8 hours, with alarms"></textarea>
       <button class="dbb-btn primary" type="submit" ${this.busy ? 'disabled' : ''}>Send</button></form>
     </div>`;
     const log = panel.querySelector('.dbb-chat-log') as HTMLElement;
@@ -1997,7 +1997,8 @@ class Builder {
     // A held-back answer + one of the three "where" buttons: apply it locally, no second LLM call.
     const held = this.pendingWhere && this.pendingWhere.draftJson === before && (chat.WHERE_OPTIONS as readonly string[]).includes(text) ? this.pendingWhere : null;
     this.pendingWhere = null;
-    // D-059: the provider calls this turn made (each answered relay request is one), metered after the turn
+    // D-059: the provider calls this turn made (each answered relay request is one); D-066: metered by the relay chain
+    // itself (server-side), counted here only for the note
     const transport = lic.countingTransport(chat.ruleChainTransport(this.ctx));
     try {
       if (!held) {
@@ -2047,9 +2048,9 @@ class Builder {
       this.chatLog.push({ role: 'assistant', text: e.message || "I couldn't build that; try rephrasing." });
       void audit(this.ctx, 'chat', { message: text, ok: false, error: String(e.message ?? e) });
     } finally {
-      // D-059: one llm_builder point per provider call that answered (also when the turn failed after it)
+      // D-066: the relay chain metered each provider call on the server (llm_builder on "iMEX Keeper"); the note
+      // follows this turn's calls until the side menu's count arrives
       if (transport.calls > 0) {
-        void lic.llmRecord('llm_builder', transport.calls);
         if (this.quota?.used != null) {
           const used = this.quota.used + transport.calls;
           this.quota = { ...this.quota, ...lic.llmVerdict(used, this.quota.limit), used };
@@ -2176,6 +2177,8 @@ class Builder {
     // the same type the user sees (D-050: customer-wide when the access covers the whole organisation).
     const others = sameType.filter((x) => x.id !== dev?.id);
     const allLabel = this.ctx.coversAll ? `All ${profile} machines` : `All ${profile} machines you manage`;
+    // D-065: machines added later follow when the user holds at least one location in full (else only fixed machines)
+    const laterToo = !!profile && !this.ctx.coversAll && store.managedPlan(this.ctx, profile).nodes.length > 0;
     // A chat proposal for a location/customer maps to "all"; otherwise default to "only this machine".
     const initial = (p?.target === 'customer' || p?.target === 'node') && admin && others.length ? 'all' : dev && isDeviceDash ? 'device' : 'none';
     // Location targets are no longer offered (D-017); `nodes` is kept referenced only.
@@ -2194,7 +2197,7 @@ class Builder {
         }
         ${
           isDeviceDash && others.length
-            ? `<label class="dbb-check ${admin ? '' : 'dis'}"${admin ? '' : ` title="Your role can't apply a dashboard to more than one machine"`}><input type="radio" name="t" value="all" ${initial === 'all' ? 'checked' : ''} ${admin ? '' : 'disabled'}/> ${esc(allLabel)} <span class="dbb-muted">(${sameType.length} machines${this.ctx.coversAll ? ', and machines added later' : ''})</span></label>`
+            ? `<label class="dbb-check ${admin ? '' : 'dis'}"${admin ? '' : ` title="Your role can't apply a dashboard to more than one machine"`}><input type="radio" name="t" value="all" ${initial === 'all' ? 'checked' : ''} ${admin ? '' : 'disabled'}/> ${esc(allLabel)} <span class="dbb-muted">(${sameType.length} machines${this.ctx.coversAll || laterToo ? ', and machines added later' : ''})</span></label>`
             : ''
         }
         <label class="dbb-check"><input type="radio" name="t" value="none" ${initial === 'none' ? 'checked' : ''}/> Don't apply now</label>
@@ -2211,7 +2214,8 @@ class Builder {
       const t = (body.querySelector('input[name="t"]:checked') as HTMLInputElement)?.value ?? 'none';
       if (t === 'device') return { type: 'devices', deviceIds: [dev!.id], mode: 'linked' };
       if (t === 'all')
-        return this.ctx.coversAll ? { type: 'customer', profile: profile! } : { type: 'devices', deviceIds: sameType.map((x) => x.id), mode: 'linked' };
+        // D-065: not a fixed list any more: the managed locations follow machines added later (store.managedPlan)
+        return this.ctx.coversAll ? { type: 'customer', profile: profile! } : { type: 'managed', profile: profile! };
       return { type: 'none' };
     };
     // Recomputes the preview; `seq` makes sure only the latest (possibly slow) preview is shown.
@@ -2344,7 +2348,7 @@ class Builder {
       `<div class="dbb-nd">
         <div class="dbb-nd-sec">
           <div class="dbb-nd-cap" id="dbb-nd-cap-n">Name</div>
-          <input class="dbb-nd-in" type="text" data-n maxlength="120" placeholder="e.g. Compressor overview" aria-labelledby="dbb-nd-cap-n" />
+          <input class="dbb-nd-in" type="text" data-n maxlength="120" placeholder="e.g. Line 1 overview" aria-labelledby="dbb-nd-cap-n" />
         </div>
         <div class="dbb-nd-sec">
           <div class="dbb-nd-cap" id="dbb-nd-cap-k">What is it for?</div>

@@ -35,6 +35,7 @@
 
 import type { DashboardTheme } from '../core/schema';
 import { axis as fmtAxis } from '../core/datefmt';
+import * as regional from '../core/regional';
 
 /** Categorical series colours (light surfaces), in assignment order. Charts cycle through them. */
 export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
@@ -436,11 +437,16 @@ export function esc(s: unknown): string {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 
-/** Locale number with exactly `decimals` decimals. Non-numbers are returned as String(v) ('—' for null) and are NOT escaped. */
+/**
+ * A number with exactly `decimals` decimals in the app's number style (D-067, App UI U-073: imexAppConfig.formats.number,
+ * "1,234.5" / "1.234,5" / "12,34,567.5" ...; imxShell.fmt.number on app pages, else core/regional.ts). Non-numbers are
+ * returned as String(v) ('—' for null) and are NOT escaped.
+ */
 export function fmtNum(v: unknown, decimals = 1): string {
   const n = Number(v);
   if (!Number.isFinite(n)) return v == null ? '—' : String(v);
-  return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const d = Number(decimals);
+  return regional.number(n, { decimals: Number.isFinite(d) ? d : 1 });
 }
 
 /**

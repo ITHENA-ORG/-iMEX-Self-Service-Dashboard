@@ -214,6 +214,21 @@
    "actions": []
   },
   {
+   "key": "sitesmachines",
+   "section": "ADMIN",
+   "states": [
+    "sites_machines"
+   ],
+   "levels": [
+    "hidden",
+    "view",
+    "full"
+   ],
+   "actions": [
+    "sitesmachines.structure"
+   ]
+  },
+  {
    "key": "alertrules.default",
    "section": "ADMIN",
    "states": [
@@ -246,6 +261,19 @@
    "section": "ADMIN",
    "states": [
     "alarm_grouping"
+   ],
+   "levels": [
+    "hidden",
+    "view",
+    "full"
+   ],
+   "actions": []
+  },
+  {
+   "key": "alertrules.templates",
+   "section": "ADMIN",
+   "states": [
+    "notify_templates"
    ],
    "levels": [
     "hidden",
@@ -309,6 +337,7 @@
   "reports.edit",
   "reports.schedule",
   "reports.settings",
+  "sitesmachines.structure",
   "alertrules.export",
   "ai.jobs"
  ],
@@ -342,9 +371,11 @@
     "energy": "full",
     "value": "full",
     "users": "full",
+    "sitesmachines": "full",
     "alertrules.default": "full",
     "alertrules.custom": "full",
     "alertrules.grouping": "full",
+    "alertrules.templates": "full",
     "aisettings": "full",
     "config": "full",
     "licence": "full"
@@ -362,6 +393,7 @@
     "reports.edit": true,
     "reports.schedule": true,
     "reports.settings": true,
+    "sitesmachines.structure": true,
     "alertrules.export": true,
     "ai.jobs": true
    },
@@ -425,9 +457,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -445,6 +479,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -594,9 +629,11 @@
     "energy": "full",
     "value": "full",
     "users": "full",
+    "sitesmachines": "full",
     "alertrules.default": "full",
     "alertrules.custom": "full",
     "alertrules.grouping": "full",
+    "alertrules.templates": "full",
     "aisettings": "full",
     "config": "full",
     "licence": "full"
@@ -614,6 +651,7 @@
     "reports.edit": true,
     "reports.schedule": true,
     "reports.settings": true,
+    "sitesmachines.structure": true,
     "alertrules.export": true,
     "ai.jobs": true
    },
@@ -766,9 +804,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -786,6 +826,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -918,9 +959,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -938,6 +981,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -1098,9 +1142,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1118,6 +1164,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -1185,7 +1232,7 @@
   },
   {
    "name": "the same as a JSON string",
-   "raw": "{\"v\":1,\"rev\":7,\"at\":1791205976606,\"by\":\"migration\",\"roles\":[{\"id\":\"admin\",\"name\":\"Admin\",\"builtIn\":true,\"locked\":true,\"desc\":\"Everything, including users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"full\",\"dashboards\":\"full\",\"analyzer\":\"full\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"full\",\"value\":\"full\",\"users\":\"full\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"alertrules.grouping\":\"full\",\"aisettings\":\"full\",\"config\":\"full\",\"licence\":\"full\"},\"actions\":{\"alarms.acknowledge\":true,\"andon.layout\":true,\"andon.boards\":true,\"dashboards.build\":true,\"dashboards.applyMany\":true,\"dashboards.deleteAny\":true,\"analyzer.export\":true,\"ai.relations.edit\":true,\"reports.run\":true,\"reports.edit\":true,\"reports.schedule\":true,\"reports.settings\":true,\"alertrules.export\":true,\"ai.jobs\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10c85640-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"viewer\",\"name\":\"Viewer\",\"builtIn\":true,\"locked\":false,\"desc\":\"Read only.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"view\",\"reports\":\"view\",\"energy\":\"view\",\"value\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_sup001\",\"name\":\"Supervisor\",\"builtIn\":false,\"locked\":false,\"desc\":\"Runs the floor.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"view\",\"value\":\"view\",\"users\":\"view\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"view\",\"config\":\"view\"},\"actions\":{\"dashboards.build\":true,\"dashboards.applyMany\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_op0001\",\"name\":\"Operator\",\"builtIn\":false,\"locked\":false,\"desc\":\"\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\"},\"actions\":{\"alarms.acknowledge\":true},\"manageRoles\":false,\"defaultScope\":[{\"id\":\"10aba680-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"r_lead01\",\"name\":\"Lead\",\"builtIn\":false,\"locked\":false,\"desc\":\"Manages users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"users\":\"full\",\"reports\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10cfa940-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]}]}",
+   "raw": "{\"v\":1,\"rev\":7,\"at\":1791205976606,\"by\":\"migration\",\"roles\":[{\"id\":\"admin\",\"name\":\"Admin\",\"builtIn\":true,\"locked\":true,\"desc\":\"Everything, including users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"full\",\"dashboards\":\"full\",\"analyzer\":\"full\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"full\",\"value\":\"full\",\"users\":\"full\",\"sitesmachines\":\"full\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"alertrules.grouping\":\"full\",\"alertrules.templates\":\"full\",\"aisettings\":\"full\",\"config\":\"full\",\"licence\":\"full\"},\"actions\":{\"alarms.acknowledge\":true,\"andon.layout\":true,\"andon.boards\":true,\"dashboards.build\":true,\"dashboards.applyMany\":true,\"dashboards.deleteAny\":true,\"analyzer.export\":true,\"ai.relations.edit\":true,\"reports.run\":true,\"reports.edit\":true,\"reports.schedule\":true,\"reports.settings\":true,\"sitesmachines.structure\":true,\"alertrules.export\":true,\"ai.jobs\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10c85640-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"viewer\",\"name\":\"Viewer\",\"builtIn\":true,\"locked\":false,\"desc\":\"Read only.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"view\",\"reports\":\"view\",\"energy\":\"view\",\"value\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_sup001\",\"name\":\"Supervisor\",\"builtIn\":false,\"locked\":false,\"desc\":\"Runs the floor.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"view\",\"value\":\"view\",\"users\":\"view\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"view\",\"config\":\"view\"},\"actions\":{\"dashboards.build\":true,\"dashboards.applyMany\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_op0001\",\"name\":\"Operator\",\"builtIn\":false,\"locked\":false,\"desc\":\"\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\"},\"actions\":{\"alarms.acknowledge\":true},\"manageRoles\":false,\"defaultScope\":[{\"id\":\"10aba680-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"r_lead01\",\"name\":\"Lead\",\"builtIn\":false,\"locked\":false,\"desc\":\"Manages users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"users\":\"full\",\"reports\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10cfa940-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]}]}",
    "expect": {
     "source": "imexRoles",
     "rev": 7,
@@ -1283,9 +1330,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1303,6 +1352,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -1423,9 +1473,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1443,6 +1495,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -1520,9 +1573,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1540,6 +1595,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -1641,9 +1697,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1661,6 +1719,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -1762,9 +1821,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1782,6 +1843,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -1921,9 +1983,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1941,6 +2005,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -2112,9 +2177,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2132,6 +2199,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -2276,9 +2344,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2296,6 +2366,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -2370,9 +2441,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2390,6 +2463,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -2468,9 +2542,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2488,6 +2564,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -2654,9 +2731,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2674,6 +2753,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -2841,9 +2921,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2861,6 +2943,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -3027,9 +3110,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3047,6 +3132,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -3229,9 +3315,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3249,6 +3337,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -3414,9 +3503,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3434,6 +3525,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -3599,9 +3691,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3619,6 +3713,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -3784,9 +3879,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3804,6 +3901,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -3995,9 +4093,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -4015,6 +4115,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -4180,9 +4281,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -4200,6 +4303,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -4365,9 +4469,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -4385,6 +4491,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -4548,9 +4655,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -4568,6 +4677,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -4734,9 +4844,11 @@
        "energy": "full",
        "value": "full",
        "users": "full",
+       "sitesmachines": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
        "alertrules.grouping": "full",
+       "alertrules.templates": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -4754,6 +4866,7 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "sitesmachines.structure": true,
        "alertrules.export": true,
        "ai.jobs": true
       },
@@ -4915,9 +5028,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -4935,6 +5050,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -4959,9 +5075,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -4979,6 +5097,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -5033,9 +5152,11 @@
      "energy": "view",
      "value": "view",
      "users": "hidden",
+     "sitesmachines": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -5067,9 +5188,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -5087,6 +5210,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -5114,9 +5238,11 @@
      "energy": "hidden",
      "value": "hidden",
      "users": "hidden",
+     "sitesmachines": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -5158,9 +5284,11 @@
      "energy": "hidden",
      "value": "hidden",
      "users": "hidden",
+     "sitesmachines": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -5168,6 +5296,51 @@
     "actions": {
      "alarms.acknowledge": true,
      "reports.edit": true
+    },
+    "manageRoles": false
+   }
+  },
+  {
+   "name": "U-074: Sites & machines structure: implied at Full, ticked at View, nothing at Hidden",
+   "role": {
+    "id": "r_x",
+    "perms": {
+     "sitesmachines": "view",
+     "config": "full"
+    },
+    "actions": {
+     "sitesmachines.structure": true
+    }
+   },
+   "expect": {
+    "unrestricted": false,
+    "pages": {
+     "sites": "hidden",
+     "machines": "hidden",
+     "alarms": "hidden",
+     "andon": "hidden",
+     "spc": "hidden",
+     "dashboards": "hidden",
+     "analyzer": "hidden",
+     "ai.forecast": "hidden",
+     "ai.anomalies": "hidden",
+     "ai.maintenance": "hidden",
+     "ai.relations": "hidden",
+     "reports": "hidden",
+     "energy": "hidden",
+     "value": "hidden",
+     "users": "hidden",
+     "sitesmachines": "view",
+     "alertrules.default": "hidden",
+     "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
+     "aisettings": "hidden",
+     "config": "full",
+     "licence": "hidden"
+    },
+    "actions": {
+     "sitesmachines.structure": true
     },
     "manageRoles": false
    }
@@ -5199,9 +5372,11 @@
      "energy": "hidden",
      "value": "hidden",
      "users": "hidden",
+     "sitesmachines": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -5237,9 +5412,11 @@
      "energy": "hidden",
      "value": "hidden",
      "users": "hidden",
+     "sitesmachines": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -5275,9 +5452,11 @@
      "energy": "hidden",
      "value": "hidden",
      "users": "view",
+     "sitesmachines": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -5330,9 +5509,11 @@
      "energy": "hidden",
      "value": "hidden",
      "users": "full",
+     "sitesmachines": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -5394,9 +5575,11 @@
      "energy": "hidden",
      "value": "hidden",
      "users": "view",
+     "sitesmachines": "hidden",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "view",
      "config": "view",
      "licence": "hidden"
@@ -5471,9 +5654,11 @@
      "energy": "view",
      "value": "view",
      "users": "view",
+     "sitesmachines": "hidden",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "view",
      "config": "view",
      "licence": "hidden"
@@ -5586,7 +5771,9 @@
     "spc": "view",
     "energy": "view",
     "value": "view",
-    "licence": "hidden"
+    "licence": "hidden",
+    "sites_machines": "hidden",
+    "notify_templates": "hidden"
    }
   },
   {
@@ -5613,9 +5800,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -5633,6 +5822,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -5671,7 +5861,9 @@
     "spc": "full",
     "energy": "full",
     "value": "full",
-    "licence": "full"
+    "licence": "full",
+    "sites_machines": "full",
+    "notify_templates": "full"
    }
   },
   {
@@ -5721,9 +5913,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -5741,6 +5935,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -6114,9 +6309,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -6134,6 +6331,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -6856,9 +7054,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -6876,6 +7076,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -6912,9 +7113,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -6932,6 +7135,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -6968,9 +7172,11 @@
       "energy": "full",
       "value": "full",
       "users": "full",
+      "sitesmachines": "full",
       "alertrules.default": "full",
       "alertrules.custom": "full",
       "alertrules.grouping": "full",
+      "alertrules.templates": "full",
       "aisettings": "full",
       "config": "full",
       "licence": "full"
@@ -6988,6 +7194,7 @@
       "reports.edit": true,
       "reports.schedule": true,
       "reports.settings": true,
+      "sitesmachines.structure": true,
       "alertrules.export": true,
       "ai.jobs": true
      },
@@ -7431,9 +7638,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -7451,6 +7660,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -7559,7 +7769,9 @@
     "spc",
     "energy",
     "value",
+    "sitesmachines",
     "alertrules.grouping",
+    "alertrules.templates",
     "licence"
    ]
   },
@@ -7587,9 +7799,11 @@
      "energy": "hidden",
      "value": "hidden",
      "users": "hidden",
+     "sitesmachines": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -7620,7 +7834,9 @@
    },
    "expect": [
     "value",
+    "sitesmachines",
     "alertrules.grouping",
+    "alertrules.templates",
     "licence"
    ]
   },
@@ -7667,9 +7883,11 @@
      "energy": "full",
      "value": "full",
      "users": "full",
+     "sitesmachines": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "full",
+     "alertrules.templates": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -7687,6 +7905,7 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "sitesmachines.structure": true,
      "alertrules.export": true,
      "ai.jobs": true
     },
@@ -7723,9 +7942,11 @@
      "energy": "view",
      "value": "view",
      "users": "view",
+     "sitesmachines": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
      "alertrules.grouping": "view",
+     "alertrules.templates": "view",
      "aisettings": "view",
      "config": "view",
      "licence": "hidden"
@@ -7767,9 +7988,11 @@
      "energy": "hidden",
      "value": "hidden",
      "users": "hidden",
+     "sitesmachines": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
      "alertrules.grouping": "hidden",
+     "alertrules.templates": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"

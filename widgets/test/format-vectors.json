@@ -1,0 +1,70 @@
+{
+  "_": "Regional formats contract (U-073, docs/design/FORMATS_OEE_SPEC.md A). Times are UTC ms written in tz 'Asia/Kolkata'. now = 16 Oct 2026. The Builder (TypeScript) and Reports (Python) ports run these byte for byte.   = narrow no-break space.",
+  "dates": [
+    { "ts": 1792165027000, "tz": "Asia/Kolkata", "now": 1792165027000, "date": "dmon", "clock": "12", "date_out": "16 Oct 2026", "short_out": "16 Oct", "dateTime_out": "16 Oct 2026, 9:07 PM" },
+    { "ts": 1792165027000, "tz": "Asia/Kolkata", "now": 1792165027000, "date": "dmy", "clock": "24", "date_out": "16/10/2026", "short_out": "16/10", "dateTime_out": "16/10/2026, 21:07" },
+    { "ts": 1792165027000, "tz": "Asia/Kolkata", "now": 1792165027000, "date": "dmy.", "clock": "24", "date_out": "16.10.2026", "short_out": "16.10.", "dateTime_out": "16.10.2026, 21:07" },
+    { "ts": 1792165027000, "tz": "Asia/Kolkata", "now": 1792165027000, "date": "dmy-", "clock": "24", "date_out": "16-10-2026", "short_out": "16-10", "dateTime_out": "16-10-2026, 21:07" },
+    { "ts": 1792165027000, "tz": "Asia/Kolkata", "now": 1792165027000, "date": "mdy", "clock": "12", "date_out": "10/16/2026", "short_out": "10/16", "dateTime_out": "10/16/2026, 9:07 PM" },
+    { "ts": 1792165027000, "tz": "Asia/Kolkata", "now": 1792165027000, "date": "ymd", "clock": "24", "date_out": "2026-10-16", "short_out": "10-16", "dateTime_out": "2026-10-16 21:07" },
+    { "ts": 1767565800000, "tz": "Asia/Kolkata", "now": 1792165027000, "date": "dmy", "clock": "12", "date_out": "05/01/2026", "short_out": "05/01", "dateTime_out": "05/01/2026, 4:00 AM" },
+    { "ts": 1767565800000, "tz": "Asia/Kolkata", "now": 1792165027000, "date": "dmon", "clock": "24", "date_out": "5 Jan 2026", "short_out": "5 Jan", "dateTime_out": "5 Jan 2026, 04:00" },
+    { "ts": 1767119400000, "tz": "Asia/Kolkata", "now": 1792165027000, "date": "mdy", "clock": "12", "date_out": "12/31/2025", "short_out": "12/31/2025", "dateTime_out": "12/31/2025, 12:00 AM" }
+  ],
+  "numbers": [
+    { "v": 1234567.5, "number": "comma-dot", "o": {}, "out": "1,234,567.5" },
+    { "v": 1234567.5, "number": "dot-comma", "o": {}, "out": "1.234.567,5" },
+    { "v": 1234567.5, "number": "space-comma", "o": {}, "out": "1 234 567,5" },
+    { "v": 1234567.5, "number": "space-dot", "o": {}, "out": "1 234 567.5" },
+    { "v": 1234567.5, "number": "apos-dot", "o": {}, "out": "1'234'567.5" },
+    { "v": 1234567.5, "number": "indian", "o": {}, "out": "12,34,567.5" },
+    { "v": 123456789, "number": "indian", "o": {}, "out": "12,34,56,789" },
+    { "v": 1234, "number": "indian", "o": {}, "out": "1,234" },
+    { "v": 999, "number": "comma-dot", "o": {}, "out": "999" },
+    { "v": 1000, "number": "dot-comma", "o": {}, "out": "1.000" },
+    { "v": -1234.567, "number": "comma-dot", "o": {}, "out": "-1,234.57" },
+    { "v": -1234.567, "number": "dot-comma", "o": { "decimals": 1 }, "out": "-1.234,6" },
+    { "v": 1.005, "number": "comma-dot", "o": { "decimals": 2 }, "out": "1.01" },
+    { "v": 2.5, "number": "comma-dot", "o": { "decimals": 0 }, "out": "3" },
+    { "v": -2.5, "number": "comma-dot", "o": { "decimals": 0 }, "out": "-3" },
+    { "v": -0.004, "number": "comma-dot", "o": { "decimals": 2 }, "out": "0.00" },
+    { "v": 12.5, "number": "comma-dot", "o": { "decimals": 3 }, "out": "12.500" },
+    { "v": 12.5, "number": "comma-dot", "o": { "max": 3 }, "out": "12.5" },
+    { "v": 12, "number": "comma-dot", "o": { "min": 1 }, "out": "12.0" },
+    { "v": 0.123456, "number": "comma-dot", "o": { "max": 4 }, "out": "0.1235" },
+    { "v": 2026, "number": "comma-dot", "o": { "group": false }, "out": "2026" },
+    { "v": 21.5, "number": "dot-comma", "o": { "unit": "°C" }, "out": "21,5 °C" },
+    { "v": 12.5, "number": "comma-dot", "o": { "sign": true }, "out": "+12.5" },
+    { "v": "1234.5", "number": "comma-dot", "o": {}, "out": "1,234.5" },
+    { "v": null, "number": "comma-dot", "o": {}, "out": "" },
+    { "v": "", "number": "comma-dot", "o": {}, "out": "" },
+    { "v": "abc", "number": "comma-dot", "o": {}, "out": "" },
+    { "v": null, "number": "comma-dot", "o": { "empty": "—" }, "out": "—" }
+  ],
+  "percents": [
+    { "v": 0.925, "number": "comma-dot", "o": {}, "out": "92.5%" },
+    { "v": 0.925, "number": "dot-comma", "o": {}, "out": "92,5%" },
+    { "v": 1, "number": "comma-dot", "o": { "decimals": 0 }, "out": "100%" },
+    { "v": 0.12345, "number": "comma-dot", "o": { "decimals": 2 }, "out": "12.35%" }
+  ],
+  "parse": [
+    { "text": "1,234.5", "number": "comma-dot", "out": 1234.5 },
+    { "text": "1.234,5", "number": "dot-comma", "out": 1234.5 },
+    { "text": "1 234,5", "number": "space-comma", "out": 1234.5 },
+    { "text": "12,34,567.5", "number": "indian", "out": 1234567.5 },
+    { "text": "1'234.5", "number": "apos-dot", "out": 1234.5 },
+    { "text": "1234.5", "number": "dot-comma", "out": 1234.5 },
+    { "text": "1.234", "number": "dot-comma", "out": 1234 },
+    { "text": "-0,5", "number": "dot-comma", "out": -0.5 },
+    { "text": "abc", "number": "comma-dot", "out": null },
+    { "text": "", "number": "comma-dot", "out": null }
+  ],
+  "patterns": [
+    { "date": "dmon", "pattern": "D MMM YYYY", "short": "D MMM" },
+    { "date": "dmy", "pattern": "DD/MM/YYYY", "short": "DD/MM" },
+    { "date": "dmy.", "pattern": "DD.MM.YYYY", "short": "DD.MM." },
+    { "date": "dmy-", "pattern": "DD-MM-YYYY", "short": "DD-MM" },
+    { "date": "mdy", "pattern": "MM/DD/YYYY", "short": "MM/DD" },
+    { "date": "ymd", "pattern": "YYYY-MM-DD", "short": "MM-DD" }
+  ]
+}

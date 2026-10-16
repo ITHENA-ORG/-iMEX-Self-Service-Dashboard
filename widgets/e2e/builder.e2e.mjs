@@ -481,7 +481,7 @@ test('Colours tab: on/off preset for a status widget', async (t) => {
   eq(w.keys, ['runStatus'], 'status picks the on/off property');
   ok((w.settings.colorRules ?? []).some((r) => r.label === 'Running'), 'starts with Running/Stopped');
   await t.page.waitForTimeout(900);
-  ok(/Running|Stopped|Offline/.test(await t.page.textContent('.dbb-canvas .dbb-card')), 'status text drawn');
+  ok(/Running|Stopped|Idle|Fault|No data|Offline/.test(await t.page.textContent('.dbb-canvas .dbb-card')), 'status text drawn'); // D-064: the machine model's words
 });
 
 test('Dashboard tab: theme preset, accent, font (Inter default), radius, density, title alignment', async (t) => {
@@ -1031,7 +1031,7 @@ test('machine page header: one line; machine name as the title (D-038, with the 
   // D-038: the machine's name is the page title (there is no app navbar that shows it any more)
   ok(/^Pune Compressor 1 ITHENA › Pune/.test(h.text), `title first, then the crumb: ${h.text}`);
   ok((await t.b(() => parseFloat(getComputedStyle(document.querySelector('.dbb-rhead .dbb-rtitle')).fontWeight))) >= 700, 'title is bold');
-  ok(/Running|Stopped|Offline/.test(h.text), 'status');
+  ok(/Running|Stopped|Idle|Fault|No data|Offline/.test(h.text), 'status'); // D-064
   ok(/Time window\s*Live · last hour/.test(h.text), `time window: ${h.text}`);
   ok(/Updated (just now|\d+ (second|minute|hour)s? ago)/.test(h.text), `updated: ${h.text}`);
   ok(/^("?DM Sans"?|Inter)/.test(h.font), `page font DM Sans / Inter (${h.font})`);

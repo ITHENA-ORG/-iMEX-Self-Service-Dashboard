@@ -31,14 +31,14 @@ function grow(sites: number, per: number) {
 }
 
 describe('first load (D-022)', () => {
-  it('user context costs 9 calls whatever the size of the tree (D-050: + the role store)', async () => {
+  it('user context costs 9 calls whatever the size of the tree (D-050: + the role store; D-064: + the machine model, read once a minute)', async () => {
     await ctxFor('Admin', ['root']);
     const small = tb.calls.length;
     grow(30, 10);
     tb.calls = [];
     const ctx = await ctxFor('Admin', ['root']);
     expect(scope.allDevices(ctx).length).toBe(4 + 300);
-    expect(small).toBe(9);
+    expect(small).toBe(10); // D-064: the first load also reads the machine model (kept a minute)
     expect(tb.calls.length).toBe(9);
     expect(tb.calls.filter((c) => c === 'GET /api/relations/info')).toEqual([]);
   });

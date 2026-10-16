@@ -18,6 +18,7 @@
 //   Nothing the model set explicitly (a theme, a card style, colour rules) is overwritten. If the polished
 //   dashboard would fail checkDashboard, the unpolished one is kept.
 import type { UserContext, Node } from './scope';
+import * as machine from './machine';
 import * as scope from './scope';
 import { Dashboard, Widget, ColorRule, MAX_WIDGETS, checkDashboard, newId } from './schema';
 import { metaLookup, propKind } from './compat';
@@ -63,11 +64,13 @@ export function runKey(ctx: UserContext, profile: string): string | null {
   return ks.find((k) => propKind(k) === 'boolean')?.key ?? null;
 }
 
-/** Icon for a machine type from its name. */
+/**
+ * D-064: icon for a machine type: the one chosen for the type on the app's Settings > Sites & machines (the machine
+ * model), else the neutral factory icon. Nothing is guessed from the type's name.
+ */
+const MODEL_ICON: Record<string, string> = { machine: 'factory', gauge: 'gauge', drop: 'droplet', wind: 'wind', cloud: 'wind', bolt: 'bolt', box: 'factory', cog: 'wrench' };
 export function typeIcon(profile: string): Widget['settings']['style'] extends infer S ? (S extends { icon?: infer I } ? I : never) : never {
-  const p = profile.toLowerCase();
-  const icon = /compress/.test(p) ? 'gauge' : /blow|fan/.test(p) ? 'fan' : /dry|chill|cool|refrig/.test(p) ? 'snow' : /pump|water|tank/.test(p) ? 'droplet' : /weather|wind/.test(p) ? 'wind' : /boil|oven|furnace|heat/.test(p) ? 'flame' : /motor|drive/.test(p) ? 'power' : 'factory';
-  return icon as any;
+  return (MODEL_ICON[machine.look(machine.model(), profile).icon] ?? 'factory') as any;
 }
 
 /** Icon for a property from its unit or name. */
@@ -77,9 +80,9 @@ function keyIcon(ctx: UserContext, profile: string | null, key: string | undefin
   const u = `${m?.unit ?? ''}`.toLowerCase();
   const n = `${key} ${m?.displayName ?? ''}`.toLowerCase();
   if (/°|deg|temp/.test(u + n)) return 'thermometer';
-  if (/psi|bar|kpa|pa\b|inh2o|press/.test(u + n)) return 'gauge';
+  if (/psi|bar|kpa|pa\b|press/.test(u + n)) return 'gauge';
   if (/\bkw|kwh|\bw\b|\ba\b|amp|volt|power|current/.test(u + ' ' + n)) return 'bolt';
-  if (/cfm|m3|flow|air/.test(u + n)) return 'wind';
+  if (/m3|l\/min|flow/.test(u + n)) return 'wind';
   if (/hrs|hour|service|time/.test(u + n)) return 'clock';
   if (/rpm|speed/.test(u + n)) return 'speed';
   if (/%|level/.test(u + n)) return 'battery';

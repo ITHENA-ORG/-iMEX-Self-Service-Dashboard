@@ -1,0 +1,4091 @@
+{
+ "now": 1791200000000,
+ "kindOf": [
+  {
+   "profile": "Compressor",
+   "name": "Compressor 2",
+   "expect": "Compressor"
+  },
+  {
+   "profile": "default",
+   "name": "Blower 2",
+   "expect": "Blower"
+  },
+  {
+   "profile": "",
+   "name": "Press_12",
+   "expect": "Press"
+  },
+  {
+   "profile": "Default",
+   "name": "Line A",
+   "expect": "Line A"
+  },
+  {
+   "profile": null,
+   "name": "7",
+   "expect": "Machine"
+  }
+ ],
+ "splitLabel": [
+  {
+   "s": "Airflow Rate (CFM)",
+   "expect": {
+    "label": "Airflow Rate",
+    "unit": "CFM"
+   }
+  },
+  {
+   "s": "Temperature",
+   "expect": {
+    "label": "Temperature",
+    "unit": ""
+   }
+  },
+  {
+   "s": " Outlet (°F) ",
+   "expect": {
+    "label": "Outlet",
+    "unit": "°F"
+   }
+  }
+ ],
+ "classify": [
+  {
+   "name": "auto 1",
+   "cfg": null,
+   "raw": 1,
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok"
+   }
+  },
+  {
+   "name": "auto \"1\"",
+   "cfg": null,
+   "raw": "1",
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok"
+   }
+  },
+  {
+   "name": "auto 0",
+   "cfg": null,
+   "raw": 0,
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off"
+   }
+  },
+  {
+   "name": "auto true",
+   "cfg": null,
+   "raw": true,
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok"
+   }
+  },
+  {
+   "name": "auto \"false\"",
+   "cfg": null,
+   "raw": "false",
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off"
+   }
+  },
+  {
+   "name": "auto 2.5",
+   "cfg": null,
+   "raw": 2.5,
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok"
+   }
+  },
+  {
+   "name": "auto -1",
+   "cfg": null,
+   "raw": -1,
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off"
+   }
+  },
+  {
+   "name": "auto RUNNING",
+   "cfg": null,
+   "raw": "RUNNING",
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok"
+   }
+  },
+  {
+   "name": "auto Idle",
+   "cfg": null,
+   "raw": "Idle",
+   "expect": {
+    "state": "idle",
+    "label": "Idle",
+    "tone": "warn"
+   }
+  },
+  {
+   "name": "auto STAND_BY",
+   "cfg": null,
+   "raw": "STAND_BY",
+   "expect": {
+    "state": "idle",
+    "label": "Idle",
+    "tone": "warn"
+   }
+  },
+  {
+   "name": "auto down",
+   "cfg": null,
+   "raw": "down",
+   "expect": {
+    "state": "fault",
+    "label": "Fault",
+    "tone": "bad"
+   }
+  },
+  {
+   "name": "auto Emergency-Stop",
+   "cfg": null,
+   "raw": "Emergency-Stop",
+   "expect": {
+    "state": "fault",
+    "label": "Fault",
+    "tone": "bad"
+   }
+  },
+  {
+   "name": "auto No production",
+   "cfg": null,
+   "raw": "No production",
+   "expect": {
+    "state": "stopped",
+    "label": "No production",
+    "tone": "info"
+   }
+  },
+  {
+   "name": "auto SETUP",
+   "cfg": null,
+   "raw": "SETUP",
+   "expect": {
+    "state": "idle",
+    "label": "Setup",
+    "tone": "info"
+   }
+  },
+  {
+   "name": "auto CHANGEOVER",
+   "cfg": null,
+   "raw": "CHANGEOVER",
+   "expect": {
+    "state": "idle",
+    "label": "Changeover",
+    "tone": "info"
+   }
+  },
+  {
+   "name": "auto unknown text",
+   "cfg": null,
+   "raw": "Compressor Run - Loaded",
+   "expect": {
+    "state": "unknown",
+    "label": "Compressor Run - Loaded",
+    "tone": "off"
+   }
+  },
+  {
+   "name": "auto empty",
+   "cfg": null,
+   "raw": "",
+   "expect": null
+  },
+  {
+   "name": "auto null",
+   "cfg": null,
+   "raw": null,
+   "expect": null
+  },
+  {
+   "name": "numeric 1",
+   "cfg": {
+    "key": "Run_Status",
+    "mode": "numeric",
+    "rules": [
+     {
+      "from": 1,
+      "to": 1,
+      "state": "running"
+     },
+     {
+      "from": 0,
+      "to": 0,
+      "state": "stopped"
+     },
+     {
+      "from": 2,
+      "to": 9,
+      "state": "fault",
+      "label": "Trip"
+     },
+     {
+      "from": 10,
+      "to": null,
+      "state": "idle",
+      "tone": "info"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown",
+     "label": "Check controller"
+    }
+   },
+   "raw": 1,
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok"
+   }
+  },
+  {
+   "name": "numeric \"0\"",
+   "cfg": {
+    "key": "Run_Status",
+    "mode": "numeric",
+    "rules": [
+     {
+      "from": 1,
+      "to": 1,
+      "state": "running"
+     },
+     {
+      "from": 0,
+      "to": 0,
+      "state": "stopped"
+     },
+     {
+      "from": 2,
+      "to": 9,
+      "state": "fault",
+      "label": "Trip"
+     },
+     {
+      "from": 10,
+      "to": null,
+      "state": "idle",
+      "tone": "info"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown",
+     "label": "Check controller"
+    }
+   },
+   "raw": "0",
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off"
+   }
+  },
+  {
+   "name": "numeric range 2..9",
+   "cfg": {
+    "key": "Run_Status",
+    "mode": "numeric",
+    "rules": [
+     {
+      "from": 1,
+      "to": 1,
+      "state": "running"
+     },
+     {
+      "from": 0,
+      "to": 0,
+      "state": "stopped"
+     },
+     {
+      "from": 2,
+      "to": 9,
+      "state": "fault",
+      "label": "Trip"
+     },
+     {
+      "from": 10,
+      "to": null,
+      "state": "idle",
+      "tone": "info"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown",
+     "label": "Check controller"
+    }
+   },
+   "raw": 5,
+   "expect": {
+    "state": "fault",
+    "label": "Trip",
+    "tone": "bad"
+   }
+  },
+  {
+   "name": "numeric range edge 9",
+   "cfg": {
+    "key": "Run_Status",
+    "mode": "numeric",
+    "rules": [
+     {
+      "from": 1,
+      "to": 1,
+      "state": "running"
+     },
+     {
+      "from": 0,
+      "to": 0,
+      "state": "stopped"
+     },
+     {
+      "from": 2,
+      "to": 9,
+      "state": "fault",
+      "label": "Trip"
+     },
+     {
+      "from": 10,
+      "to": null,
+      "state": "idle",
+      "tone": "info"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown",
+     "label": "Check controller"
+    }
+   },
+   "raw": 9,
+   "expect": {
+    "state": "fault",
+    "label": "Trip",
+    "tone": "bad"
+   }
+  },
+  {
+   "name": "numeric open end 10..",
+   "cfg": {
+    "key": "Run_Status",
+    "mode": "numeric",
+    "rules": [
+     {
+      "from": 1,
+      "to": 1,
+      "state": "running"
+     },
+     {
+      "from": 0,
+      "to": 0,
+      "state": "stopped"
+     },
+     {
+      "from": 2,
+      "to": 9,
+      "state": "fault",
+      "label": "Trip"
+     },
+     {
+      "from": 10,
+      "to": null,
+      "state": "idle",
+      "tone": "info"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown",
+     "label": "Check controller"
+    }
+   },
+   "raw": 250,
+   "expect": {
+    "state": "idle",
+    "label": "Idle",
+    "tone": "info"
+   }
+  },
+  {
+   "name": "numeric no rule (1.5)",
+   "cfg": {
+    "key": "Run_Status",
+    "mode": "numeric",
+    "rules": [
+     {
+      "from": 1,
+      "to": 1,
+      "state": "running"
+     },
+     {
+      "from": 0,
+      "to": 0,
+      "state": "stopped"
+     },
+     {
+      "from": 2,
+      "to": 9,
+      "state": "fault",
+      "label": "Trip"
+     },
+     {
+      "from": 10,
+      "to": null,
+      "state": "idle",
+      "tone": "info"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown",
+     "label": "Check controller"
+    }
+   },
+   "raw": 1.5,
+   "expect": {
+    "state": "unknown",
+    "label": "Check controller",
+    "tone": "off"
+   }
+  },
+  {
+   "name": "numeric text value",
+   "cfg": {
+    "key": "Run_Status",
+    "mode": "numeric",
+    "rules": [
+     {
+      "from": 1,
+      "to": 1,
+      "state": "running"
+     },
+     {
+      "from": 0,
+      "to": 0,
+      "state": "stopped"
+     },
+     {
+      "from": 2,
+      "to": 9,
+      "state": "fault",
+      "label": "Trip"
+     },
+     {
+      "from": 10,
+      "to": null,
+      "state": "idle",
+      "tone": "info"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown",
+     "label": "Check controller"
+    }
+   },
+   "raw": "RUNNING",
+   "expect": {
+    "state": "unknown",
+    "label": "Check controller",
+    "tone": "off"
+   }
+  },
+  {
+   "name": "numeric true = 1",
+   "cfg": {
+    "key": "Run_Status",
+    "mode": "numeric",
+    "rules": [
+     {
+      "from": 1,
+      "to": 1,
+      "state": "running"
+     },
+     {
+      "from": 0,
+      "to": 0,
+      "state": "stopped"
+     },
+     {
+      "from": 2,
+      "to": 9,
+      "state": "fault",
+      "label": "Trip"
+     },
+     {
+      "from": 10,
+      "to": null,
+      "state": "idle",
+      "tone": "info"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown",
+     "label": "Check controller"
+    }
+   },
+   "raw": true,
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok"
+   }
+  },
+  {
+   "name": "text producing",
+   "cfg": {
+    "key": "MachineState",
+    "mode": "text",
+    "rules": [
+     {
+      "text": "PRODUCING",
+      "state": "running"
+     },
+     {
+      "text": "IDLE",
+      "state": "idle"
+     },
+     {
+      "text": "SETUP",
+      "state": "idle",
+      "label": "Setup",
+      "tone": "info"
+     },
+     {
+      "text": "E-STOP",
+      "state": "fault",
+      "label": "Emergency stop"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown"
+    },
+    "noStatus": {
+     "state": "stopped",
+     "label": "No status"
+    }
+   },
+   "raw": " producing ",
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok"
+   }
+  },
+  {
+   "name": "text Setup custom label",
+   "cfg": {
+    "key": "MachineState",
+    "mode": "text",
+    "rules": [
+     {
+      "text": "PRODUCING",
+      "state": "running"
+     },
+     {
+      "text": "IDLE",
+      "state": "idle"
+     },
+     {
+      "text": "SETUP",
+      "state": "idle",
+      "label": "Setup",
+      "tone": "info"
+     },
+     {
+      "text": "E-STOP",
+      "state": "fault",
+      "label": "Emergency stop"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown"
+    },
+    "noStatus": {
+     "state": "stopped",
+     "label": "No status"
+    }
+   },
+   "raw": "Setup",
+   "expect": {
+    "state": "idle",
+    "label": "Setup",
+    "tone": "info"
+   }
+  },
+  {
+   "name": "text e-stop",
+   "cfg": {
+    "key": "MachineState",
+    "mode": "text",
+    "rules": [
+     {
+      "text": "PRODUCING",
+      "state": "running"
+     },
+     {
+      "text": "IDLE",
+      "state": "idle"
+     },
+     {
+      "text": "SETUP",
+      "state": "idle",
+      "label": "Setup",
+      "tone": "info"
+     },
+     {
+      "text": "E-STOP",
+      "state": "fault",
+      "label": "Emergency stop"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown"
+    },
+    "noStatus": {
+     "state": "stopped",
+     "label": "No status"
+    }
+   },
+   "raw": "e-stop",
+   "expect": {
+    "state": "fault",
+    "label": "Emergency stop",
+    "tone": "bad"
+   }
+  },
+  {
+   "name": "text unknown",
+   "cfg": {
+    "key": "MachineState",
+    "mode": "text",
+    "rules": [
+     {
+      "text": "PRODUCING",
+      "state": "running"
+     },
+     {
+      "text": "IDLE",
+      "state": "idle"
+     },
+     {
+      "text": "SETUP",
+      "state": "idle",
+      "label": "Setup",
+      "tone": "info"
+     },
+     {
+      "text": "E-STOP",
+      "state": "fault",
+      "label": "Emergency stop"
+     }
+    ],
+    "otherwise": {
+     "state": "unknown"
+    },
+    "noStatus": {
+     "state": "stopped",
+     "label": "No status"
+    }
+   },
+   "raw": "WARMUP",
+   "expect": {
+    "state": "unknown",
+    "label": "WARMUP",
+    "tone": "off"
+   }
+  },
+  {
+   "name": "text number compared as text",
+   "cfg": {
+    "mode": "text",
+    "rules": [
+     {
+      "text": "3",
+      "state": "fault"
+     }
+    ]
+   },
+   "raw": 3,
+   "expect": {
+    "state": "fault",
+    "label": "Fault",
+    "tone": "bad"
+   }
+  },
+  {
+   "name": "text otherwise state",
+   "cfg": {
+    "mode": "text",
+    "rules": [],
+    "otherwise": {
+     "state": "stopped"
+    }
+   },
+   "raw": "x",
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off"
+   }
+  }
+ ],
+ "status": [
+  {
+   "name": "demo compressor running (Run_Status wins over the stale text)",
+   "model": null,
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": 1
+    },
+    "status": {
+     "ts": 1791196400000,
+     "value": "IDLE"
+    },
+    "Outlet_Pressure": {
+     "ts": 1791199940000,
+     "value": 7.1
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "demo dryer stopped",
+   "model": null,
+   "type": "Dryer",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": 0
+    }
+   },
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "demo weather station: data, no status = Running",
+   "model": null,
+   "type": "Weather Station",
+   "latest": {
+    "Ambient_Temperature": {
+     "ts": 1791199940000,
+     "value": 21
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "nostatus",
+    "key": ""
+   }
+  },
+  {
+   "name": "automatic candidate order: runStatus before status",
+   "model": null,
+   "type": "X",
+   "latest": {
+    "status": {
+     "ts": 1791199940000,
+     "value": "IDLE"
+    },
+    "runStatus": {
+     "ts": 1791199940000,
+     "value": 0
+    }
+   },
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off",
+    "source": "status",
+    "key": "runStatus"
+   }
+  },
+  {
+   "name": "automatic: only a text status",
+   "model": null,
+   "type": "X",
+   "latest": {
+    "status": {
+     "ts": 1791199940000,
+     "value": "IDLE"
+    }
+   },
+   "expect": {
+    "state": "idle",
+    "label": "Idle",
+    "tone": "warn",
+    "source": "status",
+    "key": "status"
+   }
+  },
+  {
+   "name": "nothing for an hour = No data",
+   "model": null,
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791196400000,
+     "value": 1
+    }
+   },
+   "expect": {
+    "state": "offline",
+    "label": "No data",
+    "tone": "warn",
+    "source": "offline",
+    "key": ""
+   }
+  },
+  {
+   "name": "no values at all = No data",
+   "model": null,
+   "type": "Compressor",
+   "latest": {},
+   "expect": {
+    "state": "offline",
+    "label": "No data",
+    "tone": "warn",
+    "source": "offline",
+    "key": ""
+   }
+  },
+  {
+   "name": "old status but a fresh value: online, the status counts (sent on change)",
+   "model": null,
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791196400000,
+     "value": 0
+    },
+    "Pressure": {
+     "ts": 1791199940000,
+     "value": 6
+    }
+   },
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "activity time keeps it online",
+   "model": null,
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791196400000,
+     "value": 1
+    }
+   },
+   "opts": {
+    "activity": {
+     "last": 1791199880000
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "active = true keeps it online",
+   "model": null,
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791196400000,
+     "value": 1
+    }
+   },
+   "opts": {
+    "activity": {
+     "active": true
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "newest from the page keeps it online",
+   "model": null,
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791196400000,
+     "value": 1
+    }
+   },
+   "opts": {
+    "newest": 1791199700000
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "AI outputs and pre-aggregated copies are no sign of life",
+   "model": null,
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791196400000,
+     "value": 1
+    },
+    "aiml_health_status": {
+     "ts": 1791199940000,
+     "value": "good"
+    },
+    "Pressure_5min": {
+     "ts": 1791199940000,
+     "value": 3
+    }
+   },
+   "expect": {
+    "state": "offline",
+    "label": "No data",
+    "tone": "warn",
+    "source": "offline",
+    "key": ""
+   }
+  },
+  {
+   "name": "type override: 30 min, 20 min old = online",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "latest": {
+    "MachineState": {
+     "ts": 1791198800000,
+     "value": "PRODUCING"
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "status",
+    "key": "MachineState"
+   }
+  },
+  {
+   "name": "type override: 30 min, 40 min old = No data",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "latest": {
+    "MachineState": {
+     "ts": 1791197600000,
+     "value": "PRODUCING"
+    }
+   },
+   "expect": {
+    "state": "offline",
+    "label": "No data",
+    "tone": "warn",
+    "source": "offline",
+    "key": ""
+   }
+  },
+  {
+   "name": "model default 60 min applies to unsaved types",
+   "model": {
+    "v": 1,
+    "offlineMinutes": 60,
+    "types": {}
+   },
+   "type": "Dryer",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791197600000,
+     "value": 1
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "text map",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "latest": {
+    "MachineState": {
+     "ts": 1791199940000,
+     "value": "SETUP"
+    }
+   },
+   "expect": {
+    "state": "idle",
+    "label": "Setup",
+    "tone": "info",
+    "source": "status",
+    "key": "MachineState"
+   }
+  },
+  {
+   "name": "text map: other keys are not read",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": 1
+    },
+    "Force": {
+     "ts": 1791199940000,
+     "value": 200
+    }
+   },
+   "expect": {
+    "state": "stopped",
+    "label": "No status",
+    "tone": "off",
+    "source": "nostatus",
+    "key": ""
+   }
+  },
+  {
+   "name": "numeric map with range",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": 4
+    }
+   },
+   "expect": {
+    "state": "fault",
+    "label": "Trip",
+    "tone": "bad",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "numeric map, REST shape [[ts, value]]",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": [
+     [
+      1791199940000,
+      "1"
+     ]
+    ]
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "numeric map, REST shape [{ ts, value }]",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": [
+     {
+      "ts": 1791199940000,
+      "value": "0"
+     }
+    ]
+   },
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "unknown value",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": -3
+    }
+   },
+   "expect": {
+    "state": "unknown",
+    "label": "Check controller",
+    "tone": "off",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "fallback above threshold = Running",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Packaging Line",
+   "latest": {
+    "Motor_Current": {
+     "ts": 1791199940000,
+     "value": 3.2
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "fallback",
+    "key": "Motor_Current"
+   }
+  },
+  {
+   "name": "fallback at threshold = Stopped",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Packaging Line",
+   "latest": {
+    "Motor_Current": {
+     "ts": 1791199940000,
+     "value": 0.5
+    }
+   },
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off",
+    "source": "fallback",
+    "key": "Motor_Current"
+   }
+  },
+  {
+   "name": "fallback not used while a status value exists",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Packaging Line",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": 0
+    },
+    "Motor_Current": {
+     "ts": 1791199940000,
+     "value": 9
+    }
+   },
+   "expect": {
+    "state": "stopped",
+    "label": "Stopped",
+    "tone": "off",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "fallback key without a value = no status",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Packaging Line",
+   "latest": {
+    "Speed": {
+     "ts": 1791199940000,
+     "value": 9
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "nostatus",
+    "key": ""
+   }
+  },
+  {
+   "name": "no status label per type",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Weather Station",
+   "latest": {
+    "Wind": {
+     "ts": 1791199940000,
+     "value": 3
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Online",
+    "tone": "ok",
+    "source": "nostatus",
+    "key": ""
+   }
+  },
+  {
+   "name": "forced key = the tag: the type's rules",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": 4
+    }
+   },
+   "opts": {
+    "key": "Run_Status"
+   },
+   "expect": {
+    "state": "fault",
+    "label": "Trip",
+    "tone": "bad",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "forced other key: the automatic words",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": 1
+    },
+    "Status": {
+     "ts": 1791199940000,
+     "value": "No production"
+    }
+   },
+   "opts": {
+    "key": "Status"
+   },
+   "expect": {
+    "state": "stopped",
+    "label": "No production",
+    "tone": "info",
+    "source": "status",
+    "key": "Status"
+   }
+  },
+  {
+   "name": "broken model text",
+   "model": "{not json",
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": 1
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  },
+  {
+   "name": "bad rules are dropped, bad mode = auto",
+   "model": {
+    "v": 1,
+    "types": {
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "weird",
+       "rules": [
+        {
+         "from": "x",
+         "state": "fault"
+        }
+       ]
+      }
+     }
+    }
+   },
+   "type": "Compressor",
+   "latest": {
+    "Run_Status": {
+     "ts": 1791199940000,
+     "value": 1
+    }
+   },
+   "expect": {
+    "state": "running",
+    "label": "Running",
+    "tone": "ok",
+    "source": "status",
+    "key": "Run_Status"
+   }
+  }
+ ],
+ "value": [
+  {
+   "name": "saved label, unit, decimals",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "key": "Force",
+   "fb": {
+    "label": "Force",
+    "unit": "N",
+    "decimals": 2
+   },
+   "expect": {
+    "label": "Press force",
+    "unit": "kN",
+    "decimals": 0,
+    "hidden": false,
+    "order": 0,
+    "source": "model"
+   }
+  },
+  {
+   "name": "empty saved label falls back to the page's",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "key": "Die_Temp",
+   "fb": "Die Temperature (°F)",
+   "expect": {
+    "label": "Die Temperature",
+    "unit": "°C",
+    "decimals": 1,
+    "hidden": false,
+    "order": 1,
+    "source": "model"
+   }
+  },
+  {
+   "name": "hidden",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "key": "Debug_Counter",
+   "fb": null,
+   "expect": {
+    "label": "Debug Counter",
+    "unit": "",
+    "decimals": null,
+    "hidden": true,
+    "order": 2,
+    "source": "model"
+   }
+  },
+  {
+   "name": "not in the model: the page's telemetryKeys label",
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "key": "Airflow_Rate",
+   "fb": "Airflow Rate (CFM)",
+   "expect": {
+    "label": "Airflow Rate",
+    "unit": "CFM",
+    "decimals": null,
+    "hidden": false,
+    "order": -1,
+    "source": "page"
+   }
+  },
+  {
+   "name": "not in the model: the catalogue entry",
+   "model": null,
+   "type": "Compressor",
+   "key": "Outlet_Pressure",
+   "fb": {
+    "displayName": "Outlet pressure",
+    "unit": "bar",
+    "decimals": 2
+   },
+   "expect": {
+    "label": "Outlet pressure",
+    "unit": "bar",
+    "decimals": 2,
+    "hidden": false,
+    "order": -1,
+    "source": "page"
+   }
+  },
+  {
+   "name": "nothing known: the key made readable",
+   "model": null,
+   "type": "Compressor",
+   "key": "lube_oil_temp",
+   "fb": null,
+   "expect": {
+    "label": "Lube oil temp",
+    "unit": "",
+    "decimals": null,
+    "hidden": false,
+    "order": -1,
+    "source": "key"
+   }
+  }
+ ],
+ "offlineMs": [
+  {
+   "model": null,
+   "type": "Compressor",
+   "expect": 900000
+  },
+  {
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "expect": 1800000
+  },
+  {
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Compressor",
+   "expect": 900000
+  },
+  {
+   "model": {
+    "v": 1,
+    "offlineMinutes": 0,
+    "types": {}
+   },
+   "type": "X",
+   "expect": 900000
+  },
+  {
+   "model": {
+    "v": 1,
+    "offlineMinutes": 45,
+    "types": {
+     "X": {
+      "offlineMinutes": "abc"
+     }
+    }
+   },
+   "type": "X",
+   "expect": 2700000
+  }
+ ],
+ "statusKeys": [
+  {
+   "model": null,
+   "type": "Compressor",
+   "expect": [
+    "Run_Status",
+    "runStatus",
+    "status",
+    "Status"
+   ]
+  },
+  {
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Forging Press",
+   "expect": [
+    "MachineState"
+   ]
+  },
+  {
+   "model": {
+    "v": 1,
+    "rev": 3,
+    "offlineMinutes": 15,
+    "types": {
+     "Forging Press": {
+      "offlineMinutes": 30,
+      "status": {
+       "key": "MachineState",
+       "mode": "text",
+       "rules": [
+        {
+         "text": "PRODUCING",
+         "state": "running"
+        },
+        {
+         "text": "IDLE",
+         "state": "idle"
+        },
+        {
+         "text": "SETUP",
+         "state": "idle",
+         "label": "Setup",
+         "tone": "info"
+        },
+        {
+         "text": "E-STOP",
+         "state": "fault",
+         "label": "Emergency stop"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown"
+       },
+       "noStatus": {
+        "state": "stopped",
+        "label": "No status"
+       }
+      },
+      "values": [
+       {
+        "key": "Force",
+        "label": "Press force",
+        "unit": "kN",
+        "decimals": 0
+       },
+       {
+        "key": "Die_Temp",
+        "label": "",
+        "unit": "°C",
+        "decimals": 1
+       },
+       {
+        "key": "Debug_Counter",
+        "hidden": true
+       }
+      ]
+     },
+     "Compressor": {
+      "status": {
+       "key": "Run_Status",
+       "mode": "numeric",
+       "rules": [
+        {
+         "from": 1,
+         "to": 1,
+         "state": "running"
+        },
+        {
+         "from": 0,
+         "to": 0,
+         "state": "stopped"
+        },
+        {
+         "from": 2,
+         "to": 9,
+         "state": "fault",
+         "label": "Trip"
+        },
+        {
+         "from": 10,
+         "to": null,
+         "state": "idle",
+         "tone": "info"
+        }
+       ],
+       "otherwise": {
+        "state": "unknown",
+        "label": "Check controller"
+       }
+      }
+     },
+     "Packaging Line": {
+      "status": {
+       "key": "",
+       "mode": "auto",
+       "fallback": {
+        "key": "Motor_Current",
+        "above": 0.5
+       }
+      }
+     },
+     "Weather Station": {
+      "status": {
+       "noStatus": {
+        "state": "running",
+        "label": "Online"
+       }
+      }
+     }
+    }
+   },
+   "type": "Packaging Line",
+   "expect": [
+    "Run_Status",
+    "runStatus",
+    "status",
+    "Status",
+    "Motor_Current"
+   ]
+  }
+ ]
+}

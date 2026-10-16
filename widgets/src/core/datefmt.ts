@@ -14,13 +14,20 @@
  *   o: { short (no year in the current year), seconds, tz (IANA zone; default the browser's), hour12, now }
  * A bad timestamp gives ''. The 12 / 24-hour clock is the app's (imxShell.hour12(), else the side menu's clock.js
  * __imxClockFns, else the browser's default).
+ * D-067 (App UI U-073): the date follows the app's date style (imexAppConfig.formats.date: "16 Oct 2026" by default,
+ * "16/10/2026", "16.10.2026", "16-10-2026", "10/16/2026", "2026-10-16" with a space before the time); the shell does
+ * it on app pages, the copy below reads the same config (core/regional.ts).
  */
+import { appFormats } from './regional';
+import type { Formats } from './regional';
 export interface FmtOpts {
   short?: boolean;
   seconds?: boolean;
   tz?: string | null;
   hour12?: boolean;
   now?: number;
+  /** a per-call override of the app's regional formats (D-067; the shell takes it too) */
+  formats?: Partial<Formats>;
 }
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -94,10 +101,22 @@ function thisYear(o?: FmtOpts): number {
   const now = tsOf(o?.now);
   return parts(Number.isFinite(now) ? now : Date.now(), o?.tz).y;
 }
+// D-067 (U-073): the date in the app's date style (imexAppConfig.formats.date, core/regional.ts), as the shell writes it
 function dateOf(p: Parts, o?: FmtOpts, noYear = false): string {
+  const st = appFormats(o?.formats).date;
+  const yr = !(noYear || (o?.short && p.y === thisYear(o)));
+  const d = pad(p.d);
+  const m = pad(p.mo);
+  if (st === 'dmy') return d + '/' + m + (yr ? '/' + p.y : '');
+  if (st === 'dmy.') return d + '.' + m + '.' + (yr ? p.y : '');
+  if (st === 'dmy-') return d + '-' + m + (yr ? '-' + p.y : '');
+  if (st === 'mdy') return m + '/' + d + (yr ? '/' + p.y : '');
+  if (st === 'ymd') return (yr ? p.y + '-' : '') + m + '-' + d;
   const s = `${p.d} ${MON[p.mo - 1]}`;
-  return noYear || (o?.short && p.y === thisYear(o)) ? s : `${s} ${p.y}`;
+  return yr ? `${s} ${p.y}` : s;
 }
+/** Between the date and the time: ", "; a space for the ISO style ("2026-10-16 16:57"). */
+const sepOf = (o?: FmtOpts) => (appFormats(o?.formats).date === 'ymd' ? ' ' : ', ');
 /** Options as the shell takes them (no undefined tz). */
 const shellOpts = (o?: FmtOpts) => {
   const x: Record<string, unknown> = { ...(o ?? {}) };
@@ -126,7 +145,7 @@ export function dateTime(ts: unknown, o?: FmtOpts): string {
   const t = tsOf(ts);
   if (!Number.isFinite(t)) return '';
   const p = parts(t, o?.tz);
-  return `${dateOf(p, o)}, ${timeOf(p, o)}`;
+  return dateOf(p, o) + sepOf(o) + timeOf(p, o);
 }
 /** A period: "16 Oct 2026, 4:57 AM – 6:10 PM" on one day, else both ends with their dates (the year once when shared). */
 export function range(from: unknown, to: unknown, o?: FmtOpts): string {
@@ -138,9 +157,10 @@ export function range(from: unknown, to: unknown, o?: FmtOpts): string {
   if (!Number.isFinite(b0)) return dateTime(a0, o);
   const a = parts(a0, o?.tz);
   const b = parts(b0, o?.tz);
-  if (a.y === b.y && a.mo === b.mo && a.d === b.d) return `${dateOf(a, o)}, ${timeOf(a, o)} – ${timeOf(b, o)}`;
+  const sep = sepOf(o);
+  if (a.y === b.y && a.mo === b.mo && a.d === b.d) return `${dateOf(a, o)}${sep}${timeOf(a, o)} – ${timeOf(b, o)}`;
   const start = a.y === b.y ? dateOf(a, o, true) : dateOf(a, o);
-  return `${start}, ${timeOf(a, o)} – ${dateOf(b, o)}, ${timeOf(b, o)}`;
+  return `${start}${sep}${timeOf(a, o)} – ${dateOf(b, o)}${sep}${timeOf(b, o)}`;
 }
 
 /**

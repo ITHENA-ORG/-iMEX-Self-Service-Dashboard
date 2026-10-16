@@ -87,6 +87,7 @@
  */
 import * as api from '../core/api';
 import * as scope from '../core/scope';
+import * as machine from '../core/machine';
 import type { UserContext, Node } from '../core/scope';
 import type { KeyMeta } from '../core/types';
 import { Widget, Binding, WIDGET_CAPS, WIDGET_LABELS, CONTENT_TYPES, MAX_SERIES, MAX_WIDGETS, rangeWindow, isShiftRange, normalizeRange, CardStyle, DashboardTheme, ColorRule } from '../core/schema';
@@ -783,12 +784,20 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
       if (sp) requestAnimationFrame(() => sparkline(sp, pts, rule?.color ?? palette[0]));
       return rule;
     }
-    // status: colour rules if the widget has its own; else legacy statusMap or a 1 = Running / 0 = Stopped default.
-    // A latest value older than 5 min shows "Offline" regardless.
-    const offline = (ended ? endTs : Date.now()) - lv.ts > 5 * 60e3;
+    // status: colour rules if the widget has its own; else legacy statusMap; else (D-064) the machine model's map when
+    // the key is the type's status tag, or a 1 = Running / 0 = Stopped default. A latest value older than the type's
+    // No-data time (the machine model's, default 15 min) shows "No data" regardless.
+    const mm = machine.model();
+    const mtype = machine.kindOf(d0.profile, d0.label);
+    const offline = (ended ? endTs : Date.now()) - lv.ts > machine.offlineMs(mm, mtype);
+    const mcfg = machine.typeOf(mm, mtype).status;
+    const byModel = !(rules.length && s.colorRules?.length) && !s.statusMap?.length && (mcfg.key ? mcfg.key === key : machine.RUN_KEYS.includes(key)) ? machine.classify(mcfg, lv.value) : null;
     let label: string;
     let color: string;
-    if (rules.length && s.colorRules?.length) {
+    if (byModel) {
+      label = byModel.label;
+      color = machine.TONE_COLOR[byModel.tone] ?? STATUS.neutral;
+    } else if (rules.length && s.colorRules?.length) {
       label = rule?.label ?? stateLabel(lv.value, rules, meta, key);
       color = rule?.color ?? STATUS.neutral;
     } else {
@@ -803,8 +812,8 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
       color = cssColor(hit?.color ?? STATUS.neutral);
     }
     if (offline) {
-      label = 'Offline';
-      color = STATUS.neutral;
+      label = 'No data';
+      color = machine.TONE_COLOR.warn;
     }
     body.innerHTML = `<div class="dbb-value"><div class="dbb-pill" style="--pill:${color}"><span class="dbb-dot"></span><span class="pt">${esc(label)}</span></div><div class="s" style="margin-top:8px">${sub(d0, lv.ts)}</div></div>`;
     // The card is coloured only if a colorTarget was chosen explicitly; a synthetic rule carries the pill colour.

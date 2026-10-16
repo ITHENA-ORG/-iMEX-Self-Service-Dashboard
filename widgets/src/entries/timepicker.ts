@@ -17,6 +17,7 @@ import { VIEW_PRESETS, presetLabel, viewLabel, customProblem, viewWindow, MAX_BA
 import type { ViewWindow } from '../core/viewwindow';
 import type { ShiftSource } from '../core/schema';
 import * as fmt from '../core/datefmt';
+import * as regional from '../core/regional';
 import { shiftWindowText } from '../core/shifts';
 
 /** What the menu needs from the page. */
@@ -190,7 +191,9 @@ export function openWindowMenu(btn: HTMLButtonElement, m: WindowMenu) {
     const first = new Date(c.month);
     const y = first.getFullYear();
     const mo = first.getMonth();
-    const lead = (first.getDay() + 6) % 7; // Monday first
+    // D-067 (U-073): the week starts on the app's first day (imexAppConfig.formats.weekStart; Monday by default)
+    const ws = regional.weekStart();
+    const lead = regional.leadDays(first.getDay(), ws);
     const start = new Date(y, mo, 1 - lead).getTime();
     const prevOk = new Date(y, mo, 0).getTime() >= oldest;
     const nextOk = new Date(y, mo + 1, 1).getTime() <= today;
@@ -204,7 +207,7 @@ export function openWindowMenu(btn: HTMLButtonElement, m: WindowMenu) {
     }
     void start;
     panel.innerHTML = `<div class="dbb-twc-mh"><button type="button" data-m="-1" aria-label="Previous month" title="Previous month"${prevOk ? '' : ' aria-disabled="true"'}>${UI_ICON.chev}</button><b>${MONTHS[mo]} ${y}</b><button type="button" data-m="1" aria-label="Next month" title="Next month"${nextOk ? '' : ' aria-disabled="true"'}>${UI_ICON.chev}</button></div>
-      <div class="dbb-twc-g" role="group" aria-label="${MONTHS[mo]} ${y}">${['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((x) => `<span class="wd">${x}</span>`).join('')}${days}</div>
+      <div class="dbb-twc-g" role="group" aria-label="${MONTHS[mo]} ${y}">${regional.weekdayHeaders(ws).map((x) => `<span class="wd">${x}</span>`).join('')}${days}</div>
       <div class="dbb-twc-f"><span class="l">From</span><span class="d">${esc(fmt.date(c.fromDay))}</span><input type="text" data-t="from" value="${esc(timeText(c.fromMin))}" aria-label="Start time" autocomplete="off" spellcheck="false"/></div>
       <div class="dbb-twc-f"><span class="l">To</span><span class="d">${esc(fmt.date(c.toDay))}</span><input type="text" data-t="to" value="${esc(timeText(c.toMin))}" aria-label="End time" autocomplete="off" spellcheck="false"/></div>
       <div class="dbb-twc-hint">${c.stage === 'to' ? 'Now click the last day (or the same day again).' : 'Click the first day, then the last day. Up to 7 days.'}</div>

@@ -1,5 +1,6 @@
 // D-059: the instance licence in the Builder (core/licence.ts): feature gates read from window.__imexLicence
-// defensively, re-gating on 'imx-licence-changed', and the monthly LLM quota of DESIGN 10.4 (count, verdict, metering).
+// defensively, re-gating on 'imx-licence-changed', and the monthly LLM quota note (verdict; D-066: counted and metered on
+// the server).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as lic from '../src/core/licence';
 
@@ -105,69 +106,30 @@ describe('LLM quota maths', () => {
     expect(lic.llmVerdict(3, 4).level).toBe('ok');
     expect(lic.llmVerdict(4, 5).level).toBe('warn');
   });
-  it('the COUNT request covers the five keys in one bucket from the month start', () => {
-    const now = Date.UTC(2026, 9, 16, 8, 0);
-    const start = Date.UTC(2026, 9, 1);
-    expect(lic.llmCountPath('A1', now)).toBe(
-      `/api/plugins/telemetry/ASSET/A1/values/timeseries?keys=llm_aiml,llm_native,llm_reports,llm_builder,llm_aether&startTs=${start}&endTs=${now}&agg=COUNT&interval=${now - start + 1}&limit=1`,
-    );
-  });
-  it('sums the counts of every key (strings or numbers, junk ignored)', () => {
-    expect(lic.sumCounts({ llm_aiml: [{ ts: 1, value: '12' }], llm_builder: [{ ts: 1, value: 3 }], llm_reports: [], llm_native: [{ ts: 1, value: 'x' }] })).toBe(15);
-    expect(lic.sumCounts({})).toBe(0);
-    expect(lic.sumCounts(null)).toBe(0);
-  });
-  it('n calls = n points of value 1, 1 ms apart (COUNT counts points)', () => {
-    expect(lic.llmPoints('llm_builder', 3, 1000)).toEqual([
-      { ts: 1000, values: { llm_builder: 1 } },
-      { ts: 1001, values: { llm_builder: 1 } },
-      { ts: 1002, values: { llm_builder: 1 } },
-    ]);
-    expect(lic.llmPoints('llm_builder', 0, 1000)).toEqual([]);
-  });
 });
 
-describe('quota check and metering against ThingsBoard', () => {
-  it('no limit: nothing is asked', async () => {
-    setWindow({ has: () => true, limits: {} });
+// D-066 (U-071 / CC-013): the count is the server's (the keeper's imexAiUsage via the side menu's usage.llm); the
+// browser asks nothing and meters nothing (the chat relay chain checks and meters every call)
+describe('quota note from the server count', () => {
+  it('no limit: ok, and no request', async () => {
+    setWindow({ has: () => true, limits: {}, usage: { llm: { total: 999 } } });
     expect(await lic.llmCheck()).toEqual({ level: 'ok', message: '', used: null, limit: null });
     expect(calls).toEqual([]);
   });
-  it('reads the month count on the side menu asset and judges it', async () => {
-    setWindow({ has: () => true, limits: { llmCallsPerMonth: 100 } });
-    countResp = { llm_aiml: [{ ts: 0, value: '50' }], llm_builder: [{ ts: 0, value: '35' }] };
-    const q = await lic.llmCheck(Date.UTC(2026, 9, 16));
-    expect(q).toEqual({ level: 'warn', message: '85 of 100 AI requests used this month', used: 85, limit: 100 });
-    expect(calls).toHaveLength(1);
-    expect(calls[0].url).toContain('/api/plugins/telemetry/ASSET/cfg-1/values/timeseries?keys=llm_aiml,llm_native,llm_reports,llm_builder,llm_aether');
-    countResp = { llm_reports: [{ ts: 0, value: '100' }] };
+  it('judges the side menu count against the limit', async () => {
+    setWindow({ has: () => true, limits: { llmCallsPerMonth: 100 }, usage: { llm: { total: 85 } } });
+    expect(await lic.llmCheck()).toEqual({ level: 'warn', message: '85 of 100 AI requests used this month', used: 85, limit: 100 });
+    setWindow({ has: () => true, limits: { llmCallsPerMonth: 100 }, usage: { llm: { total: 100 } } });
     expect((await lic.llmCheck()).level).toBe('block');
+    expect(calls).toEqual([]);
   });
-  it('a failed count read allows the call', async () => {
-    setWindow({ has: () => true, limits: { llmCallsPerMonth: 100 } });
-    vi.stubGlobal('fetch', async () => new Response('denied', { status: 403 }));
+  it('no count yet: ok (the relay chain still enforces)', async () => {
+    setWindow({ has: () => true, limits: { llmCallsPerMonth: 100 }, usage: { llm: null } });
     expect(await lic.llmCheck()).toEqual({ level: 'ok', message: '', used: null, limit: 100 });
   });
-  it('records each call as one llm_builder point on System Configuration', async () => {
-    setWindow({ has: () => true });
-    expect(await lic.llmRecord('llm_builder', 2, 5000)).toBe(true);
-    expect(calls).toEqual([
-      {
-        method: 'POST',
-        url: '/api/plugins/telemetry/ASSET/cfg-1/timeseries/ANY',
-        body: [
-          { ts: 5000, values: { llm_builder: 1 } },
-          { ts: 5001, values: { llm_builder: 1 } },
-        ],
-      },
-    ]);
-    expect(await lic.llmRecord('llm_builder', 0)).toBe(false);
-    expect(calls).toHaveLength(1);
-  });
-  it('without the side menu the asset is looked up by name', async () => {
-    setWindow({ has: () => true }, null);
-    expect(await lic.systemConfigId()).toBe('cfg-q');
-    expect(calls[0].url).toBe('/api/entitiesQuery/find');
+  it('the browser no longer writes llm_* points (no llmRecord)', () => {
+    expect((lic as any).llmRecord).toBeUndefined();
+    expect((lic as any).systemConfigId).toBeUndefined();
   });
 });
 

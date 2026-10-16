@@ -404,7 +404,32 @@ export type ApplyTarget =
   | { type: 'devices'; deviceIds: string[]; mode: 'linked' | 'copy' }
   | { type: 'node'; nodeId: string; profile: string }
   | { type: 'customer'; profile: string }
+  | { type: 'managed'; profile: string }
   | { type: 'none' };
+
+/**
+ * D-065: "All <type> machines you manage" for a user whose access does not cover the whole organisation. It used to
+ * be saved as a fixed list of machines (a device-level assignment on each), so a machine added later got no machine
+ * page. Now it is resolved by type at view time, as far as the access allows:
+ * - nodes:   every location the user holds in full (`ctx.allRoots`, 'all' grants): a location assignment
+ *            `dbb_assign[profile]` there, which every machine of the type under it follows, also one added later;
+ * - devices: the granted machines of the type outside those locations (fixed equipment grants: a machine added later is
+ *            not in the user's access, so nothing more can follow): a device-level assignment each, as before;
+ * - all:     every machine of the type the user sees now (the preview's "affected").
+ */
+export function managedPlan(ctx: Pick<UserContext, 'nodes' | 'access' | 'allRoots'>, profile: string): { nodes: scope.Node[]; devices: scope.Node[]; all: scope.Node[] } {
+  const nodes = (ctx.allRoots ?? []).filter((id) => scope.holdsAll(ctx, id)).map((id) => ctx.nodes.get(id)!).filter(Boolean);
+  const under = new Set<string>();
+  for (const n of nodes) for (const d of scope.devicesUnder(ctx, n.id, profile)) under.add(d.id);
+  const all = scope.allDevices(ctx, profile);
+  return { nodes, devices: all.filter((d) => !under.has(d.id)), all };
+}
+
+/** The managed location of `deviceId` in a plan (the 'all' grant above it), or null for a fixed-grant machine. */
+function planRootOf(ctx: Pick<UserContext, 'nodes'>, deviceId: string, rootIds: Set<string>): string | null {
+  for (const a of scope.ancestors(ctx, deviceId)) if (rootIds.has(a.id)) return a.id;
+  return null;
+}
 
 /** What an apply would do, shown before the admin confirms (`previewApply`). */
 export interface ApplyPreview {
@@ -436,6 +461,8 @@ export function canApply(ctx: UserContext, t: ApplyTarget): string | null {
   }
   if (!ctx.canApplyMany) return "Your role can't apply a dashboard to all machines of a type.";
   if (t.type === 'node' && !scope.holdsAll(ctx, t.nodeId)) return 'That location is outside your access (you need all of it).';
+  // D-065: the plan only holds locations the user holds in full and machines granted to them (managedPlan)
+  if (t.type === 'managed' && !managedPlan(ctx, t.profile).all.length) return 'You manage no machines of this type.';
   if (t.type === 'customer') {
     // customer-wide requires the user's access to cover the whole organisation (every top is an 'all' grant)
     if (!ctx.coversAll) return 'Customer-wide assignment requires access to the whole organisation.';
@@ -466,7 +493,26 @@ export async function previewApply(ctx: UserContext, doc: Dashboard, t: ApplyTar
   if (t.type === 'devices') devices = t.deviceIds.map((d) => ctx.nodes.get(d)!).filter(Boolean);
   if (t.type === 'node') devices = scope.devicesUnder(ctx, t.nodeId, t.profile);
   if (t.type === 'customer') devices = scope.allDevices(ctx, t.profile);
+  // D-065: the managed locations (each a location assignment) and the fixed-grant machines (each a device assignment)
+  const plan = t.type === 'managed' ? managedPlan(ctx, t.profile) : null;
+  const planRoots = new Set(plan ? plan.nodes.map((n) => n.id) : []);
+  const planFixed = new Set(plan ? plan.devices.map((d) => d.id) : []);
+  if (plan) devices = plan.all;
   pv.affected = devices.map((d) => ({ id: d.id, label: d.label }));
+
+  if (plan) {
+    // a managed location that already shows another dashboard for this type: "Replace existing assignment?"
+    const others: string[] = [];
+    for (const n of plan.nodes) {
+      const cur = (await readAssign(asset(n.id)))?.[t.type === 'managed' ? t.profile : ''];
+      if (cur?.dashboardId && cur.dashboardId !== doc.id) others.push(cur.dashboardId);
+    }
+    if (others.length) {
+      const other = await getDashboard(ctx, others[0]);
+      const more = others.length > 1 ? ` and ${others.length - 1} more` : '';
+      pv.replacesAssignment = { dashboardId: others[0], name: (other?.name ?? others[0]) + more };
+    }
+  }
 
   if (t.type === 'node') {
     const cur = (await readAssign(asset(t.nodeId)))?.[t.profile];
@@ -489,7 +535,17 @@ export async function previewApply(ctx: UserContext, doc: Dashboard, t: ApplyTar
   await Promise.all(
     devices.map(async (d) => {
       const [res, keys] = await Promise.all([resolveForDevice(ctx, d.id, d.profile), keysOf(ctx, d.id)]);
-      if ((t.type === 'node' || t.type === 'customer') && res.deviceAssignment?.dashboardId) pv.keepOwn.push({ id: d.id, label: d.label });
+      const root = plan && !planFixed.has(d.id) ? planRootOf(ctx, d.id, planRoots) : null;
+      // D-065: under a managed location a machine keeps its own (device-level) dashboard, or the one of a location
+      // between it and the managed one (the nearest location wins); a fixed-grant machine is assigned directly
+      const closer = (): boolean => {
+        if (!root || res.level !== 'node' || !res.sourceNodeId || res.dashboard?.id === doc.id) return false;
+        const anc = scope.ancestors(ctx, d.id).map((a) => a.id);
+        const i = anc.indexOf(res.sourceNodeId);
+        return i >= 0 && i < anc.indexOf(root);
+      };
+      if (root && ((res.deviceAssignment?.dashboardId && res.deviceAssignment.dashboardId !== doc.id) || closer())) pv.keepOwn.push({ id: d.id, label: d.label });
+      else if ((t.type === 'node' || t.type === 'customer') && res.deviceAssignment?.dashboardId) pv.keepOwn.push({ id: d.id, label: d.label });
       else if (res.dashboard && res.dashboard.id !== doc.id && res.level !== 'personal')
         pv.replaced.push({ id: d.id, label: d.label, from: res.dashboard.name });
       for (const k of usedKeys) if (!keys.has(k)) missing.set(k, [...(missing.get(k) ?? []), d.label]);
@@ -507,6 +563,8 @@ export async function previewApply(ctx: UserContext, doc: Dashboard, t: ApplyTar
  *             dashboard per machine (`copiedFrom` = doc.id) and assigns that.
  * - node:     asset `dbb_assign[profile]` (merged with other profiles' entries).
  * - customer: store `dbb_assign_customer[profile]` (merged).
+ * - managed:  D-065: asset `dbb_assign[profile]` on every managed location + device `dbb_assign` on each fixed-grant
+ *             machine of the type (managedPlan).
  * Read-modify-write without locking: concurrent applies on the same entity can lose one update.
  * Device-level assignments are not touched by node/customer applies (they keep winning).
  * @returns ids of the machines in scope that the assignment covers (for the audit/summary).
@@ -539,6 +597,21 @@ export async function apply(ctx: UserContext, doc: Dashboard, t: ApplyTarget): P
     return done;
   }
   const a: Assignment = { dashboardId: doc.id, by: ctx.displayName, at: now };
+  if (t.type === 'managed') {
+    // D-065: a location assignment on every managed location (followed by machines added there later), a device
+    // assignment on each fixed-grant machine (see managedPlan)
+    const plan = managedPlan(ctx, t.profile);
+    for (const n of plan.nodes) {
+      const cur = (await readAssign(asset(n.id))) ?? {};
+      await api.saveAttrs(asset(n.id), { dbb_assign: { ...cur, [t.profile]: a } });
+    }
+    for (const d of plan.devices) {
+      const da: DeviceAssignment = { ...a, mode: 'linked' };
+      await api.saveAttrs(dev(d.id), { dbb_assign: da });
+    }
+    await assignChanged(ctx);
+    return plan.all.map((d) => d.id);
+  }
   if (t.type === 'node') {
     const cur = (await readAssign(asset(t.nodeId))) ?? {};
     await api.saveAttrs(asset(t.nodeId), { dbb_assign: { ...cur, [t.profile]: a } });

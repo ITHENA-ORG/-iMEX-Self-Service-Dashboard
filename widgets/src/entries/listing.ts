@@ -20,6 +20,7 @@
 // not a permission (D-012). A page the user's role hides (Fleet overview / Machines) shows the app's empty state. Card data is polled over REST (latest telemetry, active
 // alarms) every 10 s in listing mode; map mode loads once. Reloads on CHANGED_EVENT (listing mode).
 import * as api from '../core/api';
+import * as machine from '../core/machine';
 import * as scope from '../core/scope';
 import * as store from '../core/store';
 import type { UserContext, Node } from '../core/scope';
@@ -227,12 +228,12 @@ export function init(tbCtx: any) {
   };
 
   // Machine card. Shows up to 4 catalogue keys (dbb_profile_keys) excluding status/hours keys.
-  // Offline = no fresh value among the shown keys + runStatus for 5 min.
+  // D-064: the status is the machine model's (core/machine.ts): its word and colour.
   const deviceCard = (d: Node, m: MStat): string => {
     const metas = (ctx.profileKeys[d.profile] ?? []).filter((k) => !/status|hours/i.test(k.key)).slice(0, 4);
-    const { values: lv, lastTs: ts, offline, running } = m;
+    const { values: lv, lastTs: ts } = m;
     const al = { length: m.alarms };
-    const [st, col] = offline ? ['Offline', STATUS.neutral] : running ? ['Running', STATUS.good] : ['Stopped', STATUS.warning];
+    const [st, col] = [esc(m.result.label), machine.TONE_COLOR[m.result.tone] ?? STATUS.neutral];
     return `<div class="dbb-mc" data-dev="${esc(d.id)}" style="--st:${col}"><div class="dbb-mc-h"><span class="dbb-mc-ic">${ICON_SVG.cpu}</span><div><div class="dbb-mc-t">${esc(d.label)}</div><div class="dbb-mc-s">${esc(d.profile)}</div></div><span class="dbb-stp"><i></i>${st}</span></div>
       <div class="dbb-kv">${metas
         .map((m) => `<div><span>${esc(m.displayName)}</span><b>${lv[m.key] ? `${fmtNum(lv[m.key]!.value, m.decimals)}<small>${esc(m.unit)}</small>` : '—'}</b></div>`)
@@ -334,26 +335,29 @@ function agoTxt(ts: number): string {
 /** Status of one machine for the map/listing cards. */
 interface MStat {
   values: api.Latest;
-  /** Latest telemetry time over the catalogue keys + runStatus (0 = none). */
+  /** Latest telemetry time over the catalogue keys + the type's status keys (0 = none). */
   lastTs: number;
   offline: boolean;
   running: boolean;
+  /** D-064: the machine model's status (word, colour, state). */
+  result: machine.Result;
   alarms: number;
 }
 
 /**
  * Status of many machines in 2 calls (D-022): latest values of each machine type's catalogue keys (up to 20)
- * plus runStatus (api.latestMany: WebSocket live cache, else one Entity Data Query), and active alarm counts
- * (api.activeAlarmCounts: one Alarm Data Query). Machine types without a catalogue list their keys first
- * (one call per such machine). Offline = no value newer than 5 minutes; running = online and runStatus is
- * 1 or missing. Failed reads count as offline / no alarms.
+ * plus the type's status keys (api.latestMany: WebSocket live cache, else one Entity Data Query), and active alarm
+ * counts (api.activeAlarmCounts: one Alarm Data Query). Machine types without a catalogue list their keys first
+ * (one call per such machine). D-064: the status is the machine model's ONE rule (core/machine.ts): the type's
+ * status tag through its map, "No data" after the type's No-data time. Failed reads count as no data / no alarms.
  */
 async function machineStats(ctx: UserContext, devs: Node[]): Promise<Map<string, MStat>> {
+  const mm = await machine.load(api.systemConfigMachineModel);
   const req = await Promise.all(
     devs.map(async (d) => {
       let keys = (ctx.profileKeys[d.profile] ?? []).map((k) => k.key).slice(0, 20);
       if (!keys.length) keys = (await api.timeseriesKeys(d.id).catch(() => [] as string[])).slice(0, 20);
-      if (!keys.includes('runStatus')) keys.push('runStatus');
+      for (const k of machine.statusKeys(mm, machine.kindOf(d.profile, d.label))) if (!keys.includes(k)) keys.push(k);
       return { deviceId: d.id, keys };
     }),
   );
@@ -365,10 +369,8 @@ async function machineStats(ctx: UserContext, devs: Node[]): Promise<Map<string,
   for (const d of devs) {
     const values = lv.get(d.id) ?? {};
     const lastTs = Math.max(0, ...Object.values(values).map((v) => v?.ts ?? 0));
-    const offline = !lastTs || Date.now() - lastTs > 5 * 60e3;
-    const rs = values.runStatus?.value;
-    const running = !offline && (rs === undefined || rs === null || (rs as any) === '' || Number(rs) === 1);
-    out.set(d.id, { values, lastTs, offline, running, alarms: al.get(d.id) ?? 0 });
+    const result = machine.status(mm, machine.kindOf(d.profile, d.label), values as machine.Latest);
+    out.set(d.id, { values, lastTs, offline: result.state === 'offline', running: result.state === 'running', result, alarms: al.get(d.id) ?? 0 });
   }
   return out;
 }

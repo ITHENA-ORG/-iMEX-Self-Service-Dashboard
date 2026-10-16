@@ -27,9 +27,13 @@
 // Steps (each is create-or-update, so the whole call is idempotent and safe to re-run per customer):
 //   1. Customer: looked up by title (throws if missing).
 //   2. Rule chain "DBB Chat relay (POC)" (D-014, D-021): created if missing, then its metadata is rewritten:
-//      Is chat request -> Read LLM settings (config asset attributes via relation UsesLlmConfig) ->
+//      Is chat request -> Licence and AI usage (the store's customer: imexLicenceStatus, imexLicenceBinding,
+//      imexAiUsage; D-066) -> Licence and quota (builder + builder.ai + genAi, mode active / grace, this month's count
+//      below llmCallsPerMonth; else the error reply) -> Read LLM settings (config asset attributes via relation UsesLlmConfig) ->
 //      Build LLM request (provider picked from the key format) -> Pick provider -> Call Claude | Call OpenAI |
-//      Call Gemini -> Parse LLM reply / Error reply -> Save reply attribute (`dbb_chat_resp_<userId>`).
+//      Call Gemini -> Parse LLM reply / Error reply -> Save reply attribute (`dbb_chat_resp_<userId>`); a parsed reply
+//      is also metered (D-066): one llm_builder point on the tenant-only asset "iMEX Keeper", then the licence keeper
+//      chain recounts the month (when it exists: App UI scripts/relay.mjs).
 //      A key pasted into the pre-D-021 "Call LLM" node is moved to the config asset (step 3b).
 //   3. Asset profile "DashboardStore" (must carry the POC marker if it exists) with the chat relay as its
 //      default rule chain; store asset `storeName` created if missing, assigned to the customer, and
@@ -177,6 +181,53 @@ window.DBB_DEPLOY = async function (opts) {
     'return {msg: body, metadata: md, msgType: msgType};',
   ].join('\n');
   const switchScript = 'return [metadata.provider];';
+  // D-066: the licence (one place: the app customer's imexLicenceStatus.parsed as the keeper read it, the binding) and the
+  // month's AI count (imexAiUsage, the keeper's COUNT of llm_* on "iMEX Keeper"), at server time. The browser's own check
+  // is only a note: this is the gate. Unlicensed / over quota -> metadata.error (NOT_LICENSED / QUOTA) -> Error reply.
+  const gateScript = [
+    'function asObj(v) { if (v is String) { if (v == "") { return null; } return JSON.parse(v); } return v; }',
+    'function isMap(v) { return v != null && v is java.util.Map; }',
+    // MVEL types "var x = 0" as an int (a Long put in it later is cut): times come from a function
+    'function ms(v) { if (v is String && v.length() >= 20) { return new Date(v).getTime(); } return new Date(0).getTime(); }',
+    'var st = asObj(metadata.lStatus);',
+    'var bind = asObj(metadata.lBind);',
+    'var use = asObj(metadata.lUsage);',
+    'var now = new Date().getTime();',
+    'var mode = "none";',
+    'if (isMap(bind) && bind.mode == "dev-open") { mode = "open"; }',
+    'else if (isMap(st) && isMap(st.parsed) && isMap(bind) && bind.instanceId is String && st.parsed.instanceId == bind.instanceId) {',
+    '  var p = st.parsed;',
+    '  var exp = ms(p.expiresAt);',
+    '  var grace = 14.0;',
+    '  if (p.graceDays is Number) { grace = p.graceDays * 1.0; }',
+    '  if (p.status is String && p.status.toLowerCase() == "suspended") { mode = "suspended"; }',
+    '  else if (exp > 0 && now <= exp) { mode = "active"; }',
+    '  else if (exp > 0 && now <= exp + grace * 86400000.0) { mode = "grace"; }',
+    '  else { mode = "expired"; }',
+    '}',
+    'var ok = mode == "open";',
+    'var limit = 0;',
+    'if (mode == "active" || mode == "grace") {',
+    '  var f = st.parsed.features;',
+    '  ok = isMap(f) && f.builder == true && f["builder.ai"] == true && f.genAi == true;',
+    '  var l = st.parsed.limits;',
+    '  if (isMap(l) && l.llmCallsPerMonth is Number && l.llmCallsPerMonth > 0) { limit = l.llmCallsPerMonth; }',
+    '}',
+    'if (!ok) { metadata.error = "NOT_LICENSED"; }',
+    'else if (limit > 0) {',
+    '  var used = 0;',
+    '  if (isMap(use) && use.month == new Date().toISOString().substring(0, 7) && use.total is Number) { used = use.total; }',
+    '  if (used >= limit) { metadata.error = "QUOTA"; metadata.qUsed = "" + used; metadata.qLimit = "" + limit; }',
+    '}',
+    'metadata.remove("lStatus");',
+    'metadata.remove("lBind");',
+    'metadata.remove("lUsage");',
+    'return {msg: msg, metadata: metadata, msgType: msgType};',
+  ].join('\n');
+  const gateRoute = 'if (metadata.error != null && metadata.error != "") { return ["no"]; } return ["ok"];';
+  // D-066: one point per provider call that answered, server time, on the tenant-only keeper asset (customers can
+  // neither read nor delete it); kKind 'recount' makes the keeper chain recount the month (imexAiUsage)
+  const meterScript = 'var m = {}; m.llm_builder = 1; var md = {}; md.kKind = "recount"; return {msg: m, metadata: md, msgType: "POST_TELEMETRY_REQUEST"};';
   // NB: TBEL does not allow ternaries inside map literals (the ':' is parsed as a key separator);
   // `function` is a keyword, hence tc[0]["function"].
   const parseScript = [
@@ -225,6 +276,8 @@ window.DBB_DEPLOY = async function (opts) {
     'else if (err.startsWith("USER_MISMATCH")) { err = "The chat request did not come from your user. Reload the page and try again."; }',
     'else if (err.startsWith("TOO_BIG")) { err = "The chat request is too large. Start a new conversation or ask for fewer changes at once."; }',
     'else if (err.startsWith("BAD_TOOL")) { err = "The chat request was not made by the Dashboard Builder."; }',
+    'else if (err.startsWith("NOT_LICENSED")) { err = "The chat assistant is not included in this installation\'s licence. Ask your administrator."; }',
+    'else if (err.startsWith("QUOTA")) { err = "Monthly AI limit reached (" + metadata.qUsed + " of " + metadata.qLimit + ") — contact your administrator"; }',
     'else if (err.startsWith("OLD_CLIENT")) { err = "This page is running an older version of the Dashboard Builder. Reload the page (Ctrl+F5) and try again."; }',
     `else if (p == "") { err = "The chat relay could not read the LLM settings or build the request. Check that asset ${o.llmConfigName} exists and is linked to this store (relation UsesLlmConfig)."; }`,
     `else if (err.contains("401") || err.contains("403") || err.contains("authentication") || err.contains("API key not valid") || err.contains("API_KEY_INVALID")) { err = "The " + p + " API key on ${o.llmConfigName} is invalid or has no access to the model."; }`,
@@ -304,9 +357,48 @@ window.DBB_DEPLOY = async function (opts) {
       configuration: { processingSettings: { type: 'ON_EVERY_MESSAGE' }, scope: 'SERVER_SCOPE', notifyDevice: false, sendAttributesUpdatedNotification: false, updateAttributesOnlyOnValueChange: false },
       additionalInfo: { layoutX: 1550, layoutY: 300 },
     },
+    // D-066: the licence and quota gate (10-12) and the server-side meter (13-16)
+    /* 10 */ {
+      type: 'org.thingsboard.rule.engine.metadata.TbGetCustomerAttributeNode',
+      name: 'Licence and AI usage',
+      configurationVersion: 1,
+      configuration: { fetchTo: 'METADATA', dataToFetch: 'ATTRIBUTES', dataMapping: { imexLicenceStatus: 'lStatus', imexLicenceBinding: 'lBind', imexAiUsage: 'lUsage' } },
+      additionalInfo: { layoutX: 300, layoutY: 30 },
+    },
+    /* 11 */ { type: 'org.thingsboard.rule.engine.transform.TbTransformMsgNode', name: 'Licence and quota', configuration: tbel(gateScript), additionalInfo: { layoutX: 550, layoutY: 30 } },
+    /* 12 */ { type: 'org.thingsboard.rule.engine.filter.TbJsSwitchNode', name: 'Allowed?', configuration: { scriptLang: 'TBEL', tbelScript: gateRoute, jsScript: 'return ["ok"];' }, additionalInfo: { layoutX: 800, layoutY: 30 } },
+    /* 13 */ { type: 'org.thingsboard.rule.engine.transform.TbTransformMsgNode', name: 'Meter the call', configuration: tbel(meterScript), additionalInfo: { layoutX: 1550, layoutY: 120 } },
+    /* 14 */ {
+      type: 'org.thingsboard.rule.engine.transform.TbChangeOriginatorNode',
+      name: 'To the licence keeper',
+      configurationVersion: 0,
+      configuration: { originatorSource: 'ENTITY', entityType: 'ASSET', entityNamePattern: 'iMEX Keeper', relationsQuery: { direction: 'FROM', maxLevel: 1, filters: [{ relationType: 'Contains', entityTypes: [] }], fetchLastLevelOnly: false } },
+      additionalInfo: { layoutX: 1800, layoutY: 120 },
+    },
+    /* 15 */ {
+      type: 'org.thingsboard.rule.engine.telemetry.TbMsgTimeseriesNode',
+      name: 'Save the meter point',
+      configurationVersion: 1,
+      configuration: { defaultTTL: 0, useServerTs: true, processingSettings: { type: 'ON_EVERY_MESSAGE' } },
+      additionalInfo: { layoutX: 2050, layoutY: 120 },
+    },
   ];
+  // the keeper chain (App UI scripts/relay.mjs) recounts the month after each point; without it the count follows on
+  // the keeper's next recount
+  const keeperChain = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Licence keeper')}`)).find((x) => x.name === 'iMEX Licence keeper');
+  if (keeperChain) nodes.push(/* 16 */ { type: 'org.thingsboard.rule.engine.flow.TbRuleChainInputNode', name: 'Recount (licence keeper)', configurationVersion: 1, configuration: { ruleChainId: keeperChain.id.id, forwardMsgToDefaultRuleChain: false }, additionalInfo: { layoutX: 2300, layoutY: 120 } });
+  // D-066: no debug on any node (the LLM key and the user's request pass through them)
+  for (const nd of nodes) nd.debugSettings = { failuresEnabled: false, allEnabled: false, allEnabledUntil: 0 };
   const connections = [
-    { fromIndex: 0, toIndex: 1, type: 'True' },
+    { fromIndex: 0, toIndex: 10, type: 'True' },
+    // D-066: licence and quota before anything is sent to a provider
+    { fromIndex: 10, toIndex: 11, type: 'Success' },
+    { fromIndex: 10, toIndex: 11, type: 'Failure' },
+    { fromIndex: 11, toIndex: 12, type: 'Success' },
+    { fromIndex: 11, toIndex: 8, type: 'Failure' },
+    { fromIndex: 12, toIndex: 1, type: 'ok' },
+    { fromIndex: 12, toIndex: 8, type: 'no' },
+    { fromIndex: 12, toIndex: 8, type: 'Failure' },
     { fromIndex: 1, toIndex: 2, type: 'Success' },
     { fromIndex: 1, toIndex: 8, type: 'Failure' },
     { fromIndex: 2, toIndex: 3, type: 'Success' },
@@ -319,6 +411,9 @@ window.DBB_DEPLOY = async function (opts) {
   ];
   for (const r of [4, 5, 6]) connections.push({ fromIndex: r, toIndex: 7, type: 'Success' }, { fromIndex: r, toIndex: 8, type: 'Failure' });
   connections.push({ fromIndex: 7, toIndex: 9, type: 'Success' }, { fromIndex: 7, toIndex: 8, type: 'Failure' }, { fromIndex: 8, toIndex: 9, type: 'Success' });
+  // D-066: a parsed reply = one provider call that answered: metered on the keeper
+  connections.push({ fromIndex: 7, toIndex: 13, type: 'Success' }, { fromIndex: 13, toIndex: 14, type: 'Success' }, { fromIndex: 14, toIndex: 15, type: 'Success' });
+  if (keeperChain) connections.push({ fromIndex: 15, toIndex: 16, type: 'Success' });
   // Replaces all nodes and connections of the chain (passing the current version for optimistic locking).
   await api('POST', '/api/ruleChain/metadata', { ruleChainId: rc.id, version: existingMeta.version, firstNodeIndex: 0, nodes, connections, ruleChainConnections: null });
   say(`rule chain "${rcName}" written (Claude / OpenAI / Gemini, key read from ${o.llmConfigName})`);

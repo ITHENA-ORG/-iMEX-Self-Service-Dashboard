@@ -60,6 +60,7 @@ import * as api from './api';
 import * as access from './access';
 import * as perm from './perm';
 import type { KeyMeta } from './types';
+import * as machine from './machine';
 
 /** One entity of the user's visible hierarchy (asset = location/site/line, device = machine). */
 export interface Node {
@@ -458,13 +459,15 @@ export async function loadUserContext(opts: LoadOptions = {}): Promise<UserConte
     warnings.push('Your user settings could not be read. Reload the page.');
   }
 
-  const [, sto] = await Promise.all([buildTree(ctx, grants, attrs, tenant, source, false, pre), storeP]);
+  // D-064: the machine model (names, units, decimals, hidden keys, order per type) is read beside the store
+  const [, sto, mm] = await Promise.all([buildTree(ctx, grants, attrs, tenant, source, false, pre), storeP, machine.load(api.systemConfigMachineModel)]);
   if (sto) ctx.store = sto.ref;
   else if (ctx.customerId) warnings.push('Dashboard store asset (type DashboardStore) is missing; saving is disabled.');
   const sa = sto?.attrs ?? {};
   ctx.catalogue = sa.dbb_profile_keys && typeof sa.dbb_profile_keys === 'object' ? sa.dbb_profile_keys : {};
   // a copy per type: liveKeys adds to these lists, the catalogue stays as stored
-  ctx.profileKeys = Object.fromEntries(Object.entries(ctx.catalogue).map(([p, ks]) => [p, Array.isArray(ks) ? [...ks] : []]));
+  // D-064: with the machine model laid over it (the app's Settings > Sites & machines wins over the catalogue)
+  ctx.profileKeys = Object.fromEntries(Object.entries(ctx.catalogue).map(([p, ks]) => [p, machine.overlay(mm, p, Array.isArray(ks) ? [...ks] : [])]));
   ctx.deployedVersion = String(sa.dbb_lib_version ?? '');
   if (ctx.assign) {
     ctx.assign.customer = sa.dbb_assign_customer ?? {};
@@ -737,34 +740,12 @@ export function readableKey(key: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : key;
 }
 
-/** Unit suffixes of snake_case keys ("discharge_pressure_bar"), longest first. One-letter ones need 3+ parts ("motor_current_a", not "phase_a"). */
-const KEY_UNITS: [string, string][] = [
-  ['kw_m3min', 'kW/(m³/min)'],
-  ['m3min', 'm³/min'],
-  ['mm_s', 'mm/s'],
-  ['kwh', 'kWh'],
-  ['kw', 'kW'],
-  ['mbar', 'mbar'],
-  ['bar', 'bar'],
-  ['pct', '%'],
-  ['rpm', 'rpm'],
-  ['hz', 'Hz'],
-  ['lpm', 'L/min'],
-  ['c', '°C'],
-  ['f', '°F'],
-  ['v', 'V'],
-  ['a', 'A'],
-];
-
-/** Name and unit for a key nobody has named: "discharge_pressure_bar" -> {name: "Discharge pressure", unit: "bar"}. */
+/**
+ * Name for a key nobody has named: "line_speed" -> {name: "Line speed", unit: ""}. D-064: no unit is guessed from the
+ * key's suffix any more (a guess such as "_f" -> °F was wrong as often as right): units come from the machine model
+ * (the app's Settings > Sites & machines), the catalogue or the machines' telemetryKeys names.
+ */
 export function guessKey(key: string): { name: string; unit: string } {
-  if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(key)) {
-    const parts = key.split('_').length;
-    for (const [suf, unit] of KEY_UNITS) {
-      if (!key.endsWith(`_${suf}`) || (suf.length === 1 && parts < 3)) continue;
-      return { name: readableKey(key.slice(0, -suf.length - 1)), unit };
-    }
-  }
   return { name: readableKey(key), unit: '' };
 }
 
@@ -882,7 +863,7 @@ async function loadLive(ctx: UserContext, profiles: string[]) {
   }
   for (const [p, e] of fresh) {
     const named = new Map(e.named.map(([k, label, unit]) => [k, { label, unit }]));
-    ctx.profileKeys[p] = mergeKeys(ctx.catalogue?.[p] ?? ctx.profileKeys[p] ?? [], e.keys, named);
+    ctx.profileKeys[p] = machine.overlay(machine.model(), p, mergeKeys(ctx.catalogue?.[p] ?? ctx.profileKeys[p] ?? [], e.keys, named));
   }
 }
 

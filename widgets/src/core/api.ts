@@ -904,6 +904,30 @@ export async function systemConfigShifts(): Promise<{ id: string; name: string; 
 }
 
 /**
+ * D-064: the machine model (`imexMachineModel` of the configuration asset, written by the app's Settings > Sites &
+ * machines): the side menu's asset when it is on the page (one attribute read), else the asset named "System
+ * Configuration" with the attribute in ONE Entity Data Query. Resolves to the stored value (object or JSON text) or
+ * null; rejects when the request fails (core/machine.ts load() keeps its copy then).
+ */
+export async function systemConfigMachineModel(): Promise<unknown> {
+  const app = typeof window !== 'undefined' ? (window as any).__imexApp?.asset : null;
+  if (app?.id) {
+    const id = typeof app.id === 'string' ? app.id : app.id.id;
+    const a = await getAttrs({ id, entityType: 'ASSET' }, ['imexMachineModel']);
+    return a.imexMachineModel ?? null;
+  }
+  const r = await post<any>('/api/entitiesQuery/find', {
+    entityFilter: { type: 'entityName', entityType: 'ASSET', entityNameFilter: 'System Configuration' },
+    pageLink: { page: 0, pageSize: 10 },
+    entityFields: [{ type: 'ENTITY_FIELD', key: 'name' }],
+    latestValues: [{ type: 'SERVER_ATTRIBUTE', key: 'imexMachineModel' }],
+  });
+  const hit = (r?.data ?? []).find((d: any) => d?.latest?.ENTITY_FIELD?.name?.value === 'System Configuration');
+  const v = hit?.latest?.SERVER_ATTRIBUTE?.imexMachineModel;
+  return v && v.ts > 0 && v.value !== '' ? v.value : null;
+}
+
+/**
  * D-050: the customer's role store, the `imexRoles` attribute of the configuration asset (System Configuration): the
  * iMEX side menu's asset when it is on the page (`window.__imexApp.asset`, one attribute read), else the asset named
  * "System Configuration" with the attribute in ONE Entity Data Query. `raw` is the value as stored (object or JSON

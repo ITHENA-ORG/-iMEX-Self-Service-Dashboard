@@ -32,6 +32,7 @@
 // REST calls (see core/api.ts). If the socket is down: REST polling as before (refreshSeconds, default 10 s,
 // in realtime; 60 s for historic ranges). Skipped while the tab is hidden. See common.ts scheduleRedraw.
 import * as api from '../core/api';
+import * as machine from '../core/machine';
 import * as scope from '../core/scope';
 import * as store from '../core/store';
 import type { UserContext } from '../core/scope';
@@ -471,7 +472,7 @@ export function init(tbCtx: any) {
     /** D-061: the end of the window shown when it has ended (null = it ends now). */
     winEnd?: number | null;
     ticks?: number;
-    /** The machine's status as the header pill shows it (Running / Stopped / Offline), for a ticket's text. */
+    /** The machine's status as the header pill shows it (D-064: the machine model's word, e.g. Running / Stopped / No data), for a ticket's text. */
     status?: string;
     /** The theme of the dashboard shown (D-056: applied again when the app switches light / dark). */
     theme?: Dashboard['theme'] | null;
@@ -622,7 +623,8 @@ export function init(tbCtx: any) {
    * resolved dashboard, or the built-in default layout when nothing is assigned. Devices outside the
    * user's scope get a warning only (scope is UI-enforced, D-012); load() has already reloaded a cached scope
    * that did not have the machine (userContextFor).
-   * Status: Offline when no telemetry for 5 min, else Running/Stopped from `runStatus` (missing = Running).
+   * Status (D-064): the machine model's ONE status rule (core/machine.ts, the app's Settings > Sites & machines): the
+   * type's status tag through its map, "No data" after the type's No-data time (default 15 min).
    * For a role with dashboards.build (D-050), publishes: edit, customise (shared dashboard from a location/customer assignment),
    * reset (device has a `customised` copy), thresholds, the switcher when several dashboards apply,
    * and "clear personal view" (D-017: personal views are still resolved but no longer created).
@@ -689,11 +691,9 @@ export function init(tbCtx: any) {
     grid.render(shown);
     barActions(ctx, deviceId, node, where, dash, shown, range);
     // Status pill after the grid has started loading (D-022): the header no longer holds up the widgets.
-    void lastTelemetry(ctx, deviceId, node.profile).then(({ lastTs, runStatus }) => {
+    void lastTelemetry(ctx, deviceId, node.profile, node.label).then(({ lastTs, result }) => {
       if (st.deviceId !== deviceId) return;
-      const offline = !lastTs || Date.now() - lastTs > 5 * 60e3;
-      const running = !offline && (runStatus === undefined || Number(runStatus) === 1);
-      const status = offline ? ['Offline', STATUS.neutral] : running ? ['Running', STATUS.good] : ['Stopped', STATUS.warning];
+      const status = [esc(result.label), machine.TONE_COLOR[result.tone] ?? STATUS.neutral];
       const pill = head.querySelector('.dbb-status-pill') as HTMLElement | null;
       if (!pill) return;
       pill.style.setProperty('--pill', status[1]);
@@ -1070,18 +1070,20 @@ export function init(tbCtx: any) {
 }
 
 /**
- * Most recent telemetry time (max `ts` over the latest values) and `runStatus` of a device.
- * Uses the machine type's catalogue keys (dbb_profile_keys, up to 20) plus runStatus, read through the
+ * Most recent telemetry time (max `ts` over the latest values) and the machine's status (D-064: the machine model).
+ * Uses the machine type's catalogue keys (dbb_profile_keys, up to 20) plus the type's status keys, read through the
  * WebSocket live cache (D-022: normally no REST call; the widgets subscribe the same keys). Machine types
  * without a catalogue fall back to listing the device's keys (2 REST calls).
  */
-async function lastTelemetry(ctx: UserContext, deviceId: string, profile: string): Promise<{ lastTs: number | null; runStatus: any }> {
+async function lastTelemetry(ctx: UserContext, deviceId: string, profile: string, label = ''): Promise<{ lastTs: number | null; result: machine.Result }> {
   let keys = (ctx.profileKeys[profile] ?? []).map((k) => k.key).slice(0, 20);
   if (!keys.length) keys = (await api.timeseriesKeys(deviceId).catch(() => [] as string[])).slice(0, 20);
-  if (!keys.includes('runStatus')) keys.push('runStatus');
+  const mm = await machine.load(api.systemConfigMachineModel);
+  const type = machine.kindOf(profile, label);
+  for (const k of machine.statusKeys(mm, type)) if (!keys.includes(k)) keys.push(k);
   const l = await api.latest(deviceId, keys, true).catch(() => ({}) as api.Latest);
   const ts = Object.values(l).map((v) => v?.ts ?? 0);
-  return { lastTs: ts.length ? Math.max(...ts) || null : null, runStatus: l.runStatus?.value };
+  return { lastTs: ts.length ? Math.max(...ts) || null : null, result: machine.status(mm, type, l as machine.Latest) };
 }
 
 /** Widget onStateChanged: reloads for the new state entity (keeps the user context cache). */

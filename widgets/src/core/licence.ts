@@ -14,13 +14,12 @@
  *               page buttons and Edit, openBuilder). Viewing dashboards is core and never licence-gated.
  *   builder.ai  the Builder's Chat tab and its "Describe it in chat" tiles (the side menu's has() also needs the parent).
  *
- * LLM metering (DESIGN 10.4): every LLM provider call is one telemetry point `llm_<source>` = 1 on the asset
- * "System Configuration"; usage = COUNT of the five keys since the start of the calendar month (UTC), compared with
- * limits.llmCallsPerMonth: >= 80 % warn, >= 100 % refuse with "Monthly AI limit reached (N of M) — contact your
- * administrator". The thresholds and texts mirror llm_verdict of the shared Python module (imex_licence.py).
- * Several calls of one chat turn are posted as several points (ts, ts+1, ...): COUNT counts points, not values.
+ * LLM metering (DESIGN 10.4, since D-066 / CC-013 §12.5): every provider call is metered SERVER-side, by the chat relay
+ * rule chain, as one telemetry point `llm_builder` on the tenant-only asset "iMEX Keeper" (customer users can neither
+ * read nor delete it); the chain also refuses a turn when the licence lacks builder / builder.ai / genAi or the month's
+ * count (COUNT of the five llm_* keys, UTC month) reached limits.llmCallsPerMonth. The browser no longer meters. The
+ * thresholds and texts here mirror llm_verdict of the shared Python module (imex_licence.py) for the note shown first.
  */
-import * as api from './api';
 
 export const LICENCE_EVENT = 'imx-licence-changed';
 /** The five metering keys (DESIGN 10.4), one per source. */
@@ -33,6 +32,7 @@ export interface LicenceApi {
   status?: { mode?: string; payload?: { limits?: Record<string, unknown> } | null } | null;
   has?: (key: string) => boolean;
   limits?: Record<string, unknown> | null;
+  usage?: { llm?: { total?: number | null } | null } | null;
 }
 
 /** `window.__imexLicence`, or null when the page has none. */
@@ -104,89 +104,24 @@ export function llmVerdict(used: number, limit: number | null): LlmVerdict {
   return { level: 'ok', message: '' };
 }
 
-/** The COUNT request of DESIGN 10.4: one bucket from the month start to now, the five keys. */
-export function llmCountPath(assetId: string, now: number): string {
-  const start = monthStartUtc(now);
-  return `/api/plugins/telemetry/ASSET/${assetId}/values/timeseries?keys=${LLM_KEYS.join(',')}&startTs=${start}&endTs=${now}&agg=COUNT&interval=${now - start + 1}&limit=1`;
-}
-
-/** Sum of the COUNT buckets of every key (values arrive as numbers or strings; anything else counts 0). */
-export function sumCounts(resp: unknown): number {
-  let n = 0;
-  if (!resp || typeof resp !== 'object') return 0;
-  for (const rows of Object.values(resp as Record<string, unknown>)) {
-    if (!Array.isArray(rows)) continue;
-    for (const r of rows) {
-      const v = Number((r as any)?.value);
-      if (Number.isFinite(v) && v > 0) n += v;
-    }
-  }
-  return Math.round(n);
-}
-
-/** The telemetry body for `n` calls of one source: n points of value 1, 1 ms apart (COUNT counts points). */
-export function llmPoints(source: LlmSource, n: number, now: number): { ts: number; values: Record<string, number> }[] {
-  const out: { ts: number; values: Record<string, number> }[] = [];
-  for (let i = 0; i < Math.max(0, Math.floor(n)); i++) out.push({ ts: now + i, values: { [source]: 1 } });
-  return out;
-}
-
-let cfgP: Promise<string | null> | null = null;
-/**
- * Id of the configuration asset ("System Configuration"): the side menu's asset when it is on the page
- * (`window.__imexApp.asset`), else the asset of that name (one Entity Data Query, as api.systemConfigRoles). Cached
- * for the page; a failed lookup is asked again next time.
- */
-export function systemConfigId(): Promise<string | null> {
-  const app = typeof window !== 'undefined' ? (window as any).__imexApp?.asset : null;
-  if (app?.id) return Promise.resolve(typeof app.id === 'string' ? app.id : app.id.id);
-  cfgP ??= api
-    .post<any>('/api/entitiesQuery/find', {
-      entityFilter: { type: 'entityName', entityType: 'ASSET', entityNameFilter: 'System Configuration' },
-      pageLink: { page: 0, pageSize: 10 },
-      entityFields: [{ type: 'ENTITY_FIELD', key: 'name' }],
-    })
-    .then((r) => (r?.data ?? []).find((d: any) => d?.latest?.ENTITY_FIELD?.name?.value === 'System Configuration')?.entityId?.id ?? null)
-    .catch(() => {
-      cfgP = null;
-      return null;
-    });
-  return cfgP;
-}
-
 export interface LlmQuota extends LlmVerdict {
   used: number | null;
   limit: number | null;
 }
 
 /**
- * The quota check before an LLM call. Without a limit nothing is asked (ok). When the asset or the count can't be
- * read the call is allowed (ok, used null): the licence is a commercial control, a failed read must not stop work.
+ * D-066 (U-071 / CC-013): the quota NOTE before a chat turn. The count is the server's (the licence keeper counts every
+ * provider call on the tenant-only asset "iMEX Keeper" and publishes this month's total as imexAiUsage on the app
+ * customer; the side menu's licence core offers it as `usage.llm`). No request from here. The chat relay rule chain
+ * checks the licence and the quota itself before every call and meters it: this is only what the user is told first.
+ * Without a limit, or without a count yet, ok.
  */
-export async function llmCheck(now = Date.now()): Promise<LlmQuota> {
-  const limit = llmLimit();
+export async function llmCheck(_now = Date.now(), L: LicenceApi | null = licenceApi()): Promise<LlmQuota> {
+  const limit = llmLimit(L);
   if (limit == null) return { level: 'ok', message: '', used: null, limit: null };
-  try {
-    const id = await systemConfigId();
-    if (!id) return { level: 'ok', message: '', used: null, limit };
-    const used = sumCounts(await api.get(llmCountPath(id, now)));
-    return { ...llmVerdict(used, limit), used, limit };
-  } catch {
-    return { level: 'ok', message: '', used: null, limit };
-  }
-}
-
-/** Posts `n` provider calls of `source` (after they succeeded). Resolves false when nothing could be written. */
-export async function llmRecord(source: LlmSource, n: number, now = Date.now()): Promise<boolean> {
-  if (!(n > 0)) return false;
-  try {
-    const id = await systemConfigId();
-    if (!id) return false;
-    await api.post(`/api/plugins/telemetry/ASSET/${id}/timeseries/ANY`, llmPoints(source, n, now));
-    return true;
-  } catch {
-    return false;
-  }
+  const total = Number((L as any)?.usage?.llm?.total);
+  if (!Number.isFinite(total) || total < 0) return { level: 'ok', message: '', used: null, limit };
+  return { ...llmVerdict(total, limit), used: total, limit };
 }
 
 /** A chat transport that counts the provider calls that answered (the relay's retry included when it succeeded). */

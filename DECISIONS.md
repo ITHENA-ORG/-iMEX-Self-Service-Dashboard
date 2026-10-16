@@ -883,3 +883,95 @@ A full read-only security review of widgets/src and the chat relay, then fixes, 
   Checked with `scratch/d063-check.mjs` (read-only) on Compressor 1 and "All Plants Across the Globe" opened from the
   Dashboards list, light + dark, 1440×900 / 1366×768 / 1100×800: tooltip "Help for this page"; the click lands on Help
   with "Help for the page you were on: Dashboards" / "Machines". Not on the server.
+
+### D-065 "All <type> machines you manage" follows machines added later, 16 Oct 2026 (Akshay, round 6 S4; App UI U-072 bug c)
+- Problem: for a user whose access does not cover the whole organisation, Apply › "All <type> machines you manage" wrote a
+  device-level `dbb_assign` on every same-type machine the user saw: a fixed list. A machine added later got no machine
+  page (CONFIG_AUDIT §4 bug 9, `builder.ts` apply dialog).
+- Now (`store.ts`): target `{ type: 'managed', profile }` resolved by type at view time as far as the access allows
+  (`store.managedPlan`): a location assignment `dbb_assign[profile]` on every location the user holds in full
+  (`ctx.allRoots`, 'all' grants; nearest location wins as before, so a machine added under it follows, also where no
+  machine of the type exists yet), and a device-level linked assignment only on machines granted one by one (fixed
+  grants: a machine added later is not in that user's access). Whole-organisation access keeps the customer-wide
+  assignment. The dialog says "and machines added later" when at least one location is held in full.
+- Preview: a managed location already showing another dashboard for the type asks "Replace existing assignment"
+  (first one named, "and N more"); a machine under a managed location keeps its own device-level dashboard, or the one
+  of a closer location (listed as keeping their own), exactly as location assignments always behaved. Behaviour change
+  vs the fixed list: such machines are no longer overwritten (same rule as customer-wide since D-017).
+- Migration: `scripts/migrate-managed-assign.mjs` (dry run; `--go` writes after a backup to `backups/<date>/`;
+  `--server` only on Akshay's go-ahead). Recognises a fixed list (2+ linked device assignments with the same dashboard,
+  `by` and `at`, one machine type), finds the assigner by display name, and per location they hold in full where every
+  machine of the type that existed at the Apply is in the list (and no other dashboard is assigned there): writes the
+  location assignment, removes the list's device assignments under it, bumps `dbb_assign_rev`. LOCAL dry run 16 Oct:
+  5 device assignments, no fixed list.
+- Role core: catalogue row `alertrules.templates` (App U-072 Notification templates) added to `perm.ts`; vectors copied.
+- Tests: `widgets/test/managed-assign.test.ts` (plan, apply + a machine added later, empty location, preview, role);
+  all 308 pass; `npm run build:widgets` built (not deployed: phase 1).
+
+### D-064 Machine model: ONE machine status, names and units from the app's Sites & machines, no guessed units or icons, 16 Oct 2026 (Akshay, round 6 stream S1; App UI U-070)
+- **Why:** the machine page pill and the Map / Listing cards read only `runStatus` (the demo sends `Run_Status`), so a
+  stopped machine showed Running; "Offline" came after 5 min (15 everywhere else); units were guessed from key
+  suffixes (`_f` -> °F) and type icons from type names (compressor, blower, dryer, weather). Akshay: one status
+  everywhere, nothing hard-coded, a machine-types-and-values editor used by the app, Builder and Reports.
+- **What:** `core/machine.ts`, a port of the App UI's widgets/_shared/machine.js (status, value, overlay, look; the
+  attribute `imexMachineModel` of System Configuration, read with the user context and kept a minute,
+  `api.systemConfigMachineModel`). The status pill (`entries/renderer.ts`), the Map / Listing cards
+  (`entries/listing.ts`) and the status widget for a type's status tag without its own rules (`render/widgets.ts`)
+  use it: the type's tag through its map, its words and colours, "No data" after the type's No-data time.
+  `ctx.profileKeys` is the catalogue with the model laid over it (names, units, decimals win; hidden keys left out;
+  the model's order first). `guessKey` names a key but no longer guesses its unit; `typeIcon` = the type's icon chosen
+  on the app (else the neutral factory icon); the unit icons no longer know cfm / inH2O. Neutral placeholders in the
+  Builder ("e.g. Line 1 overview", the chat example, the Nearest-machine hint) and in the chat system prompt.
+- **Tests:** `widgets/test/machine.test.ts` (the App UI's `machine-vectors.json`, byte for byte, + overlay, look,
+  load) +9; `livekeys.test.ts` (no unit guess); `load.test.ts` (the first context load also reads the model: 10 calls,
+  9 within the minute). All 317 pass; typecheck clean; E2E 79 scenarios all passed (status regexes accept the model's
+  words). `npm run build:widgets` built.
+- **LOCAL:** deployed 16 Oct (deploy-node --go, dbb_lib_version 2026-10-16T14:13:54Z, the whole working tree after tsc and 313 unit tests). Checked: Compressor 1 machine page pill "Running" from the model (App UI screens/round6/s1/builder-machine-page.png). Supervisor template: Sites & machines at View (perm.ts). Not on the server.
+
+### D-066 The chat relay checks the licence and the AI quota and meters every call itself, 16 Oct 2026 (Akshay, round 6 stream S2; App UI U-071, Control Centre CC-013)
+LICENCE_REVIEW #5: the chat relay rule chain checked neither licence nor quota (any user could write `dbb_chat_req`
+directly for unlimited LLM calls), the counter was customer-deletable telemetry on "System Configuration", and the
+metering was a browser call after the turn.
+- **Gate in the chain** (`widgets/deploy/deploy-browser.js`, nodes 10-12, before "Read LLM settings"): the store's
+  customer attributes `imexLicenceStatus` (its `parsed` licence as the server keeper read it), `imexLicenceBinding` and
+  `imexAiUsage` → TBEL "Licence and quota": mode active / grace (server time; suspended, expired, other instance, no
+  licence = refused; `dev-open` binding = allowed), features `builder` + `builder.ai` + `genAi`, this month's count
+  below `llmCallsPerMonth`. Refusals go to the Error reply: "The chat assistant is not included in this installation's
+  licence…" / "Monthly AI limit reached (N of M) — contact your administrator". Enforcement by default: no licence =
+  no chat.
+- **Meter in the chain** (nodes 13-16): every parsed reply (= one provider call that answered) → one `llm_builder`
+  point on the tenant-only asset "iMEX Keeper" (server time), then the licence keeper chain recounts the month
+  (`imexAiUsage`) when it exists (looked up by name at deploy).
+- **Browser:** `core/licence.ts` no longer meters (`llmRecord`, `systemConfigId`, the COUNT path removed); `llmCheck`
+  only builds the note from the side menu's server count (`window.__imexLicence.usage.llm`). No debug on any chain node.
+- Tests: `test/licence.test.ts` (the note from the server count, no browser metering); `widgets/deploy/relay/gate-selftest.mjs`
+  runs the gate against LOCAL's script engine (11 cases: licensed, quota, last month, features, suspended, grace,
+  expired, other instance, no licence, dev-open); `export-scripts.mjs` also writes `licence-quota-gate.tbel`. npm test 313
+  pass, tsc clean, build OK. Not deployed (phase 1): deploy after App UI `scripts/relay.mjs --install` (the keeper
+  chain) and the migration.
+
+### D-067 Regional formats (number style, week start) from imexAppConfig.formats (S5, U-073), 16 Oct 2026 (Akshay via the coordinator; App UI spec docs/design/FORMATS_OEE_SPEC.md A.3 / A.4)
+The app now stores `imexAppConfig.formats = { locale, date, number, weekStart }` (Configuration › Look & feel ›
+Regional formats) and its shell formats with it (`imxShell.fmt.number / percent / weekStart`, dates in the date style).
+The Builder follows the same key.
+- **New `core/regional.ts`**: reads the formats as the shell does (`window.__imxFormats` preview →
+  `window.__imexApp.config.formats` → localStorage `imx-app-config`.formats, read at most once a second → defaults
+  dmon / comma-dot / Monday); `number` / `percent` / `weekStart` delegate to `imxShell.fmt` when present, else a
+  TypeScript copy of the shell's `fmtNumber` (half away from zero via the exponent trick, minus dropped when it rounds
+  to zero, groups from 4 digits, Indian 12,34,567, U+202F for the space styles, ASCII '-').
+- **Numbers**: `render/theme.ts` `fmtNum` (the one number helper of charts, tiles, tooltips, the listing) writes its
+  fixed decimals in the app's number style instead of `toLocaleString(undefined)` (the browser's locale). Non-number
+  rules unchanged.
+- **Week start**: the time-window calendar (`entries/timepicker.ts`) starts on the app's first day (headers and the
+  blanks before day 1 rotate: `weekdayHeaders`, `leadDays`); was fixed Monday.
+- **Dates without the shell**: `core/datefmt.ts`'s own copy now also writes the date style (`16/10/2026`,
+  `16.10.2026`, `16-10-2026`, `10/16/2026`, `2026-10-16` with a space before the time); `FmtOpts.formats` overrides per
+  call. With the shell nothing changes (it already follows the style).
+- Contract: `widgets/test/format-vectors.json` is a byte-identical copy of the App UI's `tests/format-vectors.json`;
+  `widgets/test/regional.test.ts` runs its numbers, percents and dates cases (as override and as page config), the
+  source order, the shell delegation, `fmtNum` and the calendar helpers.
+- Not changed: exports keep machine-readable values; chart axis tick widths follow the formatted text.
+- Phase 2 (16 Oct): `npx tsc --noEmit` clean, `vitest` 364/364 (whole tree, other streams' changes included),
+  `build:widgets` + `deploy-node.mjs --go` on LOCAL (dbb_lib_version 2026-10-16T14:23:52.253Z). LOCAL's app admin
+  covers the whole organisation (customer-wide path, unchanged); the "you manage" path is covered by the unit tests
+  only (no site-scoped admin with applyMany on LOCAL).

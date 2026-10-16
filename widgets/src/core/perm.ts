@@ -112,10 +112,13 @@ export const CATALOGUE: CatalogueRow[] = [
   { key: 'energy', label: 'Energy & Carbon', section: 'INSIGHTS', parent: null, states: ['energy'], levels: HVF, actions: [] },
   { key: 'value', label: 'Value tracker', section: 'INSIGHTS', parent: null, states: ['value'], levels: HVF, actions: [] },
   { key: 'users', label: 'Users & roles', section: 'ADMIN', parent: null, states: ['user_management'], levels: HVF, actions: [] },
+  { key: 'sitesmachines', label: 'Sites & machines', section: 'ADMIN', parent: null, states: ['sites_machines'], levels: HVF, actions: [A('sitesmachines.structure', 'Add, move and delete sites and machines')] }, // App U-074
   { key: 'alertrules.default', label: 'Default rules', section: 'ADMIN', parent: 'Alarm rules', states: ['alert_management'], levels: HVF, actions: [A('alertrules.export', 'Export alarm rules')] },
   { key: 'alertrules.custom', label: 'Custom rules', section: 'ADMIN', parent: 'Alarm rules', states: ['custom_alert'], levels: HVF, actions: [] },
   // App UI round 3: the cascade tags (was Configuration > Alarms), the third tab of Alarm rules
   { key: 'alertrules.grouping', label: 'Alarm grouping', section: 'ADMIN', parent: 'Alarm rules', states: ['alarm_grouping'], levels: HVF, actions: [] },
+  // App U-072: the texts of alarm notifications per channel, the fourth tab of Alarm rules
+  { key: 'alertrules.templates', label: 'Notification templates', section: 'ADMIN', parent: 'Alarm rules', states: ['notify_templates'], levels: HVF, actions: [] },
   { key: 'aisettings', label: 'AI settings', section: 'ADMIN', parent: null, states: ['aiml_settings'], levels: HVF, actions: [A('ai.jobs', 'Run AI jobs')] },
   { key: 'config', label: 'Configuration', section: 'ADMIN', parent: null, states: ['configuration'], levels: HVF, actions: [] },
   { key: 'licence', label: 'Licence', section: 'ADMIN', parent: null, states: ['licence'], levels: HVF, actions: [] },
@@ -192,6 +195,8 @@ export function TEMPLATES(): Role[] {
   sup['alertrules.default'] = 'full';
   sup['alertrules.custom'] = 'full';
   sup['alertrules.grouping'] = 'view'; // a plant-wide setting: as it was under Configuration (view)
+  sup['alertrules.templates'] = 'view'; // App U-072: plant-wide too
+  sup.sitesmachines = 'view'; // App U-070: Supervisor = View
   sup.users = 'view';
   sup.aisettings = 'view';
   sup.config = 'view';
