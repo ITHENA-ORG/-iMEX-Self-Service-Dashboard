@@ -242,6 +242,19 @@
    "actions": []
   },
   {
+   "key": "alertrules.grouping",
+   "section": "ADMIN",
+   "states": [
+    "alarm_grouping"
+   ],
+   "levels": [
+    "hidden",
+    "view",
+    "full"
+   ],
+   "actions": []
+  },
+  {
    "key": "aisettings",
    "section": "ADMIN",
    "states": [
@@ -331,6 +344,7 @@
     "users": "full",
     "alertrules.default": "full",
     "alertrules.custom": "full",
+    "alertrules.grouping": "full",
     "aisettings": "full",
     "config": "full",
     "licence": "full"
@@ -413,6 +427,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -581,6 +596,7 @@
     "users": "full",
     "alertrules.default": "full",
     "alertrules.custom": "full",
+    "alertrules.grouping": "full",
     "aisettings": "full",
     "config": "full",
     "licence": "full"
@@ -752,6 +768,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -903,6 +920,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1082,6 +1100,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1166,7 +1185,7 @@
   },
   {
    "name": "the same as a JSON string",
-   "raw": "{\"v\":1,\"rev\":7,\"at\":1791205976606,\"by\":\"migration\",\"roles\":[{\"id\":\"admin\",\"name\":\"Admin\",\"builtIn\":true,\"locked\":true,\"desc\":\"Everything, including users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"full\",\"dashboards\":\"full\",\"analyzer\":\"full\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"full\",\"value\":\"full\",\"users\":\"full\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"full\",\"config\":\"full\",\"licence\":\"full\"},\"actions\":{\"alarms.acknowledge\":true,\"andon.layout\":true,\"andon.boards\":true,\"dashboards.build\":true,\"dashboards.applyMany\":true,\"dashboards.deleteAny\":true,\"analyzer.export\":true,\"ai.relations.edit\":true,\"reports.run\":true,\"reports.edit\":true,\"reports.schedule\":true,\"reports.settings\":true,\"alertrules.export\":true,\"ai.jobs\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10c85640-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"viewer\",\"name\":\"Viewer\",\"builtIn\":true,\"locked\":false,\"desc\":\"Read only.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"view\",\"reports\":\"view\",\"energy\":\"view\",\"value\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_sup001\",\"name\":\"Supervisor\",\"builtIn\":false,\"locked\":false,\"desc\":\"Runs the floor.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"view\",\"value\":\"view\",\"users\":\"view\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"view\",\"config\":\"view\"},\"actions\":{\"dashboards.build\":true,\"dashboards.applyMany\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_op0001\",\"name\":\"Operator\",\"builtIn\":false,\"locked\":false,\"desc\":\"\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\"},\"actions\":{\"alarms.acknowledge\":true},\"manageRoles\":false,\"defaultScope\":[{\"id\":\"10aba680-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"r_lead01\",\"name\":\"Lead\",\"builtIn\":false,\"locked\":false,\"desc\":\"Manages users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"users\":\"full\",\"reports\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10cfa940-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]}]}",
+   "raw": "{\"v\":1,\"rev\":7,\"at\":1791205976606,\"by\":\"migration\",\"roles\":[{\"id\":\"admin\",\"name\":\"Admin\",\"builtIn\":true,\"locked\":true,\"desc\":\"Everything, including users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"full\",\"dashboards\":\"full\",\"analyzer\":\"full\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"full\",\"value\":\"full\",\"users\":\"full\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"alertrules.grouping\":\"full\",\"aisettings\":\"full\",\"config\":\"full\",\"licence\":\"full\"},\"actions\":{\"alarms.acknowledge\":true,\"andon.layout\":true,\"andon.boards\":true,\"dashboards.build\":true,\"dashboards.applyMany\":true,\"dashboards.deleteAny\":true,\"analyzer.export\":true,\"ai.relations.edit\":true,\"reports.run\":true,\"reports.edit\":true,\"reports.schedule\":true,\"reports.settings\":true,\"alertrules.export\":true,\"ai.jobs\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10c85640-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"viewer\",\"name\":\"Viewer\",\"builtIn\":true,\"locked\":false,\"desc\":\"Read only.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"view\",\"reports\":\"view\",\"energy\":\"view\",\"value\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_sup001\",\"name\":\"Supervisor\",\"builtIn\":false,\"locked\":false,\"desc\":\"Runs the floor.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"view\",\"value\":\"view\",\"users\":\"view\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"view\",\"config\":\"view\"},\"actions\":{\"dashboards.build\":true,\"dashboards.applyMany\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_op0001\",\"name\":\"Operator\",\"builtIn\":false,\"locked\":false,\"desc\":\"\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\"},\"actions\":{\"alarms.acknowledge\":true},\"manageRoles\":false,\"defaultScope\":[{\"id\":\"10aba680-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"r_lead01\",\"name\":\"Lead\",\"builtIn\":false,\"locked\":false,\"desc\":\"Manages users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"users\":\"full\",\"reports\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10cfa940-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]}]}",
    "expect": {
     "source": "imexRoles",
     "rev": 7,
@@ -1266,6 +1285,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1405,6 +1425,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1498,6 +1519,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1688,6 +1710,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1851,6 +1874,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -1944,6 +1968,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2041,6 +2066,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2226,6 +2252,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2412,6 +2439,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2597,6 +2625,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2798,6 +2827,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -2982,6 +3012,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3166,6 +3197,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3350,6 +3382,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3560,6 +3593,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3744,6 +3778,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -3928,6 +3963,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -4110,6 +4146,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -4295,6 +4332,7 @@
        "users": "full",
        "alertrules.default": "full",
        "alertrules.custom": "full",
+       "alertrules.grouping": "full",
        "aisettings": "full",
        "config": "full",
        "licence": "full"
@@ -4475,6 +4513,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -4518,6 +4557,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -4591,6 +4631,7 @@
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -4624,6 +4665,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -4670,6 +4712,7 @@
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -4713,6 +4756,7 @@
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -4753,6 +4797,7 @@
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -4790,6 +4835,7 @@
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -4827,6 +4873,7 @@
      "users": "view",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -4881,6 +4928,7 @@
      "users": "full",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"
@@ -4947,6 +4995,7 @@
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "hidden",
      "aisettings": "view",
      "config": "view",
      "licence": "hidden"
@@ -5051,6 +5100,7 @@
     "active_alerts": "view",
     "user_management": "hidden",
     "custom_alert": "hidden",
+    "alarm_grouping": "hidden",
     "in_app_alert": "view",
     "some_new_state": "view",
     "machine": "view",
@@ -5087,6 +5137,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -5137,6 +5188,7 @@
    "canState": {
     "default": "view",
     "configuration": "full",
+    "alarm_grouping": "full",
     "aiml_settings": "full",
     "spc": "full",
     "energy": "full",
@@ -5193,6 +5245,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -5585,6 +5638,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -6326,6 +6380,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -6381,6 +6436,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -6436,6 +6492,7 @@
       "users": "full",
       "alertrules.default": "full",
       "alertrules.custom": "full",
+      "alertrules.grouping": "full",
       "aisettings": "full",
       "config": "full",
       "licence": "full"
@@ -6898,6 +6955,7 @@
      "users": "full",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "full",
      "aisettings": "full",
      "config": "full",
      "licence": "full"
@@ -6991,6 +7049,7 @@
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
+     "alertrules.grouping": "view",
      "aisettings": "view",
      "config": "view",
      "licence": "hidden"
@@ -7034,6 +7093,7 @@
      "users": "hidden",
      "alertrules.default": "hidden",
      "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
      "aisettings": "hidden",
      "config": "hidden",
      "licence": "hidden"

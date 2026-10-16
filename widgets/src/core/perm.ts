@@ -82,6 +82,7 @@ export const CATALOGUE: CatalogueRow[] = [
   { key: 'machines', label: 'Machines', section: 'MONITOR', parent: null, states: ['listing', 'machine'], levels: HV, actions: [] },
   { key: 'alarms', label: 'Alarms', section: 'MONITOR', parent: null, states: ['active_alerts', 'alert_history'], levels: HVF, actions: [A('alarms.acknowledge', 'Acknowledge alarms')] },
   { key: 'andon', label: 'Andon board', section: 'MONITOR', parent: null, states: ['andon'], levels: HVF, actions: [A('andon.layout', 'Edit board layout'), A('andon.boards', 'Manage saved boards')] },
+  { key: 'spc', label: 'SPC', section: 'MONITOR', parent: null, states: ['spc'], levels: HVF, actions: [] },
   {
     key: 'dashboards',
     label: 'Dashboards',
@@ -105,11 +106,16 @@ export const CATALOGUE: CatalogueRow[] = [
     levels: HVF,
     actions: [A('reports.run', 'Run reports'), A('reports.edit', 'Edit reports'), A('reports.schedule', 'Schedule reports'), A('reports.settings', 'Report settings')],
   },
+  { key: 'energy', label: 'Energy & Carbon', section: 'INSIGHTS', parent: null, states: ['energy'], levels: HVF, actions: [] },
+  { key: 'value', label: 'Value tracker', section: 'INSIGHTS', parent: null, states: ['value'], levels: HVF, actions: [] },
   { key: 'users', label: 'Users & roles', section: 'ADMIN', parent: null, states: ['user_management'], levels: HVF, actions: [] },
   { key: 'alertrules.default', label: 'Default rules', section: 'ADMIN', parent: 'Alarm rules', states: ['alert_management'], levels: HVF, actions: [A('alertrules.export', 'Export alarm rules')] },
   { key: 'alertrules.custom', label: 'Custom rules', section: 'ADMIN', parent: 'Alarm rules', states: ['custom_alert'], levels: HVF, actions: [] },
+  // App UI round 3: the cascade tags (was Configuration > Alarms), the third tab of Alarm rules
+  { key: 'alertrules.grouping', label: 'Alarm grouping', section: 'ADMIN', parent: 'Alarm rules', states: ['alarm_grouping'], levels: HVF, actions: [] },
   { key: 'aisettings', label: 'AI settings', section: 'ADMIN', parent: null, states: ['aiml_settings'], levels: HVF, actions: [A('ai.jobs', 'Run AI jobs')] },
   { key: 'config', label: 'Configuration', section: 'ADMIN', parent: null, states: ['configuration'], levels: HVF, actions: [] },
+  { key: 'licence', label: 'Licence', section: 'ADMIN', parent: null, states: ['licence'], levels: HVF, actions: [] },
 ];
 const ROW: Record<string, CatalogueRow> = {};
 const STATE: Record<string, CatalogueRow> = {};
@@ -178,6 +184,7 @@ export function TEMPLATES(): Role[] {
   for (const k of ['alarms', 'andon', 'ai.relations', 'reports']) sup[k] = 'full';
   sup['alertrules.default'] = 'full';
   sup['alertrules.custom'] = 'full';
+  sup['alertrules.grouping'] = 'view'; // a plant-wide setting: as it was under Configuration (view)
   sup.users = 'view';
   sup.aisettings = 'view';
   sup.config = 'view';

@@ -30,7 +30,8 @@
 //
 // Role checks here (icon visibility, open(), the Dashboard list; D-050) are UI-only; a customer user can still write
 // attributes through the REST API (D-012).
-import { openBuilder, setBuilderPlacement, measureHeaderTop } from '../builder/builder';
+import { openBuilder, setBuilderPlacement, measureHeaderTop, BUILDER_UNLICENSED } from '../builder/builder';
+import { builderLicensed, mayBuild, onLicenceChange } from '../core/licence';
 import * as store from '../core/store';
 import { CSS, ensureCss, esc, loadFont } from '../render/theme';
 import { userContext, userPerms, userContextFor, stateEntity, notifyChanged, currentState, currentActions, ACTIONS_EVENT, EditAction, RSTATE_KEY, CHANGED_EVENT, liveLend, liveRelease, NO_ACCESS_HTML } from './common';
@@ -143,6 +144,8 @@ export async function open(tbCtx: any, opts: { deviceId?: string | null; dashboa
   const settings = tbCtx?.settings ?? {};
   // D-050: the role's dashboards.build (the settings adminOnly and chatEnabledRoles are no longer used)
   if (!ctx.canBuild) throw new Error("Your role can't build dashboards.");
+  // D-059: and the instance licence's builder (no licence API on the page = allowed)
+  if (!builderLicensed()) throw new Error(BUILDER_UNLICENSED);
   const chatEnabled = settings.chatEnabled !== false;
   registerPlacement(tbCtx);
   // On the Dashboard Overview state the builder opens the standalone dashboard shown there (D-026).
@@ -229,20 +232,23 @@ export function init(tbCtx: any) {
     // app, and loading the whole context here cost the tree's relation requests on every cold page load. The context
     // loads when a Builder action needs it (open, the Dashboard list). A failed read answers false and is asked again.
     let editorP: Promise<boolean> | null = null;
-    const isEditor = () =>
+    const roleEditor = () =>
       (editorP ??= userPerms(tbCtx)
         .then((p) => p.can('dashboards.build'))
         .catch(() => {
           editorP = null;
           return false;
         }));
+    // D-059: and the licence's builder, asked on every call (the licence can change while the page is open); the
+    // Dashboard list gets the role alone and applies the licence itself (it redraws when the licence changes)
+    const isEditor = () => roleEditor().then((v) => v && builderLicensed());
     (window as any).IMEX_DBB = {
       open: (o?: any) => open(tbCtx, o),
       newDashboard: () => open(tbCtx, { startNew: true }),
-      dashboardList: async () => dashboardList(tbCtx, await isEditor()),
+      dashboardList: async () => dashboardList(tbCtx, await roleEditor()),
       // D-041: the same list drawn inside an element of the app's own Dashboards page (no pop-up); D-058: with
       // "New dashboard" and "Open Dashboard Builder" at its top for editors (opts.buttons, see DashboardPageOpts)
-      dashboardPage: async (host: HTMLElement, opts?: DashboardPageOpts) => dashboardList(tbCtx, await isEditor(), host, opts),
+      dashboardPage: async (host: HTMLElement, opts?: DashboardPageOpts) => dashboardList(tbCtx, await roleEditor(), host, opts),
       isEditor,
       actions: () => currentActions(),
     };
@@ -324,7 +330,7 @@ export function init(tbCtx: any) {
   let editor = false;
   void userContext(tbCtx)
     .then((c) => {
-      editor = c.canBuild;
+      editor = mayBuild(c); // D-059: role AND licence (the menu asks the licence again when it opens)
       if (c.perms.page('dashboards') === 'hidden' || (!editor && s.dashboardList === false)) return btn.remove();
       if (!editor) {
         btn.innerHTML = svg(MENU_ICONS.list);
@@ -374,7 +380,8 @@ export function init(tbCtx: any) {
   // item, positions it under the icon (clamped to the viewport) and focuses the first item.
   const openMenu = () => {
     // Non-editors: the renderer publishes no actions for them; they only get the Dashboard list.
-    const acts = editor ? currentActions() : null;
+    const ed = editor && builderLicensed(); // D-059
+    const acts = ed ? currentActions() : null;
     const main = acts?.items.filter((x) => x.group !== 'switch') ?? [];
     const sw = acts?.items.filter((x) => x.group === 'switch') ?? [];
     menu = document.createElement('div');
@@ -386,8 +393,8 @@ export function init(tbCtx: any) {
       ${sw.length ? `<div class="dbb-emenu-sec">Show dashboard</div>${sw.map(item).join('')}` : ''}
       ${main.length || sw.length ? '<hr/>' : ''}
       ${s.dashboardList !== false ? item({ id: '__list', label: 'Dashboard list', hint: 'Dashboards not tied to one machine', icon: 'list' }) : ''}
-      ${editor ? item({ id: '__new', label: 'New dashboard', hint: 'For a machine type, or an overview of several machines', icon: 'plus' }) : ''}
-      ${editor ? item({ id: '__builder', label: 'Dashboard Builder', hint: acts ? 'All dashboards, templates and machines' : 'Build or change dashboards', icon: 'builder' }) : ''}`;
+      ${ed ? item({ id: '__new', label: 'New dashboard', hint: 'For a machine type, or an overview of several machines', icon: 'plus' }) : ''}
+      ${ed ? item({ id: '__builder', label: 'Dashboard Builder', hint: acts ? 'All dashboards, templates and machines' : 'Build or change dashboards', icon: 'builder' }) : ''}`;
     document.body.appendChild(menu);
     const r = btn.getBoundingClientRect();
     const mw = menu.offsetWidth;
@@ -400,7 +407,7 @@ export function init(tbCtx: any) {
         closeMenu();
         if (id === '__builder') void openBuilderFromMenu();
         else if (id === '__new') void openBuilderFromMenu(true);
-        else if (id === '__list') void dashboardList(tbCtx, editor).catch((e) => alertInline(host, `Could not load the dashboards: ${e.message ?? e}`));
+        else if (id === '__list') void dashboardList(tbCtx, ed).catch((e) => alertInline(host, `Could not load the dashboards: ${e.message ?? e}`));
         else currentActions()?.run(id);
       }),
     );
@@ -624,7 +631,10 @@ export function hostHasOwnButtons(host: HTMLElement): boolean {
  * D-058: on the page, editors get "New dashboard" and "Open Dashboard Builder" at the top (`opts.buttons`); they
  * replace the side menu's former "Dashboard Builder" sub-item.
  */
-export async function dashboardList(tbCtx: any, editor: boolean, host?: HTMLElement, opts: DashboardPageOpts = {}): Promise<{ destroy: () => void } | void> {
+export async function dashboardList(tbCtx: any, roleEditor: boolean, host?: HTMLElement, opts: DashboardPageOpts = {}): Promise<{ destroy: () => void } | void> {
+  // D-059: Edit, machine-type dashboards and the page's New / Open Dashboard Builder need the licence's builder too;
+  // without it an editor sees the list as a viewer does (viewing is core)
+  const editor = roleEditor && builderLicensed();
   ensureCss('dbb-css-dlist', DL_CSS);
   registerPlacement(tbCtx);
   // D-043: the page shows placeholder rows while the dashboards load (the list replaces them)
@@ -844,13 +854,17 @@ export async function dashboardList(tbCtx: any, editor: boolean, host?: HTMLElem
       if (!alive || !host.isConnected) return void window.removeEventListener(CHANGED_EVENT, onChanged);
       alive = false;
       window.removeEventListener(CHANGED_EVENT, onChanged);
-      void dashboardList(tbCtx, editor, host, opts);
+      licOff();
+      void dashboardList(tbCtx, roleEditor, host, opts);
     };
     window.addEventListener(CHANGED_EVENT, onChanged);
+    // D-059: the licence switched the Builder on or off: the list is drawn again with or without the edit parts
+    const licOff = onLicenceChange(builderLicensed, () => (host.isConnected ? onChanged() : licOff()));
     return {
       destroy: () => {
         alive = false;
         window.removeEventListener(CHANGED_EVENT, onChanged);
+        licOff();
         wrap.remove();
       },
     };

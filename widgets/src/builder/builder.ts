@@ -62,6 +62,7 @@ import { BUILDER_CSS } from './styles';
 import { modal, confirmModal, toast, relTime, initials, avatarColor, ST_ICON } from './ui';
 import { picker, sectionize } from './controls';
 import { audit } from '../core/audit';
+import * as lic from '../core/licence';
 import { compatible, metaLookup, propKind } from '../core/compat';
 import type { KeyMeta } from '../core/types';
 
@@ -213,6 +214,8 @@ const HELP: Record<WidgetType, string> = {
 export function openBuilder(o: BuilderOptions) {
   // Building needs the role's dashboards.build (D-017, D-050; the built-in Admin has it). UI-level check only; see D-012.
   if (!o.ctx.canBuild) throw new Error("Your role can't build dashboards.");
+  // D-059: and the instance licence must include the Builder (feature `builder`; no licence API on the page = allowed)
+  if (!lic.builderLicensed()) throw new Error(BUILDER_UNLICENSED);
   ensureCss('dbb-css-core', CSS);
   ensureCss('dbb-css-grid', GRID_CSS);
   ensureCss('dbb-css-builder', BUILDER_CSS);
@@ -257,6 +260,12 @@ export function openBuilder(o: BuilderOptions) {
   return b;
 }
 let openNow: Builder | null = null;
+/** D-059: the refusal when the licence does not include the Builder. */
+export const BUILDER_UNLICENSED = 'Building dashboards is not included in this licence.';
+/** D-059: shown in the chat when the licence no longer includes the assistant. */
+const CHAT_UNLICENSED = 'The chat assistant is not included in this licence.';
+/** D-059: how long a monthly AI quota read is reused for the chat note (each turn reads it again). */
+const QUOTA_REUSE_MS = 60e3;
 
 /**
  * The builder overlay: holds the draft, undo/redo stacks and UI state, and renders every region.
@@ -321,6 +330,12 @@ class Builder {
   modeHandler = () => {
     if (this.root?.isConnected && this.grid) this.renderCanvas();
   };
+  /** D-059: the monthly AI quota as last read (chat note), when it was read, and the read in flight. */
+  quota: lic.LlmQuota | null = null;
+  quotaAt = 0;
+  private quotaP: Promise<lic.LlmQuota> | null = null;
+  /** D-059: removes the 'imx-licence-changed' listener (set in mount). */
+  private licOff: (() => void) | null = null;
   private navKey = '';
   private navWatch: ReturnType<typeof setInterval> | null = null;
   private navAsking = false;
@@ -400,6 +415,11 @@ class Builder {
     window.addEventListener('resize', this.resizeHandler);
     window.addEventListener(APP_INSETS_EVENT, this.resizeHandler);
     window.addEventListener('imx-mode-changed', this.modeHandler);
+    // D-059: the licence changed: Chat tab and tiles follow builder.ai, the banner and Save follow builder
+    this.licOff = lic.onLicenceChange(
+      () => `${lic.builderLicensed()}|${lic.chatLicensed()}`,
+      () => this.licenceChanged(),
+    );
     if (this.o.pageKey) {
       this.navKey = this.o.pageKey();
       this.navWatch = setInterval(() => void this.checkNavigation(), 500);
@@ -409,6 +429,45 @@ class Builder {
     else if (this.deviceId) void this.selectMachine(this.deviceId);
     else this.renderAll();
     if (this.o.startNew) void this.newDashboardDialog();
+  }
+
+  /** D-059: the Chat tab and "Describe it in chat" are on: the host's setting chatEnabled and the licence's builder.ai. */
+  chatOn(): boolean {
+    return this.o.chatEnabled !== false && lic.chatLicensed();
+  }
+
+  /**
+   * D-059: 'imx-licence-changed' changed builder / builder.ai: the Chat tab and the start tiles follow (an open Chat
+   * tab falls back to the settings tab), and the banner says when the Builder itself is no longer licensed.
+   */
+  licenceChanged() {
+    if (!this.root?.isConnected) return;
+    if (this.tab === 'chat' && !this.chatOn()) this.tab = 'settings';
+    this.renderBanner();
+    this.renderRight();
+    if (!this.draft.widgets.length) this.renderCanvas();
+  }
+
+  /**
+   * D-059: the monthly AI quota (core/licence llmCheck: the five llm_* counts of this month on System Configuration
+   * against limits.llmCallsPerMonth). `fresh` reads it again (before every chat turn); otherwise a read younger than
+   * QUOTA_REUSE_MS is reused (the chat note). Redraws the chat panel when the note changes.
+   */
+  async checkQuota(fresh = false): Promise<lic.LlmQuota> {
+    if (!fresh && this.quota && Date.now() - this.quotaAt < QUOTA_REUSE_MS) return this.quota;
+    if (!fresh && this.quotaP) return this.quotaP;
+    const p = lic.llmCheck();
+    this.quotaP = p;
+    try {
+      const q = await p;
+      const before = this.quota ? `${this.quota.level}|${this.quota.message}` : '';
+      this.quota = q;
+      this.quotaAt = Date.now();
+      if (!fresh && before !== `${q.level}|${q.message}` && this.tab === 'chat' && !this.busy && this.root?.isConnected) this.renderRight();
+      return q;
+    } finally {
+      if (this.quotaP === p) this.quotaP = null;
+    }
   }
 
   /**
@@ -435,6 +494,7 @@ class Builder {
     window.removeEventListener('resize', this.resizeHandler);
     window.removeEventListener(APP_INSETS_EVENT, this.resizeHandler);
     window.removeEventListener('imx-mode-changed', this.modeHandler);
+    this.licOff?.();
     if (this.navWatch) clearInterval(this.navWatch);
     this.grid?.destroy();
     this.root.remove();
@@ -873,6 +933,8 @@ class Builder {
     const row = this.root.querySelector('.dbb-banner-row') as HTMLElement;
     const parts: string[] = [];
     for (const w of this.ctx.warnings) parts.push(`<div class="dbb-banner warn">${esc(w)}</div>`);
+    // D-059: the licence was changed while the Builder is open: nothing more can be saved
+    if (!lic.builderLicensed()) parts.push(`<div class="dbb-banner warn">${esc(BUILDER_UNLICENSED)} Changes can't be saved; close the Dashboard Builder.</div>`);
     if (this.source && this.deviceId) {
       const n = this.ctx.nodes.get(this.deviceId)!;
       if (this.source.dashboard && this.source.dashboard.id === this.draft.id)
@@ -1070,7 +1132,7 @@ class Builder {
         ${tpls.length ? `<div class="dbb-tpl-grid mini">${tpls.map((t) => this.tplCard(t)).join('')}</div>` : ''}
         <div class="dbb-empty-a">
           ${n ? `<button class="dbb-btn" data-a="default">Simple default layout</button><button class="dbb-btn" data-a="alltpl">All templates…</button>` : ''}
-          ${this.o.chatEnabled !== false ? `<button class="dbb-btn" data-a="chat">Describe it in chat</button>` : ''}
+          ${this.chatOn() ? `<button class="dbb-btn" data-a="chat">Describe it in chat</button>` : ''}
         </div>
         <div class="dbb-empty-s">…or drag widgets from the left.</div></div>`;
       empty.querySelector<HTMLElement>('[data-a="default"]')?.addEventListener('click', () => {
@@ -1197,7 +1259,7 @@ class Builder {
   renderRight() {
     const right = this.root.querySelector('.dbb-right') as HTMLElement;
     right.hidden = this.preview;
-    const chatOn = this.o.chatEnabled !== false;
+    const chatOn = this.chatOn();
     const w = this.draft.widgets.find((x) => x.id === this.selected);
     if (!w && (this.tab === 'style' || this.tab === 'rules')) this.tab = 'settings';
     // Content widgets and alarms have no values to colour.
@@ -1836,6 +1898,7 @@ class Builder {
       ${sugg.length ? `<div class="dbb-opts">${sugg.map((s) => `<button class="dbb-btn sm" data-opt="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
       ${this.busy ? `<div class="dbb-msg assistant dbb-msg-busy"><span class="dbb-typing">Working…</span>${progressBar({ label: '', bare: true })}</div>` : ''}
       </div>
+      ${this.quota && this.quota.level !== 'ok' ? `<div class="dbb-banner ${this.quota.level === 'block' ? 'err' : 'warn'} dbb-chat-quota" role="status">${esc(this.quota.message)}${this.quota.level === 'warn' ? ' — the assistant stops at the limit.' : ''}</div>` : ''}
       <div class="dbb-chat-bar">
         ${this.preChat ? `<button class="dbb-btn sm" data-a="discard">Discard chat changes</button>` : ''}
         ${this.undo.length && this.preChat ? `<button class="dbb-btn sm" data-a="cundo">Undo last</button>` : ''}
@@ -1845,6 +1908,8 @@ class Builder {
     </div>`;
     const log = panel.querySelector('.dbb-chat-log') as HTMLElement;
     log.scrollTop = log.scrollHeight;
+    // D-059: the month's AI use for the note above (reused for a minute; redraws only when the note changes)
+    if (!this.quota || Date.now() - this.quotaAt >= QUOTA_REUSE_MS) void this.checkQuota();
     const form = panel.querySelector('form') as HTMLFormElement;
     const input = panel.querySelector('textarea') as HTMLTextAreaElement;
     form.onsubmit = (e) => {
@@ -1914,10 +1979,24 @@ class Builder {
     // A held-back answer + one of the three "where" buttons: apply it locally, no second LLM call.
     const held = this.pendingWhere && this.pendingWhere.draftJson === before && (chat.WHERE_OPTIONS as readonly string[]).includes(text) ? this.pendingWhere : null;
     this.pendingWhere = null;
+    // D-059: the provider calls this turn made (each answered relay request is one), metered after the turn
+    const transport = lic.countingTransport(chat.ruleChainTransport(this.ctx));
     try {
+      if (!held) {
+        // D-059: the licence's builder.ai, then the monthly AI quota, before anything is written for the relay
+        if (!lic.chatLicensed()) {
+          this.chatLog.push({ role: 'system', text: CHAT_UNLICENSED });
+          return;
+        }
+        const q = await this.checkQuota(true);
+        if (q.level === 'block') {
+          this.chatLog.push({ role: 'assistant', text: q.message });
+          return;
+        }
+      }
       const res = held
         ? { ...chat.applyWhere(this.ctx, this.draft, held.out, text), attempts: 0, usage: undefined }
-        : await chat.chatTurn(this.ctx, chat.ruleChainTransport(this.ctx), this.draft, this.chatHistory, text, this.deviceId);
+        : await chat.chatTurn(this.ctx, transport, this.draft, this.chatHistory, text, this.deviceId);
       if (res.pending) this.pendingWhere = { out: res.pending, draftJson: before };
       // The model must see its own question and options on the next turn, or an option click has no context (D-024).
       const said = res.clarification ? `${res.clarification.question || res.reply} Options: ${res.clarification.options.join(' | ')}` : res.reply || '(ok)';
@@ -1950,6 +2029,14 @@ class Builder {
       this.chatLog.push({ role: 'assistant', text: e.message || "I couldn't build that; try rephrasing." });
       void audit(this.ctx, 'chat', { message: text, ok: false, error: String(e.message ?? e) });
     } finally {
+      // D-059: one llm_builder point per provider call that answered (also when the turn failed after it)
+      if (transport.calls > 0) {
+        void lic.llmRecord('llm_builder', transport.calls);
+        if (this.quota?.used != null) {
+          const used = this.quota.used + transport.calls;
+          this.quota = { ...this.quota, ...lic.llmVerdict(used, this.quota.limit), used };
+        }
+      }
       this.busy = false;
       this.renderRight();
     }
@@ -1977,6 +2064,8 @@ class Builder {
    * @param asCopy true for "Save as" (always creates a new dashboard).
    */
   async save(asCopy: boolean): Promise<void> {
+    // D-059: the licence no longer includes the Builder (changed while it was open)
+    if (!lic.builderLicensed()) return toast(this.root, BUILDER_UNLICENSED, 'warn');
     // UI-only guard (D-012, D-015, D-050).
     if (!asCopy && !this.ctx.canApplyMany && this.draft.version > 0) {
       const u = this.usageInfo ?? (await store.usage(this.ctx, this.draft).catch(() => null));
@@ -2211,7 +2300,7 @@ class Builder {
       <div class="dbb-st-tiles">
         ${tile('new', ST_ICON.plus, 'New dashboard', 'For a machine type, or an overview of several machines', true)}
         ${tile('open', ST_ICON.folder, 'Open a dashboard', 'Browse every saved dashboard')}
-        ${this.o.chatEnabled !== false ? tile('chat', ST_ICON.chat, 'Describe it in chat', 'The assistant builds it for you') : ''}
+        ${this.chatOn() ? tile('chat', ST_ICON.chat, 'Describe it in chat', 'The assistant builds it for you') : ''}
       </div>
       <div class="dbb-st-sec"><div class="dbb-st-sh">Recently updated</div>
         <div class="dbb-st-list" data-recent aria-busy="true">${'<div class="dbb-st-skel"><span class="imx-skel av"></span><span class="ln"><span class="imx-skel"></span><span class="imx-skel"></span></span></div>'.repeat(3)}</div></div>

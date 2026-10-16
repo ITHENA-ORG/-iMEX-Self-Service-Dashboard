@@ -48,6 +48,7 @@ import { openBuilder } from '../builder/builder';
 import { BUILDER_CSS } from '../builder/styles';
 import { modal, confirmModal, toast } from '../builder/ui';
 import { audit } from '../core/audit';
+import { mayBuild, builderLicensed, onLicenceChange } from '../core/licence';
 import { userContextFor, currentEntity, currentParam, RSTATE_KEY, CHANGED_EVENT, notifyChanged, publishActions, EditAction, EditActions, scheduleRedraw, liveLend, liveRelease, pageGate, NO_ACCESS_HTML, isMobileApp } from './common';
 
 const R_CSS = `
@@ -511,8 +512,9 @@ export function init(tbCtx: any) {
       }
     }
     st.shownId = dash?.id ?? null;
-    // D-050: editing from the machine page (edit, customise, reset, thresholds) is the role's dashboards.build
-    const admin = ctx.canBuild;
+    // D-050: editing from the machine page (edit, customise, reset, thresholds) is the role's dashboards.build;
+    // D-059: and the licence's builder (viewing stays: the Dashboards viewer is core)
+    const admin = mayBuild(ctx);
     const canCustomise = admin && (level === 'node' || level === 'customer');
     const canReset = admin && level === 'device' && res.deviceAssignment?.mode === 'customised';
     const range = normalizeRange(dash?.timeRange ?? 'realtime');
@@ -742,7 +744,7 @@ export function init(tbCtx: any) {
     // D-058: the time window and the bar buttons as one group at the right end, as on the machine page
     head.innerHTML = `<div class="dbb-rtitle">${esc(d.name)}</div><div class="dbb-rright">${timeHtml(range)}<span class="dbb-ract"></span></div>`;
     ensureGrid(ctx, null, range, d.theme).render(d.widgets);
-    const acts: Omit<EditActions, 'owner'> | null = ctx.canBuild
+    const acts: Omit<EditActions, 'owner'> | null = mayBuild(ctx) // D-059: role AND licence
       ? { el: root, title: d.name, subtitle: `Dashboard overview · by ${d.ownerName}`, items: [{ id: 'edit', label: 'Edit this dashboard', hint: `Opens “${d.name}” in the Dashboard Builder`, icon: 'edit' }], run: () => openBuilder({ ctx, dashboardId: d.id, chatEnabled: tbCtx.settings?.chatEnabled !== false, onClose: (ch) => ch && notifyChanged() }) }
       : null;
     publishActions(id, acts);
@@ -784,6 +786,8 @@ export function init(tbCtx: any) {
 
   const onChanged = () => void load(true);
   window.addEventListener(CHANGED_EVENT, onChanged);
+  // D-059: the licence switched the Builder on or off: the bar's "Edit dashboard" and the published actions follow
+  const licOff = onLicenceChange(builderLicensed, () => void load());
   // Redraws (D-021): on WebSocket pushes (at most every 2 s) + every 60 s; if the socket is down, REST polling
   // every refreshSeconds (10 s) in realtime and every 60 s for historic ranges, as before.
   const stopRedraw = scheduleRedraw(
@@ -827,6 +831,7 @@ export function init(tbCtx: any) {
     clearInterval(watch);
     clearInterval(ticker);
     window.removeEventListener(CHANGED_EVENT, onChanged);
+    licOff();
     stopRedraw();
     publishActions(id, null);
     closeBarMenu(root);

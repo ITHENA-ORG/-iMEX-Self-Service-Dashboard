@@ -732,3 +732,55 @@ A full read-only security review of widgets/src and the chat relay, then fixes, 
   buttons removed in the DOM only), New dashboard dialog opened and cancelled, Blower 3's "Edit dashboard" menu (Build a
   dashboard for this machine, Alarm thresholds…, New dashboard, Open Dashboard Builder), arrows / Escape / outside
   click, the Dashboard Overview page's menu, 390 px. Nothing saved. Not on the server.
+
+### D-059 Licence enforcement: builder / builder.ai gates and the monthly AI quota; role catalogue synced, 16 Oct 2026 (Control Centre CC-008, Akshay via the coordinator)
+- **Why:** "every setting in the Control Centre works on the instance". The licence the side menu verifies
+  (`window.__imexLicence`) switches the Builder (`builder`) and its chat (`builder.ai`) on and off, and caps the LLM
+  calls per month (`limits.llmCallsPerMonth`, warn at 80 %, refuse at 100 %, every source metered: Control Centre
+  DESIGN.md section 10.3 / 10.4).
+- **`core/licence.ts` (new):** reads `window.__imexLicence` defensively (no API on the page, no `has`, or a `has` that
+  throws = allowed; before evaluation the side menu answers true and fires `imx-licence-changed` once it knows).
+  `licHas`, `builderLicensed`, `chatLicensed` (builder AND builder.ai), `mayBuild(ctx)` = role `dashboards.build` AND
+  licence; `onLicenceChange(probe, cb)` calls back only when the probed value changed (the event fires on every
+  evaluation, mostly without a change, so nothing is redrawn then). Quota: `llmLimit` (`limits`, else
+  `status.payload.limits`; missing / 0 = no limit), `monthStartUtc`, `llmVerdict` (mirror of `llm_verdict` in the
+  shared `imex_licence.py`: block "Monthly AI limit reached (N of M) — contact your administrator", warn
+  "N of M AI requests used this month"), `llmCountPath` (the COUNT request of 10.4: five keys, one bucket from the
+  month start, `limit=1`), `sumCounts`, `llmCheck` (no limit = no request; asset or count unreadable = allowed),
+  `llmRecord(source, n)` (n points of value 1, 1 ms apart, on System Configuration: `agg=COUNT` counts points, so one
+  point with value 2 would count once), `systemConfigId` (the side menu's `__imexApp.asset`, else the asset named
+  "System Configuration"), `countingTransport` (counts relay requests that answered = provider calls).
+- **builder:** the machine page bar's "Edit dashboard" and the published edit actions (renderer `showDevice`,
+  `showStandalone`), the launcher's `open` / `isEditor()` / pencil menu, the Dashboard list's Edit, machine-type
+  dashboards and the page's New / Open Dashboard Builder, and `openBuilder` need the licence too. Viewing (machine
+  page, Dashboard Overview, the list's Open) is core and unchanged. The renderer reloads and a list drawn on a page
+  redraws when the licence switches the Builder; the headless API passes the role alone to the list
+  (`roleEditor`), which applies the licence itself. An open Builder whose licence goes says so in its banner
+  ("Building dashboards is not included in this licence. Changes can't be saved; close the Dashboard Builder.") and
+  Save refuses.
+- **builder.ai:** `Builder.chatOn()` = the host setting `chatEnabled` AND the licence: Chat tab, "Describe it in chat"
+  (machine empty state and start screen); an open Chat tab falls back to Dashboard / Widget on the event; a turn sent
+  meanwhile says "The chat assistant is not included in this licence." Before every turn (not the local "where"
+  apply or "undo") the quota is read fresh: at 100 % the refusal is the reply and nothing is written for the relay; from
+  80 % a note (`.dbb-banner warn` / `err`, `.dbb-chat-quota`) sits above the input (read when the Chat tab opens,
+  reused for a minute, updated by the turn's own calls). After the turn (also a failed one) `llm_builder` gets one
+  point per provider call that answered: `chatTurn` makes 1–2 requests, the relay transport retries once on
+  overload; the counting wraps the retrying transport, so a failed first try is not counted, its answered retry is.
+- **Role catalogue (`core/perm.ts`)** = the App UI's `_shared/perm.js` of today: rows `spc` (MONITOR), `energy`,
+  `value` (INSIGHTS), `alertrules.grouping` ("Alarm grouping", ADMIN, parent Alarm rules, state `alarm_grouping`,
+  HVF) and `licence` (ADMIN); the Supervisor template sets `alertrules.grouping` to view. `perm-vectors.json` was
+  already synced; `perm.test.ts` green again.
+- **Tests:** `widgets/test/licence.test.ts` (new, 16: gates without / with / throwing API, mayBuild, change-only
+  callbacks, limit sources, month start, verdict thresholds incl. small limits, COUNT path, sums, points, check
+  without limit / warn / block / failed read, metering body, lookup by name, counting transport). 276 unit, E2E all
+  pass (the harness has no licence API: unchanged behaviour).
+- **LOCAL** (backup `backups/2026-10-16/`, deploy-node --go): real licence (ITHENA-LOCAL, all on, 2000 calls): Blower 3
+  "Edit dashboard" → Open Dashboard Builder → Chat tab; one real turn ("Add a value tile for the current power")
+  answered, the customer user's `llm_builder` point landed on System Configuration (COUNT 1 this month); nothing saved.
+  Stubbed `has()` + `imx-licence-changed` in the page: builder.ai off → Chat tab and tile gone with the Builder open;
+  builder off → banner in the open Builder, after closing no "Edit dashboard", dashboard still shown, `isEditor()`
+  false, the list without Edit / machine types / buttons, back on → all return. COUNT answered in the browser with
+  1700 (warn note, light + dark) and 2000 (note + refusal reply, no write). Licence not changed. Not on the server.
+- **Left to the App UI:** its Dashboards page banner buttons ("New dashboard" / "Dashboard Builder") follow the role only
+  (`imex_dashboards_page` `buttons()`), and the side menu's LIC_STATE still gates `dashboards` / `dashboard_overview`
+  on `builder` (the viewer is core, DESIGN 10.3).
