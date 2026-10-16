@@ -15,6 +15,9 @@
 // A missing page is hidden. Actions are implied at Full, tickable at View, dropped at Hidden. Manage roles needs Users
 // at Full. Built-ins: admin (locked: only desc and defaultScope change) and viewer (editable, not deletable; the
 // fallback for an unknown or absent role). Tenant admins are unrestricted.
+// S14 (App UI round 3, 16 Oct 2026): a catalogue row that is not in BASE_KEYS (the first catalogue, 10 Oct 2026) and
+// has no level in a stored role is NEW to that role. The stored Viewer takes the built-in Viewer's level for it
+// (parseStore; a stored level wins), a custom role keeps it hidden; newKeys(role) lists those rows.
 
 import * as access from './access';
 import type { Access, Grant } from './access';
@@ -129,6 +132,10 @@ for (const r of CATALOGUE) {
     ACTIONS.push(a.id);
   }
 }
+/** The catalogue of the first roles release (10 Oct 2026), S14. Never add to this list. */
+export const BASE_KEYS = ['sites', 'machines', 'alarms', 'andon', 'dashboards', 'analyzer', 'ai.forecast', 'ai.anomalies', 'ai.maintenance', 'ai.relations', 'reports', 'users', 'alertrules.default', 'alertrules.custom', 'aisettings', 'config'];
+const BASE: Record<string, true> = {};
+for (const k of BASE_KEYS) BASE[k] = true;
 export const RESERVED = ['admin', 'customer admin', 'administrator', 'user', 'viewer'];
 const LEGACY_ADMIN = ['admin', 'customer admin', 'administrator'];
 const ROLE_ID = /^[A-Za-z0-9_-]{1,40}$/;
@@ -229,6 +236,12 @@ function cleanRole(r: any, w: string[]): Role | null {
     defaultScope: scopeOf(r.defaultScope, w),
   };
 }
+/** The catalogue rows a stored role has no level for and that are newer than the role system (S14); [] for a built-in role. */
+export function newKeys(r: { id?: string | null; builtIn?: boolean; perms?: unknown } | null | undefined): string[] {
+  if (!r || (r.builtIn === true && (r.id === 'admin' || r.id === 'viewer'))) return [];
+  const perms: Record<string, unknown> = isObj(r.perms) ? r.perms : {};
+  return CATALOGUE.filter((row) => !BASE[row.key] && !(has(perms, row.key) && has(RANK, perms[row.key] as string))).map((row) => row.key);
+}
 const builtinStore = (w: string[]): Store => ({ v: 1, rev: 0, roles: BUILTINS(), source: 'builtins', warnings: w });
 
 /** Reads imexRoles (object or JSON string). Absent, unreadable or another version: the built-ins. Never throws. */
@@ -266,6 +279,9 @@ export function parseStore(raw: unknown): Store {
     vw.name = 'Viewer';
     vw.builtIn = true;
     vw.locked = false;
+    // S14: a page new since the Viewer was saved takes the built-in Viewer's level (a stored level wins)
+    const dv = viewerRole().perms;
+    for (const k of newKeys({ perms: vw.perms })) if (has(dv, k)) vw.perms[k] = dv[k];
   } else {
     vw = viewerRole();
     warn(w, 'roles.builtinMissing');

@@ -784,3 +784,9 @@ A full read-only security review of widgets/src and the chat relay, then fixes, 
 - **Left to the App UI:** its Dashboards page banner buttons ("New dashboard" / "Dashboard Builder") follow the role only
   (`imex_dashboards_page` `buttons()`), and the side menu's LIC_STATE still gates `dashboards` / `dashboard_overview`
   on `builder` (the viewer is core, DESIGN 10.3).
+
+### D-060 Role catalogue: built-in roles follow pages added after they were saved (S14), 16 Oct 2026 (App UI U-059, coordinator)
+- perm.ts mirrors the App UI perm.js change: BASE_KEYS = the 16 pages of the first catalogue; a stored
+  built-in role gets that built-in's default level for any later page it has no stored level for (a
+  stored level, Hidden included, still wins); custom roles keep new pages hidden and newKeys(role) lists
+  them for the role editor. Vectors byte-identical with App UI tests/perm-vectors.json.

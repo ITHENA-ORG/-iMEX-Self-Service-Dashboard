@@ -103,6 +103,10 @@ describe('perm vectors (the JavaScript-only sections, ported too)', () => {
     }
     for (const c of V.migrate) expect(plain(P.migrateRole(c.user, c.opts)), c.name).toEqual(c.expect);
   });
+  it('baseKeys and newKeys (S14)', () => {
+    expect(plain(P.BASE_KEYS)).toEqual(V.baseKeys);
+    for (const c of V.newKeys) expect(plain(P.newKeys(c.role)), c.name).toEqual(c.expect);
+  });
 });
 
 describe('perm core details', () => {

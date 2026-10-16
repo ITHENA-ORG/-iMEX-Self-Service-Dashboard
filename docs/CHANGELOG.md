@@ -45,3 +45,4 @@ Newest first. One row per change; details in `DECISIONS.md`. Rows that also belo
 | 2026-10-05 | (D-037) | ◆ Scope relations kept in sessionStorage for 10 minutes (per user and root set): no relation calls on later pages of a session | `widgets/src/core/scope.ts` (`buildTree`, `REL_CACHE_MS`) |
 | 2026-10-05 | (D-038) | ◆ Machine page header starts with the machine name as the title, then org › site · dashboard name | `widgets/src/entries/renderer.ts` |
 | 2026-10-05 | (D-035) | Local copy: long-lived local authToken script; read-only screenshots of the server | `scripts/mirror/local-authtoken.mjs`, `scripts/mirror/shots-source.mjs` |
+| 2026-10-16 | (D-060) | Role catalogue: built-in roles follow later pages (BASE_KEYS, newKeys) — synced with App UI U-059 | `widgets/src/core/perm.ts`, `widgets/test/perm.test.ts` |

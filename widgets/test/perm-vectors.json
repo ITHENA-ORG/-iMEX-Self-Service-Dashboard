@@ -1,6 +1,6 @@
 {
  "version": 1,
- "about": "Shared test vectors of the role core (docs/ROLES.md). Generated from tests/perm-vectors.src.mjs; copy byte for byte. Sections catalogue, builtins, parseStore, parseUser, effective, can, covers, coversScope, lastAdmin, validateRole, deleteCheck, legacyName run in every runtime; templates and migrate are JS only. A role given as \"unrestricted\" means effective(\"unrestricted\"). coversScope: the editor is resolveTree(editor grants, tree) with the access core, or unrestricted. lastAdmin: each user's eff = effective(roles[roleId]); change.newRoleId null = deleted; change.newRole for a role edit. validateRole: store = store1, editor = Admin unless given, editorAccess unrestricted unless given (then resolveTree(grants, tree)); errors compared exactly, missing / outside / role only when the case lists them. parseStore: ids in order, warnings exactly, roles listed are compared whole.",
+ "about": "Shared test vectors of the role core (docs/ROLES.md). Generated from tests/perm-vectors.src.mjs; copy byte for byte. Sections catalogue, builtins, parseStore, parseUser, effective, can, covers, coversScope, lastAdmin, validateRole, deleteCheck, legacyName run in every runtime; templates, migrate, baseKeys and newKeys are JS only. parseStore: a stored Viewer takes the built-in Viewer level for every catalogue row that is not in baseKeys and has no stored level (S14); custom roles are not filled. A role given as \"unrestricted\" means effective(\"unrestricted\"). coversScope: the editor is resolveTree(editor grants, tree) with the access core, or unrestricted. lastAdmin: each user's eff = effective(roles[roleId]); change.newRoleId null = deleted; change.newRole for a role edit. validateRole: store = store1, editor = Admin unless given, editorAccess unrestricted unless given (then resolveTree(grants, tree)); errors compared exactly, missing / outside / role only when the case lists them. parseStore: ids in order, warnings exactly, roles listed are compared whole.",
  "catalogue": [
   {
    "key": "sites",
@@ -1396,7 +1396,7 @@
    }
   },
   {
-   "name": "the Viewer keeps its name; its permissions are its own",
+   "name": "the Viewer keeps its name; its permissions are its own (pages new since the first catalogue: the built-in level)",
    "raw": {
     "v": 1,
     "rev": 2,
@@ -1480,9 +1480,413 @@
       "locked": false,
       "desc": "Read only.",
       "perms": {
-       "sites": "view"
+       "sites": "view",
+       "spc": "view",
+       "energy": "view",
+       "value": "view"
       },
       "actions": {},
+      "manageRoles": false,
+      "defaultScope": []
+     }
+    }
+   }
+  },
+  {
+   "name": "S14: a Viewer saved before SPC, Energy & Carbon and Value tracker gets them at the built-in level",
+   "raw": {
+    "v": 1,
+    "rev": 3,
+    "roles": [
+     {
+      "id": "admin",
+      "name": "Admin",
+      "builtIn": true,
+      "locked": true,
+      "desc": "Everything, including users and roles.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "full",
+       "andon": "full",
+       "spc": "full",
+       "dashboards": "full",
+       "analyzer": "full",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "full",
+       "reports": "full",
+       "energy": "full",
+       "value": "full",
+       "users": "full",
+       "alertrules.default": "full",
+       "alertrules.custom": "full",
+       "alertrules.grouping": "full",
+       "aisettings": "full",
+       "config": "full",
+       "licence": "full"
+      },
+      "actions": {
+       "alarms.acknowledge": true,
+       "andon.layout": true,
+       "andon.boards": true,
+       "dashboards.build": true,
+       "dashboards.applyMany": true,
+       "dashboards.deleteAny": true,
+       "analyzer.export": true,
+       "ai.relations.edit": true,
+       "reports.run": true,
+       "reports.edit": true,
+       "reports.schedule": true,
+       "reports.settings": true,
+       "alertrules.export": true,
+       "ai.jobs": true
+      },
+      "manageRoles": true,
+      "defaultScope": []
+     },
+     {
+      "id": "viewer",
+      "name": "Viewer",
+      "builtIn": true,
+      "locked": false,
+      "desc": "Read only.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "view",
+       "andon": "view",
+       "dashboards": "view",
+       "analyzer": "view",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "view",
+       "reports": "view"
+      },
+      "actions": {
+       "reports.run": true
+      },
+      "manageRoles": false,
+      "defaultScope": []
+     }
+    ]
+   },
+   "expect": {
+    "source": "imexRoles",
+    "rev": 3,
+    "ids": [
+     "admin",
+     "viewer"
+    ],
+    "warnings": [],
+    "roles": {
+     "viewer": {
+      "id": "viewer",
+      "name": "Viewer",
+      "builtIn": true,
+      "locked": false,
+      "desc": "Read only.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "view",
+       "andon": "view",
+       "spc": "view",
+       "dashboards": "view",
+       "analyzer": "view",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "view",
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
+      },
+      "actions": {
+       "reports.run": true
+      },
+      "manageRoles": false,
+      "defaultScope": []
+     }
+    }
+   }
+  },
+  {
+   "name": "S14: a stored level for a new page wins (Hidden too); a first-catalogue page the Viewer lacks stays hidden; new Settings pages stay hidden",
+   "raw": {
+    "v": 1,
+    "rev": 3,
+    "roles": [
+     {
+      "id": "admin",
+      "name": "Admin",
+      "builtIn": true,
+      "locked": true,
+      "desc": "Everything, including users and roles.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "full",
+       "andon": "full",
+       "spc": "full",
+       "dashboards": "full",
+       "analyzer": "full",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "full",
+       "reports": "full",
+       "energy": "full",
+       "value": "full",
+       "users": "full",
+       "alertrules.default": "full",
+       "alertrules.custom": "full",
+       "alertrules.grouping": "full",
+       "aisettings": "full",
+       "config": "full",
+       "licence": "full"
+      },
+      "actions": {
+       "alarms.acknowledge": true,
+       "andon.layout": true,
+       "andon.boards": true,
+       "dashboards.build": true,
+       "dashboards.applyMany": true,
+       "dashboards.deleteAny": true,
+       "analyzer.export": true,
+       "ai.relations.edit": true,
+       "reports.run": true,
+       "reports.edit": true,
+       "reports.schedule": true,
+       "reports.settings": true,
+       "alertrules.export": true,
+       "ai.jobs": true
+      },
+      "manageRoles": true,
+      "defaultScope": []
+     },
+     {
+      "id": "viewer",
+      "name": "Viewer",
+      "builtIn": true,
+      "locked": false,
+      "desc": "Read only.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "view",
+       "andon": "view",
+       "dashboards": "view",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "view",
+       "reports": "view",
+       "spc": "hidden",
+       "energy": "full"
+      },
+      "actions": {
+       "reports.run": true
+      },
+      "manageRoles": false,
+      "defaultScope": []
+     }
+    ]
+   },
+   "expect": {
+    "source": "imexRoles",
+    "rev": 3,
+    "ids": [
+     "admin",
+     "viewer"
+    ],
+    "warnings": [],
+    "roles": {
+     "viewer": {
+      "id": "viewer",
+      "name": "Viewer",
+      "builtIn": true,
+      "locked": false,
+      "desc": "Read only.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "view",
+       "andon": "view",
+       "dashboards": "view",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "view",
+       "reports": "view",
+       "spc": "hidden",
+       "energy": "full",
+       "value": "view"
+      },
+      "actions": {
+       "reports.run": true
+      },
+      "manageRoles": false,
+      "defaultScope": []
+     }
+    }
+   }
+  },
+  {
+   "name": "S14: a custom role saved before the new pages keeps them hidden (nothing added)",
+   "raw": {
+    "v": 1,
+    "rev": 3,
+    "roles": [
+     {
+      "id": "admin",
+      "name": "Admin",
+      "builtIn": true,
+      "locked": true,
+      "desc": "Everything, including users and roles.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "full",
+       "andon": "full",
+       "spc": "full",
+       "dashboards": "full",
+       "analyzer": "full",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "full",
+       "reports": "full",
+       "energy": "full",
+       "value": "full",
+       "users": "full",
+       "alertrules.default": "full",
+       "alertrules.custom": "full",
+       "alertrules.grouping": "full",
+       "aisettings": "full",
+       "config": "full",
+       "licence": "full"
+      },
+      "actions": {
+       "alarms.acknowledge": true,
+       "andon.layout": true,
+       "andon.boards": true,
+       "dashboards.build": true,
+       "dashboards.applyMany": true,
+       "dashboards.deleteAny": true,
+       "analyzer.export": true,
+       "ai.relations.edit": true,
+       "reports.run": true,
+       "reports.edit": true,
+       "reports.schedule": true,
+       "reports.settings": true,
+       "alertrules.export": true,
+       "ai.jobs": true
+      },
+      "manageRoles": true,
+      "defaultScope": []
+     },
+     {
+      "id": "viewer",
+      "name": "Viewer",
+      "builtIn": true,
+      "locked": false,
+      "desc": "Read only.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "view",
+       "andon": "view",
+       "spc": "view",
+       "dashboards": "view",
+       "analyzer": "view",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "view",
+       "reports": "view",
+       "energy": "view",
+       "value": "view"
+      },
+      "actions": {
+       "reports.run": true
+      },
+      "manageRoles": false,
+      "defaultScope": []
+     },
+     {
+      "id": "r_sup001",
+      "name": "Supervisor",
+      "builtIn": false,
+      "locked": false,
+      "desc": "Runs the floor.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "full",
+       "andon": "full",
+       "dashboards": "view",
+       "analyzer": "view",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "full",
+       "reports": "full",
+       "users": "view",
+       "alertrules.default": "full",
+       "alertrules.custom": "full",
+       "aisettings": "view",
+       "config": "view"
+      },
+      "actions": {
+       "dashboards.build": true,
+       "dashboards.applyMany": true
+      },
+      "manageRoles": false,
+      "defaultScope": []
+     }
+    ]
+   },
+   "expect": {
+    "source": "imexRoles",
+    "rev": 3,
+    "ids": [
+     "admin",
+     "viewer",
+     "r_sup001"
+    ],
+    "warnings": [],
+    "roles": {
+     "r_sup001": {
+      "id": "r_sup001",
+      "name": "Supervisor",
+      "builtIn": false,
+      "locked": false,
+      "desc": "Runs the floor.",
+      "perms": {
+       "sites": "view",
+       "machines": "view",
+       "alarms": "full",
+       "andon": "full",
+       "dashboards": "view",
+       "analyzer": "view",
+       "ai.forecast": "view",
+       "ai.anomalies": "view",
+       "ai.maintenance": "view",
+       "ai.relations": "full",
+       "reports": "full",
+       "users": "view",
+       "alertrules.default": "full",
+       "alertrules.custom": "full",
+       "aisettings": "view",
+       "config": "view"
+      },
+      "actions": {
+       "dashboards.build": true,
+       "dashboards.applyMany": true
+      },
       "manageRoles": false,
       "defaultScope": []
      }
@@ -4940,6 +5344,80 @@
    }
   },
   {
+   "name": "S14: a custom role saved before the new pages: they are hidden",
+   "role": {
+    "id": "r_sup001",
+    "name": "Supervisor",
+    "builtIn": false,
+    "locked": false,
+    "desc": "Runs the floor.",
+    "perms": {
+     "sites": "view",
+     "machines": "view",
+     "alarms": "full",
+     "andon": "full",
+     "dashboards": "view",
+     "analyzer": "view",
+     "ai.forecast": "view",
+     "ai.anomalies": "view",
+     "ai.maintenance": "view",
+     "ai.relations": "full",
+     "reports": "full",
+     "users": "view",
+     "alertrules.default": "full",
+     "alertrules.custom": "full",
+     "aisettings": "view",
+     "config": "view"
+    },
+    "actions": {
+     "dashboards.build": true,
+     "dashboards.applyMany": true
+    },
+    "manageRoles": false,
+    "defaultScope": []
+   },
+   "expect": {
+    "unrestricted": false,
+    "pages": {
+     "sites": "view",
+     "machines": "view",
+     "alarms": "full",
+     "andon": "full",
+     "spc": "hidden",
+     "dashboards": "view",
+     "analyzer": "view",
+     "ai.forecast": "view",
+     "ai.anomalies": "view",
+     "ai.maintenance": "view",
+     "ai.relations": "full",
+     "reports": "full",
+     "energy": "hidden",
+     "value": "hidden",
+     "users": "view",
+     "alertrules.default": "full",
+     "alertrules.custom": "full",
+     "alertrules.grouping": "hidden",
+     "aisettings": "view",
+     "config": "view",
+     "licence": "hidden"
+    },
+    "manageRoles": false,
+    "actions": {
+     "alarms.acknowledge": true,
+     "andon.layout": true,
+     "andon.boards": true,
+     "dashboards.build": true,
+     "dashboards.applyMany": true,
+     "ai.relations.edit": true,
+     "reports.run": true,
+     "reports.edit": true,
+     "reports.schedule": true,
+     "reports.settings": true,
+     "alertrules.export": true
+    }
+   }
+  },
+  {
    "name": "the Supervisor",
    "role": {
     "id": "r_sup001",
@@ -7023,6 +7501,204 @@
    "name": "no role",
    "role": null,
    "expect": "Viewer"
+  }
+ ],
+ "baseKeys": [
+  "sites",
+  "machines",
+  "alarms",
+  "andon",
+  "dashboards",
+  "analyzer",
+  "ai.forecast",
+  "ai.anomalies",
+  "ai.maintenance",
+  "ai.relations",
+  "reports",
+  "users",
+  "alertrules.default",
+  "alertrules.custom",
+  "aisettings",
+  "config"
+ ],
+ "newKeys": [
+  {
+   "name": "a custom role saved before the new pages",
+   "role": {
+    "id": "r_sup001",
+    "name": "Supervisor",
+    "builtIn": false,
+    "locked": false,
+    "desc": "Runs the floor.",
+    "perms": {
+     "sites": "view",
+     "machines": "view",
+     "alarms": "full",
+     "andon": "full",
+     "dashboards": "view",
+     "analyzer": "view",
+     "ai.forecast": "view",
+     "ai.anomalies": "view",
+     "ai.maintenance": "view",
+     "ai.relations": "full",
+     "reports": "full",
+     "users": "view",
+     "alertrules.default": "full",
+     "alertrules.custom": "full",
+     "aisettings": "view",
+     "config": "view"
+    },
+    "actions": {
+     "dashboards.build": true,
+     "dashboards.applyMany": true
+    },
+    "manageRoles": false,
+    "defaultScope": []
+   },
+   "expect": [
+    "spc",
+    "energy",
+    "value",
+    "alertrules.grouping",
+    "licence"
+   ]
+  },
+  {
+   "name": "a custom role saved with every row (Hidden included): nothing new",
+   "role": {
+    "id": "r_op0001",
+    "name": "Operator",
+    "builtIn": false,
+    "locked": false,
+    "desc": "",
+    "perms": {
+     "sites": "view",
+     "machines": "view",
+     "alarms": "view",
+     "andon": "view",
+     "spc": "hidden",
+     "dashboards": "view",
+     "analyzer": "view",
+     "ai.forecast": "hidden",
+     "ai.anomalies": "hidden",
+     "ai.maintenance": "hidden",
+     "ai.relations": "hidden",
+     "reports": "hidden",
+     "energy": "hidden",
+     "value": "hidden",
+     "users": "hidden",
+     "alertrules.default": "hidden",
+     "alertrules.custom": "hidden",
+     "alertrules.grouping": "hidden",
+     "aisettings": "hidden",
+     "config": "hidden",
+     "licence": "hidden"
+    },
+    "actions": {
+     "alarms.acknowledge": true
+    },
+    "manageRoles": false,
+    "defaultScope": [
+     {
+      "id": "10aba680-c0be-11f1-add5-5db4ab3ed597",
+      "type": "ASSET",
+      "mode": "all"
+     }
+    ]
+   },
+   "expect": []
+  },
+  {
+   "name": "a first-catalogue page it lacks is not new (it was hidden on purpose)",
+   "role": {
+    "id": "r_x",
+    "perms": {
+     "sites": "view",
+     "spc": "hidden",
+     "energy": "view"
+    }
+   },
+   "expect": [
+    "value",
+    "alertrules.grouping",
+    "licence"
+   ]
+  },
+  {
+   "name": "a built-in role: never (it follows the catalogue)",
+   "role": {
+    "id": "viewer",
+    "name": "Viewer",
+    "builtIn": true,
+    "locked": false,
+    "desc": "Read only.",
+    "perms": {
+     "sites": "view"
+    },
+    "actions": {
+     "reports.run": true
+    },
+    "manageRoles": false,
+    "defaultScope": []
+   },
+   "expect": []
+  },
+  {
+   "name": "the Admin: never",
+   "role": {
+    "id": "admin",
+    "name": "Admin",
+    "builtIn": true,
+    "locked": true,
+    "desc": "Everything, including users and roles.",
+    "perms": {
+     "sites": "view",
+     "machines": "view",
+     "alarms": "full",
+     "andon": "full",
+     "spc": "full",
+     "dashboards": "full",
+     "analyzer": "full",
+     "ai.forecast": "view",
+     "ai.anomalies": "view",
+     "ai.maintenance": "view",
+     "ai.relations": "full",
+     "reports": "full",
+     "energy": "full",
+     "value": "full",
+     "users": "full",
+     "alertrules.default": "full",
+     "alertrules.custom": "full",
+     "alertrules.grouping": "full",
+     "aisettings": "full",
+     "config": "full",
+     "licence": "full"
+    },
+    "actions": {
+     "alarms.acknowledge": true,
+     "andon.layout": true,
+     "andon.boards": true,
+     "dashboards.build": true,
+     "dashboards.applyMany": true,
+     "dashboards.deleteAny": true,
+     "analyzer.export": true,
+     "ai.relations.edit": true,
+     "reports.run": true,
+     "reports.edit": true,
+     "reports.schedule": true,
+     "reports.settings": true,
+     "alertrules.export": true,
+     "ai.jobs": true
+    },
+    "manageRoles": true,
+    "defaultScope": []
+   },
+   "expect": []
+  },
+  {
+   "name": "no role",
+   "role": null,
+   "expect": []
   }
  ],
  "templates": [
