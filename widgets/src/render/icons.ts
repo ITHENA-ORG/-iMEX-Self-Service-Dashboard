@@ -59,6 +59,8 @@ export const UI_ICON: Record<string, string> = {
   tick: S('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
   /** D-061: a write the role may not use (Create ticket for a view-only role). */
   lock: S('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+  /** D-068: the App UI side menu's Playbooks icon (clipboard with a play mark): the machine bar's Create playbook. */
+  playbook: S('<path d="M9 4.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6.5a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="3.5" rx="1"/><path d="m10.5 11 4 2.5-4 2.5z"/>'),
 };
 
 /** Tooltips of the title icons in the Style tab where the internal name is not the app's word (D-058: "alarm"). */

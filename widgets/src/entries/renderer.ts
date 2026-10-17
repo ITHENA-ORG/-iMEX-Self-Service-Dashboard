@@ -54,7 +54,8 @@ import { openBuilder } from '../builder/builder';
 import { BUILDER_CSS } from '../builder/styles';
 import { modal, confirmModal, toast } from '../builder/ui';
 import { audit } from '../core/audit';
-import { mayBuild, builderLicensed, onLicenceChange, licHas } from '../core/licence';
+import { mayBuild, builderLicensed, onLicenceChange, licHas, licenceApi } from '../core/licence';
+import type { LicenceApi } from '../core/licence';
 import { userContextFor, currentEntity, currentParam, RSTATE_KEY, CHANGED_EVENT, notifyChanged, publishActions, EditAction, EditActions, scheduleRedraw, liveLend, liveRelease, pageGate, NO_ACCESS_HTML, isMobileApp } from './common';
 
 const R_CSS = `
@@ -269,6 +270,33 @@ export function helpFrom(tbCtx: any, fallback: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** D-068: the App UI's Playbooks page (U-082) and the licence feature it needs. */
+export const PLAYBOOKS_STATE = 'playbooks';
+/**
+ * D-068: where the machine bar's "Create playbook" goes, or null = no button. Needs all three: the role's action
+ * `playbooks.edit` (the Playbooks page opens its editor only for that action), the licence feature `playbooks` (licHas:
+ * as the Analyzer button, D-062) and a `playbooks` state on this dashboard (a state list that cannot be read counts as
+ * no, as for Help: an older app has no Playbooks page). Params as the Active alarms page's "Respond with a playbook"
+ * (U-083), without an alarm type: `{ tab: 'playbooks', newFor: { machineId } }`.
+ */
+export function playbookTarget(tbCtx: any, perms: { can(k: string): boolean } | null | undefined, deviceId: string, L?: LicenceApi | null): { state: string; params: Record<string, unknown> } | null {
+  if (!deviceId) return null;
+  try {
+    if (!perms || !perms.can('playbooks.edit')) return null;
+  } catch {
+    return null;
+  }
+  if (!licHas('playbooks', L === undefined ? licenceApi() : L)) return null;
+  try {
+    const sc = tbCtx?.stateController;
+    const states = sc && (sc.states ?? sc.statesValue);
+    if (!(states && typeof states === 'object' && states[PLAYBOOKS_STATE])) return null;
+  } catch {
+    return null;
+  }
+  return { state: PLAYBOOKS_STATE, params: { tab: 'playbooks', newFor: { machineId: deviceId } } };
 }
 
 /** A date and time for the ticket text ("12 Oct 2026, 1:05 PM"; the app's 12 / 24-hour clock applies). */
@@ -802,26 +830,32 @@ export function init(tbCtx: any) {
     b.innerHTML = HELP_SVG;
     b.addEventListener('click', () => {
       const at = helpFrom(tbCtx, fallback);
-      if (!at) return;
-      const w = window as any;
-      const bar = (on: boolean) => {
-        try {
-          window.dispatchEvent(new CustomEvent('imx-progress', { detail: { key: 'nav', on, max: 15000 } }));
-        } catch {
-          /* very old browser */
-        }
-      };
-      w.__imxNav = { at: Date.now(), to: HELP_STATE };
-      bar(true);
-      try {
-        tbCtx.stateController.openState(HELP_STATE, { helpFrom: at }, false);
-      } catch (x) {
-        w.__imxNav = null;
-        bar(false);
-        console.warn('[dbb] help', x);
-      }
+      if (at) goPage(HELP_STATE, { helpFrom: at });
     });
     head.appendChild(b);
+  }
+  /**
+   * Opens another app page with the app's page bar until it is ready (key 'nav' + window.__imxNav, which the next page's
+   * side menu settles): the "?" (D-063) and "Create playbook" (D-068).
+   */
+  function goPage(state: string, params: Record<string, unknown>) {
+    const w = window as any;
+    const bar = (on: boolean) => {
+      try {
+        window.dispatchEvent(new CustomEvent('imx-progress', { detail: { key: 'nav', on, max: 15000 } }));
+      } catch {
+        /* very old browser */
+      }
+    };
+    w.__imxNav = { at: Date.now(), to: state };
+    bar(true);
+    try {
+      tbCtx.stateController.openState(state, params, false);
+    } catch (x) {
+      w.__imxNav = null;
+      bar(false);
+      console.warn(`[dbb] ${state}`, x);
+    }
   }
 
   /**
@@ -866,6 +900,21 @@ export function init(tbCtx: any) {
       });
       box.appendChild(b);
     }
+    // D-068: "Create playbook": the Playbooks page's editor with a new playbook for this machine (playbookTarget: role
+    // playbooks.edit + licence playbooks + the dashboard has the page). Not on a phone (no editor there).
+    const pb = isMobileApp() ? null : playbookTarget(tbCtx, ctx.perms, deviceId);
+    if (pb) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'dbb-rbtn dbb-rpb';
+      const tip = 'Create a playbook for this machine';
+      b.title = tip;
+      b.dataset.imxTip = tip;
+      b.setAttribute('aria-label', tip);
+      b.innerHTML = `${UI_ICON.playbook}<span>Create playbook</span>`;
+      b.addEventListener('click', () => goPage(pb.state, pb.params));
+      box.appendChild(b);
+    }
     // the ticket service: there (open + status) and switched on; null while it is not on the page yet
     const svc = () => {
       const t = (window as any).imxTicket;
@@ -900,7 +949,8 @@ export function init(tbCtx: any) {
             b.innerHTML = `${UI_ICON.ticket}<span>Create ticket</span>`;
             b.addEventListener('click', () => void openTicket(ctx, deviceId, node, where, dash, range));
           }
-          box.insertBefore(b, box.querySelector('.dbb-redit')); // D-058: Edit dashboard stays last (focus order = visual order)
+          // D-058: Edit dashboard stays last (focus order = visual order); D-068: the two Create buttons side by side
+          box.insertBefore(b, box.querySelector('.dbb-rpb') ?? box.querySelector('.dbb-redit'));
         },
         () => {
           /* no service answer: no button */
@@ -1002,7 +1052,8 @@ export function init(tbCtx: any) {
   const onChanged = () => void load(true);
   window.addEventListener(CHANGED_EVENT, onChanged);
   // D-059: the licence switched the Builder on or off: the bar's "Edit dashboard" and the published actions follow
-  const licOff = onLicenceChange(builderLicensed, () => void load());
+  // D-068: also the bar's licensed buttons (Analyzer, Create playbook): the side menu answers yes before it knows
+  const licOff = onLicenceChange(() => `${builderLicensed()}|${licHas('analyzer')}|${licHas('playbooks')}`, () => void load());
   // Redraws (D-021): on WebSocket pushes (at most every 2 s) + every 60 s; if the socket is down, REST polling
   // every refreshSeconds (10 s) in realtime and every 60 s for historic ranges, as before.
   const stopRedraw = scheduleRedraw(

@@ -84,6 +84,23 @@ export const CATALOGUE: CatalogueRow[] = [
   { key: 'sites', label: 'Overview', section: 'MONITOR', parent: null, states: ['default'], levels: HV, actions: [] },
   { key: 'machines', label: 'Machines', section: 'MONITOR', parent: null, states: ['listing', 'machine'], levels: HV, actions: [] },
   { key: 'alarms', label: 'Alarms', section: 'MONITOR', parent: null, states: ['active_alerts', 'alert_history'], levels: HVF, actions: [A('alarms.acknowledge', 'Acknowledge alarms')] },
+  // App U-082: Playbooks (pause and resume are actions of their own)
+  {
+    key: 'playbooks',
+    label: 'Playbooks',
+    section: 'MONITOR',
+    parent: null,
+    states: ['playbooks'],
+    levels: HVF,
+    actions: [
+      A('playbooks.run', 'Run playbooks (manual starts, Simulate)'),
+      A('playbooks.write', 'Run playbooks that change machine values'),
+      A('playbooks.edit', 'Create and edit playbooks and instructions'),
+      A('playbooks.approve', 'Can be an approver of machine writes'),
+      A('playbooks.pause', 'Pause machine writes'),
+      A('playbooks.resume', 'Resume machine writes'),
+    ],
+  },
   { key: 'andon', label: 'Andon board', section: 'MONITOR', parent: null, states: ['andon'], levels: HVF, actions: [A('andon.layout', 'Edit board layout'), A('andon.boards', 'Manage saved boards')] },
   { key: 'spc', label: 'SPC', section: 'MONITOR', parent: null, states: ['spc'], levels: HVF, actions: [] },
   {
@@ -113,6 +130,16 @@ export const CATALOGUE: CatalogueRow[] = [
   { key: 'value', label: 'Value tracker', section: 'INSIGHTS', parent: null, states: ['value'], levels: HVF, actions: [] },
   { key: 'users', label: 'Users & roles', section: 'ADMIN', parent: null, states: ['user_management'], levels: HVF, actions: [] },
   { key: 'sitesmachines', label: 'Sites & machines', section: 'ADMIN', parent: null, states: ['sites_machines'], levels: HVF, actions: [A('sitesmachines.structure', 'Add, move and delete sites and machines')] }, // App U-074
+  // App U-082: Settings > Machine control
+  {
+    key: 'machinecontrol',
+    label: 'Machine control',
+    section: 'ADMIN',
+    parent: null,
+    states: ['machine_control'],
+    levels: HVF,
+    actions: [A('playbooks.configure', 'Set up control points, approvals and Verify connection'), A('playbooks.automatic', 'Switch automatic writes on')],
+  },
   { key: 'alertrules.default', label: 'Default rules', section: 'ADMIN', parent: 'Alarm rules', states: ['alert_management'], levels: HVF, actions: [A('alertrules.export', 'Export alarm rules')] },
   { key: 'alertrules.custom', label: 'Custom rules', section: 'ADMIN', parent: 'Alarm rules', states: ['custom_alert'], levels: HVF, actions: [] },
   // App UI round 3: the cascade tags (was Configuration > Alarms), the third tab of Alarm rules
@@ -200,10 +227,13 @@ export function TEMPLATES(): Role[] {
   sup.users = 'view';
   sup.aisettings = 'view';
   sup.config = 'view';
+  sup.machinecontrol = 'view'; // App U-082
   for (const k of ['sites', 'machines', 'alarms', 'andon', 'dashboards', 'analyzer']) op[k] = 'view';
+  op.playbooks = 'view'; // App U-082
+  const supActions: Record<string, true> = { 'dashboards.build': true, 'dashboards.applyMany': true, 'playbooks.run': true, 'playbooks.write': true, 'playbooks.approve': true, 'playbooks.pause': true };
   return [
-    role(null, 'Supervisor', 'Runs the floor: alarms, Andon, reports and alarm rules.', sup, { 'dashboards.build': true, 'dashboards.applyMany': true }, false, []),
-    role(null, 'Operator', 'Watches the machines and acknowledges alarms.', op, { 'alarms.acknowledge': true }, false, []),
+    role(null, 'Supervisor', 'Runs the floor: alarms, Andon, reports and alarm rules.', sup, supActions, false, []),
+    role(null, 'Operator', 'Watches the machines and acknowledges alarms.', op, { 'alarms.acknowledge': true, 'playbooks.run': true }, false, []),
   ].map((r) => {
     r.builtIn = false;
     r.locked = false;

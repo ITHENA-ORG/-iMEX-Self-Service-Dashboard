@@ -975,3 +975,33 @@ The Builder follows the same key.
   `build:widgets` + `deploy-node.mjs --go` on LOCAL (dbb_lib_version 2026-10-16T14:23:52.253Z). LOCAL's app admin
   covers the whole organisation (customer-wide path, unchanged); the "you manage" path is covered by the unit tests
   only (no site-scoped admin with applyMany on LOCAL).
+
+### D-068 Playbooks: role rows mirrored, "Create playbook" on the machine page bar, 17 Oct 2026 (Playbooks integration round, coordinator for Akshay; App UI U-082 / U-083)
+- **Role catalogue** (`core/perm.ts`, mirror of the App UI's widgets/_shared/perm.js): page `playbooks` (MONITOR, state
+  'playbooks', H/V/F; actions playbooks.run, playbooks.write, playbooks.edit, playbooks.approve, playbooks.pause,
+  playbooks.resume) and `machinecontrol` (ADMIN, state 'machine_control'; actions playbooks.configure,
+  playbooks.automatic). Templates as the app: Supervisor Machine control View + run / write / approve / pause;
+  Operator Playbooks View + run. `widgets/test/perm-vectors.json` is byte-identical to the App UI's
+  `tests/perm-vectors.json` (checked 17 Oct). Fix: the hoisted Supervisor action map widened `true` to `boolean` and
+  failed `tsc` (TS2345 at TEMPLATES); typed `Record<string, true>`.
+- **"Create playbook"** on the machine page bar (`entries/renderer.ts` `barActions`, class `dbb-rbtn dbb-rpb`): the
+  bar's pill button (same look as Analyzer / Create ticket, light + dark, the app's dark banner colours, icon only under
+  1100 px), the App UI side menu's Playbooks icon (`UI_ICON.playbook`), tooltip (`data-imx-tip` + title + aria-label)
+  "Create a playbook for this machine". Order: Analyzer, Create ticket, Create playbook, Edit dashboard, "?". Shown
+  only when `playbookTarget()` (exported, pure) allows all three: the role's action `playbooks.edit` (`ctx.perms.can`,
+  as dashboards.build), the licence feature `playbooks` (`licHas`, as the Analyzer, D-062: no licence API on the page =
+  allowed, the side menu's pending answer = allowed until it knows) and a `playbooks` state on the dashboard (an
+  unreadable state list = no, as for Help). Not on a phone (html.imx-mobile) and not on the Dashboard Overview bar.
+- **Click:** `goPage('playbooks', { tab: 'playbooks', newFor: { machineId: <device id> } })` = the Active alarms page's
+  "Respond with a playbook" (U-083) without an alarm type; the Playbooks page opens its editor with a new playbook on
+  that machine. `goPage` is the "?" button's navigation (D-063: page bar key 'nav' + `window.__imxNav`), now shared.
+- **Licence changes:** the renderer redraws when the side menu's answer for builder, analyzer or playbooks changes
+  (was builder only; so a licence that turns out to lack the feature removes the buttons).
+- **Tests:** `widgets/test/barkeys.test.ts` +4 (`playbookTarget`: params; playbooks.edit needed, run / write / approve
+  not enough, Admin yes, Viewer / Supervisor / Operator templates no; licence; state + machine). 368 unit pass, tsc
+  clean, E2E 79 scenarios all passed (no new E2E scenario: the harness has no Playbooks page; covered on LOCAL).
+- **LOCAL:** deployed 17 Oct (`deploy-node.mjs --go`, dbb_lib_version 2026-10-17T14:58:20.592Z; backup
+  `backups/2026-10-17/d068/`). Checked with `scratch/d068-check.mjs` (read-only) on Compressor 1, light + dark,
+  1440×900 and 1366×768: one bar row of buttons, no overflow, tooltip shown; the click lands on Playbooks with
+  {tab:'playbooks', newFor:{machineId}} and the editor's When card reads "on: Compressor 1" (Compressor 1 ticked under
+  Machines). Viewer (viewer+imex): no button. Screens: App UI `screens/round3/pb-integ/builder/`. Not on the server.

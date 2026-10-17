@@ -83,3 +83,39 @@ describe('helpFrom (D-063: the bar\'s "?" Help for this page)', () => {
     expect(helpFrom(sc({ help: {} }, 'help'), 'machine')).toBeNull();
   });
 });
+
+import { playbookTarget, PLAYBOOKS_STATE } from '../src/entries/renderer';
+import * as perm from '../src/core/perm';
+describe('playbookTarget (D-068: the bar\'s "Create playbook")', () => {
+  const tb = (states: any) => ({ stateController: { states } });
+  // Playbooks at View with ticked actions (Full grants every action of the page)
+  const role = (actions: Record<string, true>) => ({ can: (k: string) => perm.can(perm.effective({ id: 'r', name: 'R', perms: { playbooks: 'view' }, actions } as any), k) });
+  const editor = role({ 'playbooks.edit': true });
+  const lic = (keys: string[]) => ({ has: (k: string) => keys.includes(k) });
+  it('opens the Playbooks page with a new playbook for this machine', () => {
+    expect(PLAYBOOKS_STATE).toBe('playbooks');
+    expect(playbookTarget(tb({ machine: {}, playbooks: {} }), editor, 'd1', lic(['playbooks']))).toEqual({ state: 'playbooks', params: { tab: 'playbooks', newFor: { machineId: 'd1' } } });
+    expect(playbookTarget({ stateController: { statesValue: { playbooks: {} } } }, editor, 'd1', lic(['playbooks']))?.state).toBe('playbooks');
+  });
+  it('needs the role action playbooks.edit (run / write / approve are not enough)', () => {
+    const t = tb({ playbooks: {} });
+    expect(playbookTarget(t, role({ 'playbooks.run': true, 'playbooks.write': true, 'playbooks.approve': true }), 'd1', lic(['playbooks']))).toBeNull();
+    expect(playbookTarget(t, null, 'd1', lic(['playbooks']))).toBeNull();
+    expect(playbookTarget(t, { can: () => { throw new Error('x'); } }, 'd1', lic(['playbooks']))).toBeNull();
+    // the built-in Admin has every action; the Viewer, Supervisor and Operator templates have no playbooks.edit
+    expect(playbookTarget(t, { can: (k) => perm.can(perm.effective(perm.BUILTINS()[0]), k) }, 'd1', lic(['playbooks']))).not.toBeNull();
+    for (const r of [perm.BUILTINS()[1], ...perm.TEMPLATES()]) expect(playbookTarget(t, { can: (k) => perm.can(perm.effective(r), k) }, 'd1', lic(['playbooks']))).toBeNull();
+  });
+  it('needs the licence feature playbooks (no licence API on the page = allowed, as every licHas)', () => {
+    const t = tb({ playbooks: {} });
+    expect(playbookTarget(t, editor, 'd1', lic(['builder', 'playbooks.write']))).toBeNull();
+    expect(playbookTarget(t, editor, 'd1', null)).not.toBeNull();
+  });
+  it('needs the Playbooks state on the dashboard (an unreadable state list counts as no) and a machine', () => {
+    expect(playbookTarget(tb({ machine: {} }), editor, 'd1', lic(['playbooks']))).toBeNull();
+    expect(playbookTarget(tb(undefined), editor, 'd1', lic(['playbooks']))).toBeNull();
+    expect(playbookTarget({}, editor, 'd1', lic(['playbooks']))).toBeNull();
+    expect(playbookTarget(null, editor, 'd1', lic(['playbooks']))).toBeNull();
+    expect(playbookTarget(tb({ playbooks: {} }), editor, '', lic(['playbooks']))).toBeNull();
+  });
+});
