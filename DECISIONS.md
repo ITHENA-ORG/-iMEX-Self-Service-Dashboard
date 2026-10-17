@@ -1050,3 +1050,8 @@ button was held, so the page felt laggy.
   mid-resize "5 × 4" / "8 × 4", Esc puts everything back and keeps the editor open (`scratch/d069/after/`). Frame
   timing while held (rAF recorder, 90 pointer moves): median 16.7 ms, p95 16.7 ms, max 16.8 ms, 0 frames over 20 ms.
   Not on the server.
+- Follow-up (18 Oct 2026, App UI round 7 integration): `widgets/src/core/perm.ts` mirrors the role catalogue row `crew`
+  (Settings › Crew, Supervisor template Full, App U-089) and the `sitesmachines` row's label "Machine settings" / action
+  text "Change site details (address, time zone, map position)" (App U-088; key, state and action id unchanged);
+  `widgets/test/perm-vectors.json` copied again (byte-identical). vitest 376 pass, tsc clean, e2e 13 pass; deployed on
+  LOCAL (`deploy-node --go`).

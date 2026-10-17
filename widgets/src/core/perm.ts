@@ -129,7 +129,10 @@ export const CATALOGUE: CatalogueRow[] = [
   { key: 'energy', label: 'Energy & Carbon', section: 'INSIGHTS', parent: null, states: ['energy'], levels: HVF, actions: [] },
   { key: 'value', label: 'Value tracker', section: 'INSIGHTS', parent: null, states: ['value'], levels: HVF, actions: [] },
   { key: 'users', label: 'Users & roles', section: 'ADMIN', parent: null, states: ['user_management'], levels: HVF, actions: [] },
-  { key: 'sitesmachines', label: 'Sites & machines', section: 'ADMIN', parent: null, states: ['sites_machines'], levels: HVF, actions: [A('sitesmachines.structure', 'Add, move and delete sites and machines')] }, // App U-074
+  // App U-089: Settings > Crew (who works which shift in which crew role)
+  { key: 'crew', label: 'Crew', section: 'ADMIN', parent: null, states: ['crew'], levels: HVF, actions: [] },
+  // App U-070 / U-088: Settings > Machines (key, state and action id unchanged; the action covers site details only)
+  { key: 'sitesmachines', label: 'Machine settings', section: 'ADMIN', parent: null, states: ['sites_machines'], levels: HVF, actions: [A('sitesmachines.structure', 'Change site details (address, time zone, map position)')] },
   // App U-082: Settings > Machine control
   {
     key: 'machinecontrol',
@@ -228,6 +231,7 @@ export function TEMPLATES(): Role[] {
   sup.aisettings = 'view';
   sup.config = 'view';
   sup.machinecontrol = 'view'; // App U-082
+  sup.crew = 'full'; // App U-089: the supervisor plans who works which shift
   for (const k of ['sites', 'machines', 'alarms', 'andon', 'dashboards', 'analyzer']) op[k] = 'view';
   op.playbooks = 'view'; // App U-082
   const supActions: Record<string, true> = { 'dashboards.build': true, 'dashboards.applyMany': true, 'playbooks.run': true, 'playbooks.write': true, 'playbooks.approve': true, 'playbooks.pause': true };
