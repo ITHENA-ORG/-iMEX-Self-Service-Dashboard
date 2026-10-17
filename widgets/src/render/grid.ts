@@ -13,10 +13,11 @@
  *   min-height is set from the lowest widget (plus 3 empty rows while editing, as drop space).
  *
  * Editing:
- * - During a drag the box follows the pointer snapped to whole cells, clamped to the grid; no
- *   other widget moves yet. On release, `resolveCollisions` pushes overlapped widgets down and
- *   compacts upward, and the new layout goes to `opts.onChange`. The grid does NOT keep the new
- *   positions itself: the owner (the builder) stores them and calls `render()` again.
+ * - D-069: during a drag the card follows the pointer (clamped to the grid), the cells it lands on
+ *   are outlined, a resize shows "w × h", and the other cards move to where `resolveCollisions`
+ *   will put them (push down, compact upward); Esc cancels. On release the new layout goes to
+ *   `opts.onChange`. The grid does NOT keep the new positions itself: the owner (the builder)
+ *   stores them and calls `render()` again.
  * - Palette drops use the HTML5 drag data type `text/dbb-widget` (set by the builder palette)
  *   and report the target cell through `opts.onDrop`; the builder creates the widget.
  *
@@ -121,6 +122,60 @@ export function resolveCollisions<T extends Rect & { id: string }>(items: T[], m
   return out;
 }
 
+/** D-069: most rows a widget gets when resized with the pointer. */
+export const MAX_DRAG_H = 20;
+
+/** D-069: one frame of a pointer move or resize: where the card is drawn (px, follows the pointer) and the cells it lands on. */
+export interface DragFrame {
+  /** The cells the card lands on when released here (snapped, clamped to the grid). */
+  snap: Rect;
+  /** Left / top / width / height in px inside the grid host, following the pointer (not snapped). */
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * D-069: the card's place while the pointer is held. Pure.
+ * - Move: the card follows the pointer, kept inside the 12 columns and below the top edge; it lands on the nearest
+ *   cells (the pointer travel rounded to whole cells, as before D-069).
+ * - Resize: the top-left corner stays, the size follows the pointer, at least one cell, at most to the right edge and
+ *   MAX_DRAG_H rows; the size it lands on is the travel rounded to whole cells.
+ * @param r The widget's cells when the drag started.
+ * @param dx Pointer travel in px since the drag started (scrolling of the canvas included).
+ * @param dy See dx.
+ * @param colW Column width in px (rows are ROW_H, gaps GAP).
+ */
+export function dragFrame(kind: 'move' | 'resize', r: Rect, dx: number, dy: number, colW: number): DragFrame {
+  const cellW = colW + GAP;
+  const cellH = ROW_H + GAP;
+  const left0 = GAP + r.x * cellW;
+  const top0 = GAP + r.y * cellH;
+  const width0 = r.w * colW + (r.w - 1) * GAP;
+  const height0 = r.h * ROW_H + (r.h - 1) * GAP;
+  const cdx = Math.round(dx / cellW);
+  const cdy = Math.round(dy / cellH);
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  if (kind === 'move') {
+    const snap = { x: clamp(r.x + cdx, 0, GRID_COLS - r.w), y: Math.max(0, r.y + cdy), w: r.w, h: r.h };
+    const maxLeft = GAP + (GRID_COLS - r.w) * cellW;
+    return { snap, left: clamp(left0 + dx, GAP, maxLeft), top: Math.max(GAP, top0 + dy), width: width0, height: height0 };
+  }
+  const snap = { x: r.x, y: r.y, w: clamp(r.w + cdx, 1, GRID_COLS - r.x), h: clamp(r.h + cdy, 1, MAX_DRAG_H) };
+  const maxW = (GRID_COLS - r.x) * colW + (GRID_COLS - r.x - 1) * GAP;
+  const maxH = MAX_DRAG_H * ROW_H + (MAX_DRAG_H - 1) * GAP;
+  return { snap, left: left0, top: top0, width: clamp(width0 + dx, colW, maxW), height: clamp(height0 + dy, ROW_H, maxH) };
+}
+
+/** D-069: the size readout shown while resizing ("4 × 2") and its spoken form. */
+export function sizeLabel(r: { w: number; h: number }): { text: string; aria: string } {
+  return {
+    text: `${r.w} × ${r.h}`,
+    aria: `${r.w} ${r.w === 1 ? 'column' : 'columns'} wide, ${r.h} ${r.h === 1 ? 'row' : 'rows'} high`,
+  };
+}
+
 /**
  * First free slot of size w x h, scanning rows top-down and columns left-to-right. Pure.
  * Used by the builder for widgets added by click (not dropped) and duplicates, and by chat.
@@ -194,6 +249,50 @@ export function phoneLayout<T extends Rect & { id: string; type?: string; keys?:
   return out;
 }
 
+/** True if two cell rectangles are the same cells. */
+const sameRect = (a: Rect, b: Rect) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+
+/** D-069: the nearest ancestor that scrolls vertically (the Builder's canvas pane), or null. Read once per drag. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    const s = getComputedStyle(p).overflowY;
+    if (s === 'auto' || s === 'scroll') return p;
+  }
+  return null;
+}
+
+/** D-069: a pointer move or resize in progress (Grid.drag). */
+interface DragState {
+  id: string;
+  kind: 'move' | 'resize';
+  box: HTMLElement;
+  handle: HTMLElement;
+  pointerId: number;
+  /** The widget's cells when the drag started. */
+  w0: Rect;
+  /** Pointer at the start and now (client px). */
+  x0: number;
+  y0: number;
+  x: number;
+  y: number;
+  /** The pointer moved more than a few px (edge scrolling starts only then). */
+  travelled: boolean;
+  scroller: HTMLElement | null;
+  /** The scroll container's top and bottom (client px) at the start. */
+  edge: { top: number; bottom: number } | null;
+  scroll0: number;
+  /** The cells it lands on, as last drawn. */
+  snap: Rect;
+  /** Pending requestAnimationFrame id (0 = none). */
+  raf: number;
+  /** Draw the drop outline and the pushed cards again on the next frame. */
+  dirty: boolean;
+  /** The "w × h" readout (resize only). */
+  size: HTMLElement | null;
+  /** Removes the drag's listeners. */
+  off(): void;
+}
+
 /**
  * Grid component. Owns one absolutely positioned box per widget inside `host` and the
  * `WidgetHandle` returned by `renderWidget` for each (used to refresh and destroy them).
@@ -218,6 +317,10 @@ export class Grid {
   /** D-053: the widgets' bindings when last drawn; a change redraws the text widgets. */
   private bindSig = '';
   private ro: ResizeObserver;
+  /** D-069: the pointer move / resize in progress, or null. */
+  private drag: DragState | null = null;
+  /** D-069: the outline of the cells a dragged card lands on (made on the first drag). */
+  private dropGhost: HTMLElement | null = null;
 
   /**
    * @param host Empty container; its position is set to relative. Its width drives the columns.
@@ -310,6 +413,11 @@ export class Grid {
     }
     this.setHeight();
     this.paintSelection();
+    // D-069: a redraw while a card is held (live data, a fit warning) put every box back on its stored cells
+    if (this.drag) {
+      if (this.boxes.get(this.drag.id) !== this.drag.box) this.endDrag(false);
+      else this.redrawDrag();
+    }
   }
 
   /** Host min-height from the lowest widget as shown: at least 4 rows; in edit mode 3 extra empty rows give room to drop below the last widget. */
@@ -339,6 +447,7 @@ export class Grid {
 
   /** Stops observing size, destroys all widget renderers and empties the host. */
   destroy() {
+    if (this.drag) this.endDrag(false);
     this.ro.disconnect();
     for (const h of this.handles.values()) h.destroy();
     this.host.innerHTML = '';
@@ -372,6 +481,7 @@ export class Grid {
       }
       if (modeChanged) this.setHeight();
       for (const h of this.handles.values()) void h.refresh();
+      if (this.drag) this.redrawDrag();
     }
   }
 
@@ -454,50 +564,238 @@ export class Grid {
   }
 
   /**
-   * Pointer-based move or resize of one box. The pointer delta is rounded to whole cells.
-   * Move clamps x so the widget stays inside the 12 columns (y ≥ 0); resize keeps the top-left
-   * corner and clamps w to the columns left and h to 1..20 rows. Only the box is moved while
-   * dragging; on release, if anything changed, collisions are resolved and `onChange` is called.
-   * Pointer capture keeps events coming even when the pointer leaves the handle.
+   * D-069: pointer move or resize of one box (mouse, pen or touch), with live feedback while the pointer is held:
+   * - the card follows the pointer, lifted with a shadow (move: a translate3d on the box; resize: its width and height);
+   * - the cells it lands on are tinted and outlined (`.dbb-gdrop`, one tile per cell), and the cards it would push move
+   *   to where they will end up (the same resolveCollisions as on release: what is shown is what you get);
+   * - resizing shows the size it lands on, "4 × 2" (columns × rows), next to the corner handle (`.dbb-gsize`);
+   * - pointer events only record the position; one requestAnimationFrame writes the styles (no layout reads during the
+   *   drag apart from the scroll position at the start of a frame, before any write);
+   * - near the top or bottom edge of the scrolling canvas it scrolls, and the scroll counts as pointer travel;
+   * - Esc (also the browser cancelling the pointer, or the handle losing it) puts everything back; nothing changes.
+   * On release, if the cells changed, collisions are resolved and `onChange` is called, as before D-069. Pointer capture
+   * keeps events coming when the pointer leaves the handle. Before D-069 the box was placed through `place()`, which
+   * draws the stored cells (the view map, D-040), so nothing moved until release.
    */
   private wireDrag(box: HTMLElement, handle: HTMLElement, kind: 'move' | 'resize') {
     handle.addEventListener('pointerdown', (e) => {
+      if (this.drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
       e.preventDefault();
       e.stopPropagation();
       const id = box.dataset.id!;
       this.opts.onSelect?.(id);
-      const w0 = this.widgets.find((w) => w.id === id)!;
-      const start = { x: e.clientX, y: e.clientY };
-      const cellW = this.colW + GAP;
-      const cellH = ROW_H + GAP;
-      let cur = { ...w0 };
-      handle.setPointerCapture(e.pointerId);
-      box.classList.add('dragging');
-      const move = (ev: PointerEvent) => {
-        const dx = Math.round((ev.clientX - start.x) / cellW);
-        const dy = Math.round((ev.clientY - start.y) / cellH);
-        if (kind === 'move') {
-          cur = { ...w0, x: Math.min(GRID_COLS - w0.w, Math.max(0, w0.x + dx)), y: Math.max(0, w0.y + dy) };
-        } else {
-          cur = { ...w0, w: Math.min(GRID_COLS - w0.x, Math.max(1, w0.w + dx)), h: Math.min(20, Math.max(1, w0.h + dy)) };
-        }
-        this.place(box, cur);
+      const w0 = this.widgets.find((w) => w.id === id);
+      if (!w0) return;
+      const scroller = scrollParent(this.host);
+      const sr = scroller?.getBoundingClientRect();
+      const start = { x: w0.x, y: w0.y, w: w0.w, h: w0.h };
+      const d: DragState = {
+        id,
+        kind,
+        box,
+        handle,
+        pointerId: e.pointerId,
+        w0: start,
+        x0: e.clientX,
+        y0: e.clientY,
+        x: e.clientX,
+        y: e.clientY,
+        travelled: false,
+        scroller,
+        edge: sr ? { top: sr.top, bottom: sr.bottom } : null,
+        scroll0: scroller?.scrollTop ?? 0,
+        snap: start,
+        raf: 0,
+        dirty: true,
+        size: null,
+        off: () => {},
       };
-      const up = () => {
-        handle.removeEventListener('pointermove', move);
-        handle.removeEventListener('pointerup', up);
-        box.classList.remove('dragging');
-        // A click without movement is just a selection; no layout change.
-        if (cur.x === w0.x && cur.y === w0.y && cur.w === w0.w && cur.h === w0.h) return;
-        const next = resolveCollisions(
-          this.widgets.map((w) => (w.id === id ? cur : w)),
-          id,
-        );
-        this.opts.onChange?.(next);
+      try {
+        handle.setPointerCapture(e.pointerId);
+      } catch {
+        /* a synthetic event without an active pointer: the listeners below still get it */
+      }
+      box.classList.add('dragging', kind === 'move' ? 'moving' : 'sizing');
+      this.host.classList.add('dbb-gdragging');
+      if (kind === 'resize') {
+        const s = document.createElement('span');
+        s.className = 'dbb-gsize';
+        s.setAttribute('role', 'status');
+        box.appendChild(s);
+        d.size = s;
+      }
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== d.pointerId) return;
+        d.x = ev.clientX;
+        d.y = ev.clientY;
+        this.queueDrag();
       };
-      handle.addEventListener('pointermove', move);
-      handle.addEventListener('pointerup', up);
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== d.pointerId) return;
+        d.x = ev.clientX;
+        d.y = ev.clientY;
+        this.endDrag(true);
+      };
+      const onCancel = (ev: PointerEvent) => {
+        if (ev.pointerId === d.pointerId) this.endDrag(false);
+      };
+      const onKey = (ev: KeyboardEvent) => {
+        // Capture phase on window: runs before the builder's keys (Esc closes the builder, Delete removes, Ctrl+Z undoes).
+        if (ev.key === 'Escape') this.endDrag(false);
+        else if (!(ev.key === 'Delete' || ev.key === 'Backspace' || ((ev.ctrlKey || ev.metaKey) && /^[zy]$/i.test(ev.key)))) return;
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+      };
+      const blockMenu = (ev: Event) => ev.preventDefault();
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onCancel);
+      handle.addEventListener('lostpointercapture', onCancel);
+      handle.addEventListener('contextmenu', blockMenu);
+      window.addEventListener('keydown', onKey, true);
+      d.off = () => {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onCancel);
+        handle.removeEventListener('lostpointercapture', onCancel);
+        handle.removeEventListener('contextmenu', blockMenu);
+        window.removeEventListener('keydown', onKey, true);
+      };
+      this.drag = d;
+      this.queueDrag();
     });
+  }
+
+  /** D-069: asks for one drag frame (at most one per animation frame). */
+  private queueDrag() {
+    const d = this.drag;
+    if (d && !d.raf) d.raf = requestAnimationFrame(() => this.dragTick());
+  }
+
+  /** D-069: a redraw (render, reflow) put the boxes back on their stored cells: draw the drag again on the next frame. */
+  private redrawDrag() {
+    if (!this.drag) return;
+    this.drag.dirty = true;
+    this.queueDrag();
+  }
+
+  /** D-069: the frame for the pointer's last position; `scrollY` is the scroll container's position now. */
+  private frameOf(d: DragState, scrollY: number): DragFrame {
+    return dragFrame(d.kind, d.w0, d.x - d.x0, d.y - d.y0 + (scrollY - d.scroll0), this.colW);
+  }
+
+  /** D-069: one animation frame of a drag: edge scroll, the card at the pointer, and (when the cells change) the drop outline and the pushed cards. */
+  private dragTick() {
+    const d = this.drag;
+    if (!d) return;
+    d.raf = 0;
+    // the only layout read of the frame, before any write
+    const scrollY = d.scroller ? d.scroller.scrollTop : 0;
+    if (!d.travelled && Math.abs(d.x - d.x0) + Math.abs(d.y - d.y0) > 4) d.travelled = true;
+    let auto = 0;
+    if (d.scroller && d.edge && d.travelled) {
+      const zone = 48;
+      if (d.y > d.edge.bottom - zone) auto = Math.min(18, Math.ceil((d.y - (d.edge.bottom - zone)) / 3));
+      else if (d.y < d.edge.top + zone && scrollY > 0) auto = -Math.min(18, Math.ceil((d.edge.top + zone - d.y) / 3));
+    }
+    const f = this.frameOf(d, scrollY);
+    const o = this.px(d.w0);
+    if (d.kind === 'move') d.box.style.transform = `translate3d(${f.left - o.left}px,${f.top - o.top}px,0)`;
+    else {
+      d.box.style.width = `${f.width}px`;
+      d.box.style.height = `${f.height}px`;
+    }
+    if (d.dirty || !sameRect(f.snap, d.snap)) {
+      d.snap = f.snap;
+      d.dirty = false;
+      this.paintDrop(d);
+    }
+    if (auto && d.scroller) {
+      d.scroller.scrollTop = scrollY + auto;
+      this.queueDrag();
+    }
+  }
+
+  /** D-069: the drop outline on the cells `d.snap`, the size readout, and every other card where it will end up. Writes only. */
+  private paintDrop(d: DragState) {
+    let g = this.dropGhost;
+    if (!g || g.parentElement !== this.host) {
+      g = document.createElement('div');
+      g.className = 'dbb-gdrop';
+      g.setAttribute('aria-hidden', 'true');
+      this.host.appendChild(g);
+      this.dropGhost = g;
+    }
+    const p = this.px(d.snap);
+    Object.assign(g.style, {
+      display: 'grid',
+      left: `${p.left}px`,
+      top: `${p.top}px`,
+      width: `${p.width}px`,
+      height: `${p.height}px`,
+      gridTemplateColumns: `repeat(${d.snap.w},minmax(0,1fr))`,
+      gridTemplateRows: `repeat(${d.snap.h},minmax(0,1fr))`,
+      gap: `${GAP}px`,
+    });
+    const n = d.snap.w * d.snap.h;
+    if (g.childElementCount !== n) g.innerHTML = '<i></i>'.repeat(n);
+    if (d.size) {
+      const l = sizeLabel(d.snap);
+      d.size.textContent = l.text;
+      d.size.setAttribute('aria-label', l.aria);
+    }
+    const next = resolveCollisions(this.widgets.map((w) => (w.id === d.id ? { ...w, ...d.snap } : w)), d.id);
+    let bottom = 0;
+    for (const w of next) {
+      bottom = Math.max(bottom, w.y + w.h);
+      const b = w.id === d.id ? null : this.boxes.get(w.id);
+      if (b) this.setBox(b, w);
+    }
+    // room below the lowest card, so a card can be dragged further down
+    this.host.style.minHeight = `${(Math.max(4, bottom) + 3) * (ROW_H + GAP)}px`;
+  }
+
+  /**
+   * D-069: ends the drag. `commit` (pointer released): if the cells changed, the new layout goes to onChange; else (and
+   * on cancel) every card goes back. The held card glides from where it is drawn to its cells: in one style change its
+   * left / top jump to the cells and its transform drops to none, and with .dragging gone both transition together, so
+   * left + transform runs straight from the pointer's place to the cells (no layout read).
+   */
+  private endDrag(commit: boolean) {
+    const d = this.drag;
+    if (!d) return;
+    this.drag = null;
+    if (d.raf) cancelAnimationFrame(d.raf);
+    d.off();
+    try {
+      if (d.handle.hasPointerCapture?.(d.pointerId)) d.handle.releasePointerCapture(d.pointerId);
+    } catch {
+      /* already released */
+    }
+    const snap = commit ? this.frameOf(d, d.scroller ? d.scroller.scrollTop : 0).snap : d.w0;
+    const changed = commit && !sameRect(snap, d.w0);
+    d.box.classList.remove('dragging', 'moving', 'sizing');
+    this.setBox(d.box, snap);
+    d.box.style.transform = '';
+    d.size?.remove();
+    if (this.dropGhost) this.dropGhost.style.display = 'none';
+    this.host.classList.remove('dbb-gdragging');
+    if (changed) {
+      this.opts.onChange?.(resolveCollisions(this.widgets.map((w) => (w.id === d.id ? { ...w, ...snap } : w)), d.id));
+      return;
+    }
+    // a press without movement is just a selection; a cancel puts the other cards back
+    for (const w of this.widgets) {
+      const b = this.boxes.get(w.id);
+      if (b && w.id !== d.id) this.place(b, w);
+    }
+    this.setHeight();
+  }
+
+  /** D-069: writes a box's px position and size for the given cells (the editor shows the stored 12 columns). */
+  private setBox(box: HTMLElement, r: Rect) {
+    const p = this.px(r);
+    Object.assign(box.style, { left: `${p.left}px`, top: `${p.top}px`, width: `${p.width}px`, height: `${p.height}px` });
   }
 
   /**
@@ -549,9 +847,19 @@ export const GRID_CSS = `
 .dbb-gwarn svg{width:14px;height:14px}
 .dbb-gbox.fitwarn .dbb-gwarn{display:inline-flex}
 .dbb-dark .dbb-gwarn{background:#4A3410;color:#FCD34D}
-.dbb-gbox{transition:left .15s,top .15s,width .15s,height .15s}
-.dbb-gbox.dragging{transition:none;z-index:10;opacity:.92}
-.dbb-gbox.dragging .dbb-card{box-shadow:0 12px 32px rgba(16,24,40,.22)}
+.dbb-gbox{transition:left .15s,top .15s,width .15s,height .15s,transform .15s}
+.dbb-gbox.dragging{transition:none;z-index:10;opacity:.9;will-change:transform}
+.dbb-gbox.dragging .dbb-card{box-shadow:0 14px 34px rgba(16,24,40,.26),0 0 0 1px color-mix(in srgb,var(--accent) 55%,transparent)}
+.dbb-dark .dbb-gbox.dragging .dbb-card{box-shadow:0 14px 34px rgba(0,0,0,.6),0 0 0 1px color-mix(in srgb,var(--accent) 70%,transparent)}
+.dbb-gbox.moving .dbb-gdrag{cursor:grabbing}
+.dbb-gbox.sizing .dbb-gresize{opacity:1}
+.dbb-gdragging{user-select:none;-webkit-user-select:none}
+.dbb-gdrop{position:absolute;z-index:5;display:none;pointer-events:none}
+.dbb-gdrop i{display:block;min-width:0;min-height:0;border-radius:8px;background:color-mix(in srgb,var(--accent) 14%,transparent);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 55%,transparent)}
+.dbb-dark .dbb-gdrop i{background:color-mix(in srgb,var(--accent) 22%,transparent);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 75%,transparent)}
+.dbb-gsize{position:absolute;right:22px;bottom:6px;z-index:4;padding:1px 8px;border-radius:999px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;line-height:20px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.22)}
+.dbb-gdrag,.dbb-gresize{touch-action:none}
+@media (pointer:coarse){.dbb-gresize{right:0;bottom:0;width:28px;height:28px}.dbb-gsize{right:32px}}
 .dbb-gbox.sel .dbb-card{outline:2px solid var(--accent);outline-offset:2px}
 .dbb-gbox.hl .dbb-card{box-shadow:0 0 0 3px #86b6ef}
 .dbb-gdrag{position:absolute;left:0;right:28px;top:0;height:30px;cursor:move;z-index:2}

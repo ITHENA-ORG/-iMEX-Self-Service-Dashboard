@@ -1005,3 +1005,48 @@ The Builder follows the same key.
   1440×900 and 1366×768: one bar row of buttons, no overflow, tooltip shown; the click lands on Playbooks with
   {tab:'playbooks', newFor:{machineId}} and the editor's When card reads "on: Compressor 1" (Compressor 1 ticked under
   Machines). Viewer (viewer+imex): no button. Screens: App UI `screens/round3/pb-integ/builder/`. Not on the server.
+
+### D-069 Builder: live feedback while a card is moved or resized, 18 Oct 2026 (Round 7 W2, Akshay)
+Akshay: moving or resizing a card in the dashboard editor applied correctly on release, but nothing moved while the
+button was held, so the page felt laggy.
+- **Cause:** `Grid.wireDrag` placed the box with `place(box, cur)`, and `place()` draws `this.rect(w)`, which since the
+  compact / phone views (D-040, D-054) reads the stored cells from the view map by widget id. The new cells were
+  computed and stored on release, but never drawn while held. Reproduced on LOCAL before the change (box style
+  unchanged mid-drag, class `dragging` set).
+- **Now (render/grid.ts), mouse, pen and touch:**
+  - the card follows the pointer to the pixel, lifted (shadow, accent ring, opacity .9); a move uses a
+    translate3d on the box, a resize its width and height; kept inside the 12 columns, 1 cell to MAX_DRAG_H (20) rows;
+  - the cells it lands on are tinted and outlined (`.dbb-gdrop`, a CSS grid of one tile per cell);
+  - the other cards move to where they will end up (the same `resolveCollisions` as on release, with the boxes' .15 s
+    transitions), so what is shown is what you get; the canvas grows below the lowest card while held;
+  - resizing shows the cells it lands on as "4 × 2" (columns × rows; aria "4 columns wide, 2 rows high") in a pill
+    next to the corner handle (`.dbb-gsize`);
+  - **Esc** cancels (window keydown, capture phase, so the Builder's Esc does not close the editor; Delete / Backspace /
+    Ctrl+Z / Ctrl+Y are swallowed while held); pointercancel and lostpointercapture cancel too; nothing is stored, no
+    undo step;
+  - on release the card glides from the pointer to its cells (left / top / width / height / transform transitions);
+    if the cells changed, `onChange` gets the resolved layout as before;
+  - near the top or bottom edge of the canvas pane it scrolls (after 4 px of travel), and the scroll counts as travel.
+- **Performance:** pointer events only record the position; one requestAnimationFrame per frame writes styles. The
+  only layout read in a frame is the scroll pane's scrollTop, first, before any write; the pane's box is read once at
+  pointerdown. The drop outline, readout and pushed cards are redrawn only when the snapped cells change. A grid
+  redraw or reflow while a card is held (live data, fit warning, width change) re-applies the drag on the next frame;
+  if the held card's box is gone the drag cancels.
+- **Touch:** `touch-action:none` on the move bar and the resize corner (the page does not pan under a finger), the
+  context menu is blocked on the handle while held, and on coarse pointers the resize corner is 28 px.
+- **Light / dark:** colours from the theme variables (--accent); `.dbb-dark` gets a deeper shadow and stronger tiles.
+- **New exports:** `dragFrame(kind, rect, dx, dy, colW)` (pure: px frame + snapped cells; the snapping rule is the
+  pre-D-069 one) and `sizeLabel`, `MAX_DRAG_H`.
+- **Tests:** `widgets/test/grid-drag.test.ts` (8: move / resize frames, clamps, rounding, readout). E2E +1 scenario
+  "D-069 live feedback while the pointer is held": mid-move the card is at the pointer (not snapped), the drop cells
+  sit on the snapped cells, the card underneath is pushed down, nothing stored; Esc restores and keeps the editor
+  open, release after Esc changes nothing and adds no undo step; mid-resize the size follows the pointer, the readout
+  matches the drop cells and is what is stored; a touch move (CDP touch events) follows the finger and stores.
+- **Results (18 Oct):** `npx tsc --noEmit` clean; vitest 376/376 (25 files); E2E 80/80 all passed; `build:widgets`;
+  `deploy-node.mjs --go` on LOCAL (dbb_lib_version 2026-10-17T20:08:59.699Z UTC; backup `backups/2026-10-18/d069/`,
+  check-tb.mjs --backup + the old grid.ts). Checked on LOCAL with `scratch/d069-local.mjs` (Compressor 1 dashboard,
+  akshayr+imex, 1440×900, light + dark; nothing saved): before the change the card's style was unchanged mid-drag
+  (`scratch/d069/before/`); after, mid-move the card is at the pointer with the drop cells and the pushed cards,
+  mid-resize "5 × 4" / "8 × 4", Esc puts everything back and keeps the editor open (`scratch/d069/after/`). Frame
+  timing while held (rAF recorder, 90 pointer moves): median 16.7 ms, p95 16.7 ms, max 16.8 ms, 0 frames over 20 ms.
+  Not on the server.

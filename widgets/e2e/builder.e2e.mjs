@@ -248,6 +248,80 @@ test('move and resize a card with the pointer; both undoable', async (t) => {
   eq((await t.draft()).widgets[0].x, w0.x, 'undo move');
 });
 
+test('D-069 live feedback while the pointer is held: card follows, drop cells, pushed cards, "w × h", Esc cancels, touch', async (t) => {
+  for (const ty of ['value', 'value', 'line']) await t.addWidget(ty);
+  await t.idle(400);
+  const rectOf = (i) => t.b((i) => { const r = document.querySelectorAll('.dbb-canvas .dbb-gbox')[i].getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }, i);
+  const drop = () => t.b(() => { const g = document.querySelector('.dbb-canvas .dbb-gdrop'); if (!g || g.style.display === 'none') return null; const r = g.getBoundingClientRect(); return { cells: g.children.length, x: r.x, y: r.y, w: r.width, h: r.height }; });
+  const cells = (ws) => ws.map((w) => [w.x, w.y, w.w, w.h]);
+  const d0 = await t.draft();
+  const undo0 = await t.b(() => window.__b.undo.length);
+  const [a0, b0] = [await rectOf(0), await rectOf(1)];
+  // move the first card onto the second: it follows the pointer while held, the cells it lands on show, the second
+  // card is pushed down, and nothing is stored yet
+  const bar = await (await t.page.$('.dbb-gbox .dbb-gdrag')).boundingBox();
+  await t.page.mouse.move(bar.x + 20, bar.y + 10);
+  await t.page.mouse.down();
+  await t.page.mouse.move(bar.x + 20 + (b0.x - a0.x) + 7, bar.y + 10 + 9, { steps: 6 });
+  await t.page.waitForTimeout(120);
+  const a1 = await rectOf(0);
+  ok(Math.abs(a1.x - (b0.x + 7)) < 3 && Math.abs(a1.y - (a0.y + 9)) < 3, `card follows the pointer (not snapped): ${JSON.stringify(a0)} -> ${JSON.stringify(a1)}`);
+  const g1 = await drop();
+  ok(g1 && g1.cells === d0.widgets[0].w * d0.widgets[0].h, `drop cells shown: ${JSON.stringify(g1)}`);
+  ok(Math.abs(g1.x - b0.x) < 2 && Math.abs(g1.y - a0.y) < 2, `drop outline on the snapped cells: ${JSON.stringify(g1)} vs ${JSON.stringify(b0)}`);
+  await t.page.waitForTimeout(250);
+  const b1 = await rectOf(1);
+  ok(b1.y > b0.y + 50, `the card underneath moves out of the way while held: ${b0.y} -> ${b1.y}`);
+  eq(cells((await t.draft()).widgets), cells(d0.widgets), 'nothing stored while held');
+  // Esc: everything goes back, the builder stays open, the release changes nothing
+  await t.page.keyboard.press('Escape');
+  await t.page.waitForTimeout(300);
+  ok(await t.page.$('.dbb-overlay .dbb-top'), 'Esc during a drag does not close the builder');
+  const [a2, b2] = [await rectOf(0), await rectOf(1)];
+  ok(Math.abs(a2.x - a0.x) < 1 && Math.abs(a2.y - a0.y) < 1 && Math.abs(b2.y - b0.y) < 1, `Esc puts the cards back: ${JSON.stringify([a2, b2])}`);
+  eq(await drop(), null, 'drop cells hidden after Esc');
+  await t.page.mouse.move(bar.x + 400, bar.y + 300, { steps: 3 });
+  await t.page.mouse.up();
+  await t.page.waitForTimeout(250);
+  eq(cells((await t.draft()).widgets), cells(d0.widgets), 'release after Esc changes nothing');
+  eq(await t.b(() => window.__b.undo.length), undo0, 'no undo step from a cancelled drag');
+  // resize: the card grows with the pointer, the readout gives the cells it lands on, release stores exactly that
+  const rz = await (await t.page.$('.dbb-gbox .dbb-gresize')).boundingBox();
+  await t.page.mouse.move(rz.x + 8, rz.y + 8);
+  await t.page.mouse.down();
+  await t.page.mouse.move(rz.x + 8 + 250, rz.y + 8 + 100, { steps: 6 });
+  await t.page.waitForTimeout(120);
+  const a3 = await rectOf(0);
+  ok(Math.abs(a3.w - (a0.w + 250)) < 3 && Math.abs(a3.h - (a0.h + 100)) < 3, `card size follows the pointer: ${JSON.stringify(a3)}`);
+  const label = await t.b(() => { const s = document.querySelector('.dbb-gbox .dbb-gsize'); return s && { text: s.textContent, aria: s.getAttribute('aria-label') }; });
+  ok(label && /^\d+ × \d+$/.test(label.text) && /columns? wide, \d+ rows? high/.test(label.aria), `size readout: ${JSON.stringify(label)}`);
+  const [lw, lh] = label.text.split(' × ').map(Number);
+  eq((await drop())?.cells, lw * lh, 'drop cells match the readout');
+  await t.page.mouse.up();
+  await t.page.waitForTimeout(300);
+  const w3 = (await t.draft()).widgets[0];
+  eq([w3.w, w3.h], [lw, lh], 'stored size = the readout');
+  eq(await t.b(() => !!document.querySelector('.dbb-gbox .dbb-gsize')), false, 'readout gone after release');
+  // touch: the same move with a finger (pointerType touch)
+  const cdp = await t.page.context().newCDPSession(t.page);
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+  const before = (await t.draft()).widgets[0];
+  const tb = await (await t.page.$('.dbb-gbox .dbb-gdrag')).boundingBox();
+  const p0 = { x: tb.x + 20, y: tb.y + 10 };
+  const ta0 = await rectOf(0);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [p0] });
+  for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: p0.x, y: p0.y + i * 40 }] });
+  await t.page.waitForTimeout(150);
+  const a4 = await rectOf(0);
+  const tg = await drop();
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await t.page.waitForTimeout(300);
+  ok(a4.y > ta0.y + 200 && tg, `card follows a finger with the drop cells shown: ${JSON.stringify(ta0)} -> ${JSON.stringify(a4)} ${JSON.stringify(tg)}`);
+  const after = (await t.draft()).widgets[0];
+  ok(after.y > before.y && after.x === before.x, `touch move stored: (${before.x},${before.y}) -> (${after.x},${after.y})`);
+  eq(await t.b(() => getComputedStyle(document.querySelector('.dbb-gbox .dbb-gdrag')).touchAction), 'none', 'the move bar keeps the page from panning under a finger');
+});
+
 test('card quick tools and panel buttons: duplicate and remove', async (t) => {
   await t.addWidget('kpi');
   await t.page.dispatchEvent('.dbb-gbox.sel .dbb-gtools [data-q="dup"]', 'mousedown');
