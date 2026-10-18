@@ -31,7 +31,7 @@ export interface CatalogueAction {
 export interface CatalogueRow {
   key: string;
   label: string;
-  section: 'MONITOR' | 'INSIGHTS' | 'ADMIN';
+  section: 'MONITOR' | 'ACT' | 'INSIGHTS' | 'ADMIN';
   parent: string | null;
   states: string[];
   levels: Level[];
@@ -84,11 +84,23 @@ export const CATALOGUE: CatalogueRow[] = [
   { key: 'sites', label: 'Overview', section: 'MONITOR', parent: null, states: ['default'], levels: HV, actions: [] },
   { key: 'machines', label: 'Machines', section: 'MONITOR', parent: null, states: ['listing', 'machine'], levels: HV, actions: [] },
   { key: 'alarms', label: 'Alarms', section: 'MONITOR', parent: null, states: ['active_alerts', 'alert_history'], levels: HVF, actions: [A('alarms.acknowledge', 'Acknowledge alarms')] },
+  { key: 'andon', label: 'Andon board', section: 'MONITOR', parent: null, states: ['andon'], levels: HVF, actions: [A('andon.layout', 'Edit board layout'), A('andon.boards', 'Manage saved boards')] },
+  { key: 'spc', label: 'SPC', section: 'MONITOR', parent: null, states: ['spc'], levels: HVF, actions: [] },
+  {
+    key: 'dashboards',
+    label: 'Dashboards',
+    section: 'INSIGHTS',
+    parent: null,
+    states: ['dashboards', 'dashboard_overview'],
+    levels: HVF,
+    actions: [A('dashboards.build', 'Build dashboards'), A('dashboards.applyMany', 'Apply to many machines'), A('dashboards.deleteAny', 'Delete any dashboard')],
+  },
   // App U-082: Playbooks (pause and resume are actions of their own)
+  // App U-101: section ACT after Dashboards (the menu's ACT group, U-099); key and actions unchanged
   {
     key: 'playbooks',
     label: 'Playbooks',
-    section: 'MONITOR',
+    section: 'ACT',
     parent: null,
     states: ['playbooks'],
     levels: HVF,
@@ -100,17 +112,6 @@ export const CATALOGUE: CatalogueRow[] = [
       A('playbooks.pause', 'Pause machine writes'),
       A('playbooks.resume', 'Resume machine writes'),
     ],
-  },
-  { key: 'andon', label: 'Andon board', section: 'MONITOR', parent: null, states: ['andon'], levels: HVF, actions: [A('andon.layout', 'Edit board layout'), A('andon.boards', 'Manage saved boards')] },
-  { key: 'spc', label: 'SPC', section: 'MONITOR', parent: null, states: ['spc'], levels: HVF, actions: [] },
-  {
-    key: 'dashboards',
-    label: 'Dashboards',
-    section: 'INSIGHTS',
-    parent: null,
-    states: ['dashboards', 'dashboard_overview'],
-    levels: HVF,
-    actions: [A('dashboards.build', 'Build dashboards'), A('dashboards.applyMany', 'Apply to many machines'), A('dashboards.deleteAny', 'Delete any dashboard')],
   },
   { key: 'analyzer', label: 'Analyzer', section: 'INSIGHTS', parent: null, states: ['analytics'], levels: HVF, actions: [A('analyzer.export', 'Export')] },
   { key: 'ai.forecast', label: 'Forecast', section: 'INSIGHTS', parent: 'AI Insights', states: ['aiml_forecast'], levels: HV, actions: [] },

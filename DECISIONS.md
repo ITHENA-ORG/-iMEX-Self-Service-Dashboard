@@ -1091,3 +1091,10 @@ Akshay: on smaller screens the options wrap to a second line (fine) but the alig
   of squeezing the name; under 560 px the row's actions (Open / Open in builder) go under the details.
 - e2e: the "?" test checks it is the last item of the right-hand group; a new case checks the two-line bar (left
   edges, "?" at the right end).
+
+### D-072 Shared kit and role catalogue copies follow App UI round 9, 18 Oct 2026 (Round 9, Akshay; App UI U-098, U-099, U-101)
+- `widgets/src/render/kit-css.ts`: the kit now has the highlight card style `.imx-hl` (`is-red` / `is-amber` / `is-green` / `is-blue` / `is-grey`,
+  a soft gradient like the Alarm history "Active now" card), exported from the App UI kit (`export-kit`).
+- `widgets/src/core/perm.ts`: the Playbooks page row moved to the side menu section "ACT" (menu restructure U-099);
+  no permission changed. `test/perm-vectors.json` and `test/format-vectors.json` are byte-identical copies of App UI's
+  (India region: week starts on Monday, U-098).
