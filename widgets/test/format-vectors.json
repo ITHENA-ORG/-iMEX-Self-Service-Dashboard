@@ -75,6 +75,6 @@
     { "date": "ymd", "pattern": "YYYY-MM-DD", "short": "MM-DD" }
   ],
   "regions": [
-    { "id": "en-IN", "label": "English (India)", "date": "dmy", "number": "indian", "weekStart": 1, "clock": "12" }
+    { "id": "en-IN", "label": "English (India)", "date": "dmy", "number": "indian", "weekStart": 1, "clock": "12", "currency": "INR" }
   ]
 }
