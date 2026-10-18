@@ -334,3 +334,33 @@ export function kitConfirm(o: { title: string; message: string; confirmLabel?: s
     return null;
   }
 }
+
+/** Handle of kitSelects(): the kit's own selects() handle (its methods reach the newest kit on the page). */
+export interface KitSelects {
+  /** Repaints the drop-downs under `scope` (default: the root); the kit's observer normally does this by itself. */
+  refresh(scope?: Element): void;
+  /** Closes an open list. */
+  close(): void;
+  /** Gives the native selects back. */
+  destroy(): void;
+}
+
+/**
+ * D-074 (UI audit H2): the app's drop-down (window.imxKit.selects, App UI R8 U-094) on every native <select> under
+ * `root`. The select stays the source of truth: its value, options and change / input handlers stay as they are (the
+ * kit sets the value and sends input + change), so the Builder's handlers need no change. The kit watches `root`
+ * (MutationObserver), so a redraw or a dialog appended inside it is covered without another call; calling again for
+ * the same root only updates the options and rescans.
+ * @param o.sm true, or a function (select) -> boolean: the compact button (toolbars, rule rows).
+ * @returns the handle, or null on a page without the kit (the native selects stay; nothing else changes).
+ */
+export function kitSelects(root: HTMLElement | null | undefined, o: { sm?: boolean | ((s: HTMLSelectElement) => boolean) } = {}): KitSelects | null {
+  if (!root || !hasDom()) return null;
+  const k = (window as any).imxKit;
+  if (!k || typeof k.selects !== 'function') return null;
+  try {
+    return k.selects(root, o) ?? null;
+  } catch {
+    return null;
+  }
+}

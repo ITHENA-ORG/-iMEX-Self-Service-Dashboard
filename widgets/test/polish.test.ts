@@ -216,7 +216,7 @@ describe('the chat reply comes over a subscription (D-046)', () => {
     };
     vi.stubGlobal('window', { __imexDbbLiveProviders: [] });
     registerLiveProvider(tbCtx);
-    const respKey = `dbb_chat_resp_${ctx.userId}`;
+    const respKey = 'dbb_chat_resp'; // D-074: on the user
     vi.stubGlobal('fetch', async (u: string, init: any) => {
       const r = await tb.fetch(u, init);
       if (init?.method === 'POST' && /attributes\/SERVER_SCOPE$/.test(String(u))) {

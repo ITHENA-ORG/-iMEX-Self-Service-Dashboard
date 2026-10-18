@@ -38,6 +38,12 @@ export const MAX_WIDGETS = 10;
 export const MAX_KEYS = 4;
 /** Specific machines per widget. */
 export const MAX_DEVICES = 4;
+/**
+ * D-074: uploaded (data:) images of one dashboard together, in characters. Each save also writes up to 10 earlier versions,
+ * and a very large attribute write is refused (or never answered) by the platform, so a dashboard with many uploads
+ * could become impossible to save. Enforced by checkDashboard (and on upload in the builder).
+ */
+export const MAX_IMAGE_CHARS = 1_000_000;
 /** Series drawn in one chart (machines x properties). */
 export const MAX_SERIES = 8;
 /** Legacy limits, only so dashboards saved before 27 Sep 2026 still load (checkDashboard enforces the new ones on save). */
@@ -501,7 +507,16 @@ export function checkDashboard(d: Dashboard, metaOf?: MetaOf): string[] {
       errs.push(`"${w.title}": the address must start with https://.`);
   }
   if (d.kind === 'device' && !d.profile) errs.push('A machine dashboard needs a machine type (profile).');
+  // D-074: the uploaded images together (they are stored inside the dashboard and in each saved version)
+  const img = imageChars(d);
+  if (img > MAX_IMAGE_CHARS) errs.push(`Uploaded images in this dashboard take ${Math.round(img / 1024)} KB; at most ${Math.round(MAX_IMAGE_CHARS / 1024)} KB. Remove some or use https:// image addresses.`);
   return errs;
+}
+
+/** D-074: characters of the uploaded (data:) images of a dashboard: image / embed widgets and the background image. */
+export function imageChars(d: Pick<Dashboard, 'widgets' | 'theme'>): number {
+  const n = (u: unknown) => (typeof u === 'string' && /^data:/i.test(u) ? u.length : 0);
+  return d.widgets.reduce((t, w) => t + n(w.settings?.url), 0) + n(d.theme?.bgImage);
 }
 
 /** Short unique-enough id: prefix + base-36 time + 5 random chars ('w' widgets, 'd' dashboards, 'r' chat requests). */

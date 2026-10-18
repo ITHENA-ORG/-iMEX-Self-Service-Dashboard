@@ -524,6 +524,22 @@ function stateColor(raw: string, rules: ColorRule[], key: string, order: string[
   return palette[i % palette.length];
 }
 
+/**
+ * D-064 / D-074: the machine model's status map for a state key (timeline, donut "state"), as the status card uses it:
+ * only when the widget has no colour rules or state map of its own and the key is the type's status tag (or, with no
+ * tag set, one of the automatic run keys). Returns a mapper raw value -> {label, color}, or null (then the widget's
+ * own rules / defaults apply as before).
+ */
+export function modelStateMap(s: Widget['settings'], rules: ColorRule[], profile: string | null | undefined, label: string, key: string): ((raw: string) => { label: string; color: string } | null) | null {
+  if ((rules.length && s.colorRules?.length) || s.statusMap?.length) return null;
+  const cfg = machine.typeOf(machine.model(), machine.kindOf(profile, label)).status;
+  if (!(cfg.key ? cfg.key === key : machine.RUN_KEYS.includes(key))) return null;
+  return (raw) => {
+    const c = machine.classify(cfg, raw);
+    return c ? { label: c.label, color: machine.TONE_COLOR[c.tone] ?? STATUS.neutral } : null;
+  };
+}
+
 /** Coloured pill with the rule's label (dark or white text by luminance), or '' when the rule has no label. */
 function ruleLabelPill(rule: ColorRule | null): string {
   return rule?.label ? `<span class="lbl" style="background:${rule.color};color:${(hexLum(rule.color) ?? 0) > 0.45 ? '#0b0b0b' : '#fff'}">${esc(rule.label)}</span>` : '';
@@ -646,7 +662,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
   if (w.type === 'text') return drawText(body, w, env);
   if (w.type === 'image') {
     const u = safeUrl(s.url);
-    setStatic(body, u ? `<img class="dbb-img" src="${esc(u)}" alt="${esc(w.title || 'Image')}" style="object-fit:${s.fit ?? 'contain'}" referrerpolicy="no-referrer"/>` : `<div class="dbb-ph">Add an image address (https://…) in the widget settings.</div>`);
+    setStatic(body, u ? `<img class="dbb-img" src="${esc(u)}" alt="${esc(w.title || 'Image')}" style="object-fit:${esc(s.fit ?? 'contain')}" referrerpolicy="no-referrer"/>` : `<div class="dbb-ph">Add an image address (https://…) in the widget settings.</div>`);
     return undefined;
   }
   if (w.type === 'embed') {
@@ -941,9 +957,15 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
       const by = new Map<string, number>();
       for (const g of segs) by.set(g.value, (by.get(g.value) ?? 0) + (g.end - g.start));
       const order: string[] = [];
+      // D-074: the machine model's status words and colours for the type's status tag (one status rule, D-064)
+      const mm = modelStateMap(s, rules, d0.profile, d0.label, key);
       const slices: Slice[] = [...by.entries()]
         .sort((a, b) => b[1] - a[1])
-        .map(([val, ms]) => ({ label: stateLabel(val, rules, meta, key), value: ms / 3600e3, color: stateColor(val, rules, key, order, palette), detail: `${stateLabel(val, rules, meta, key)} · ${fmtNum(ms / 3600e3, 1)} h` }));
+        .map(([val, ms]) => {
+          const m = mm ? mm(val) : null;
+          const lb = m ? m.label : stateLabel(val, rules, meta, key);
+          return { label: lb, value: ms / 3600e3, color: m ? m.color : stateColor(val, rules, key, order, palette), detail: `${lb} · ${fmtNum(ms / 3600e3, 1)} h` };
+        });
       // merge slices that share a label (e.g. two raw values mapped to one rule)
       const merged = new Map<string, Slice>();
       for (const x of slices) {
@@ -964,11 +986,14 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     for (const d of devices) {
       const meta = keyMeta(ctx, d.profile, key);
       const pts = await rawSeries(d.id, key, startTs, endTs);
+      // D-074: the machine model's status words and colours for the type's status tag (one status rule, D-064)
+      const mm = modelStateMap(s, rules, d.profile, d.label, key);
       rows.push({
         label: d.label,
         segments: toSegments(pts, endTs).map((g) => {
-          const color = stateColor(g.value, rules, key, order, palette);
-          const label = stateLabel(g.value, rules, meta, key);
+          const m = mm ? mm(g.value) : null;
+          const color = m ? m.color : stateColor(g.value, rules, key, order, palette);
+          const label = m ? m.label : stateLabel(g.value, rules, meta, key);
           legend.set(label, color);
           return { start: g.start, end: g.end, color, label };
         }),
@@ -1206,10 +1231,11 @@ function drawLink(body: HTMLElement, w: Widget, env: RenderEnv): undefined {
   const s = w.settings;
   const st = s.style;
   const kind = s.linkKind ?? 'state';
-  const color = s.buttonColor ?? 'var(--accent)';
+  // round 11 (M5): the schema already limits these two; escaped as well (defence in depth)
+  const color = esc(s.buttonColor ?? 'var(--accent)');
   const ic = icon(st?.icon ?? (kind === 'url' ? 'link' : 'list'));
   const label = esc(w.title || 'Open');
-  const cls = `dbb-go ${s.buttonStyle ?? 'filled'}`;
+  const cls = `dbb-go ${esc(s.buttonStyle ?? 'filled')}`;
   const url = kind === 'url' ? safeUrl(s.url) : null;
   const inner = `${ic ? `<span class="ic" style="display:inline-flex">${ic}</span>` : ''}<span>${label}</span>`;
   if (kind === 'url')

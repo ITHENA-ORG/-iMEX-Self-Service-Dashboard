@@ -1,0 +1,64 @@
+function asObj(v) { if (v is String) { if (v == "") { return null; } return JSON.parse(v); } return v; }
+function isMap(v) { return v != null && v is java.util.Map; }
+function isTrue(v) { return (v is Boolean && v == true) || (v is String && v == 'true'); }
+function lvl(v) { if (v is String && (v == 'full' || v == 'view' || v == 'hidden')) { return v; } return 'hidden'; }
+function storeOk(s) { return isMap(s) && s.v == 1 && s.roles is java.util.List; }
+function findRole(s, id) {
+  if (!storeOk(s)) { return null; }
+  foreach (r : s.roles) { if (isMap(r) && r.id is String && r.id == id) { return r; } }
+  return null;
+}
+function roleOf(u, s) {
+  var adm = {'guardAdmin': true};
+  if (!isMap(u)) { return findRole(s, 'viewer'); }
+  var rid = u.imexRole;
+  if (rid is String && rid != '') {
+    if (rid == 'admin') { return adm; }
+    var r = findRole(s, rid);
+    if (r != null) { return r; }
+    return findRole(s, 'viewer');
+  }
+  var name = u.Role is String ? u.Role.trim().toLowerCase() : '';
+  if (name == 'admin' || name == 'customer admin' || name == 'administrator' || isTrue(u.dbbAdmin)) { return adm; }
+  return findRole(s, 'viewer');
+}
+function isAdmin(r) { return isMap(r) && r.containsKey('guardAdmin') && isTrue(r.guardAdmin); }
+function page(r, key) {
+  if (isAdmin(r)) { return 'full'; }
+  if (!isMap(r) || !isMap(r.perms)) { return 'hidden'; }
+  return lvl(r.perms[key]);
+}
+function actOk(r, a) {
+  if (isAdmin(r)) { return true; }
+  var lv = page(r, 'dashboards');
+  if (lv == 'full') { return true; }
+  return lv == 'view' && isMap(r) && isMap(r.actions) && isTrue(r.actions[a]);
+}
+var auth = metadata.cActorAuth;
+var me = metadata.cActorId;
+var NIL = "13814000-1dd2-11b2-8080-808080808080";
+var err = "";
+var many = "0";
+if (me == null || me == "" || me != metadata.userId) { err = "ROLE_ERR"; }
+else if (auth == "TENANT_ADMIN") { many = "1"; }
+else if (auth != "CUSTOMER_USER") { err = "ROLE"; }
+else if (metadata.cActorCust == null || metadata.cActorCust == NIL || metadata.cActorCust != metadata.cStoreCust) { err = "ROLE"; }
+else {
+  var r = roleOf(asObj(metadata['ss_u_' + me]), asObj(metadata.ss_cfg_imexRoles));
+  if (!actOk(r, "dashboards.build")) { err = "ROLE"; }
+  else if (actOk(r, "dashboards.applyMany")) { many = "1"; }
+}
+var hour = new Date().toISOString().substring(0, 13);
+var n = 0;
+if (me != null && me != '') {
+  var rc = asObj(metadata['ss_dbb_rate_' + me]);
+  if (isMap(rc) && rc.h == hour && rc.n is Number) { n = rc.n; }
+  metadata.remove('ss_u_' + me);
+  metadata.remove('ss_dbb_rate_' + me);
+}
+if (err == "" && metadata.cNoKeeper != "1" && n >= 60) { err = "RATE"; }
+metadata.remove("ss_cfg_imexRoles");
+metadata.cRoleErr = err;
+metadata.cApplyMany = many;
+metadata.cRate = JSON.stringify({h: hour, n: n + 1});
+return {msg: msg, metadata: metadata, msgType: msgType};

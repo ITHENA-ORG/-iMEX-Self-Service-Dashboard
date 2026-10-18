@@ -21,11 +21,14 @@ const SRC = readFileSync(join(here, 'deploy-browser.js'), 'utf8');
 const KEEPER = '00000000-0000-4000-8000-00000000beef';
 const NULL_CUSTOMER = '13814000-1dd2-11b2-8080-808080808080';
 const KEY = 'sk-ant-api03-THISISNOTAREALKEYxxxxxxxxxxxxxxxxxxxx';
+// D-074: the chat's prompt and tool, as `npm run build:widgets` writes them
+const CONTRACT = JSON.parse(readFileSync(join(here, '..', 'dist', 'chat-contract.json'), 'utf8'));
+const GUARD = '00000000-0000-4000-8000-00000000cafe';
 
 // deploy-browser.js in a sandbox of its own (window = the sandbox), with a fetch that answers DBB_DEPLOY's first calls
 function load(fetchImpl) {
   const g = { console: { log() {} } };
-  g.window = g; g.localStorage = { getItem: () => 'jwt' }; g.__dbbLib = 'lib'; g.__dbbGlue = {};
+  g.window = g; g.localStorage = { getItem: () => 'jwt' }; g.__dbbLib = 'lib'; g.__dbbGlue = { chat: CONTRACT };
   new Function('window', 'localStorage', 'fetch', 'console', SRC)(g, g.localStorage, fetchImpl || (() => { throw new Error('no fetch'); }), g.console);
   return g;
 }
@@ -68,6 +71,39 @@ test('DBB_CHAT_CHAIN: links point at nodes, no debug, Recount only with the keep
   assert.ok(!err.includes('DBB-LLM-CONFIG'), 'no hard-coded asset name');
   assert.ok(err.includes("key on DBBLLM-CONFIG.\""));
   assert.ok(!JSON.stringify(a).includes('sk-ant-api'), 'no key in the chain');
+});
+
+test('D-074: role check and count before the AI switches, our own prompt and tool, reply on the user, store changes to the guard', () => {
+  const a = chain({ llmConfigName: 'DBBLLM-CONFIG' }, KEEPER);
+  const g = W.DBB_CHAT_CHAIN(Object.assign({}, W.DBB_DEPLOY_DEFAULTS, { llmConfigName: 'DBBLLM-CONFIG' }), KEEPER, { guardChainId: GUARD });
+  const L = linksOf(a);
+  const has = (f, t, to) => L.some((l) => l[0] === f && l[1] === t && l[2] === to);
+  assert.ok(has('Is chat request', 'True', 'The store'));
+  assert.ok(!has('Is chat request', 'True', 'Read AI switches'), 'no way around the role check');
+  for (const [f, to] of [['The store', 'Made by a user?'], ['To the user', 'The user'], ['The user', 'To the role registry'], ['To the role registry', 'Role (registry)'], ['Role (registry)', 'To the keeper (count)'], ['To the keeper (count)', 'Chat count'], ['Chat count', 'Role and chat limit'], ['Role and chat limit', 'Count it?'], ['Back to the store', 'Read AI switches'], ['Chat count record', 'Save the chat count'], ['Save the chat count', 'Restore the request'], ['Restore the request', 'Back to the store'], ['To the user (reply)', 'Save reply attribute']]) assert.ok(has(f, 'Success', to), f + ' -> ' + to);
+  assert.ok(has('Made by a user?', 'True', 'To the user') && has('Made by a user?', 'False', 'Role unreadable'));
+  for (const f of ['The store', 'To the user', 'The user', 'To the role registry', 'Role (registry)', 'Role and chat limit']) assert.ok(has(f, 'Failure', 'Role unreadable'), f + ' fails closed');
+  assert.ok(has('Role unreadable', 'Success', 'Back to the store'));
+  assert.ok(has('Count it?', 'True', 'Chat count record') && has('Count it?', 'False', 'Back to the store'));
+  // no fan-out on the request path (a node with two links of one type re-queues copies: minutes of delay on LOCAL)
+  for (const n of a.nodes.map((x) => x.name)) { const outs = L.filter((l) => l[0] === n); assert.equal(new Set(outs.map((l) => l[1])).size, outs.length, n + ' has one link per type'); }
+  assert.ok(has('Parse LLM reply', 'Success', 'To the user (reply)') && has('Error reply', 'Success', 'To the user (reply)'));
+  assert.ok(has('Save reply attribute', 'Success', 'A provider call?') && has('A provider call?', 'True', 'Meter the call'), 'metered after the reply is saved');
+  assert.ok(!has('Parse LLM reply', 'Success', 'Save reply attribute') && !has('Error reply', 'Success', 'Save reply attribute'), 'never on the store');
+  const node = (m, n) => m.nodes.find((x) => x.name === n);
+  assert.equal(node(a, 'To the role registry').configuration.entityNamePattern, 'iMEX Role Registry');
+  assert.equal(node(a, 'To the user (reply)').configuration.entityNamePattern, '${userEmail}');
+  const build = node(a, 'Build LLM request').configuration.tbelScript;
+  assert.ok(!['b.system', 'b.tools', 'b.openai', 'b.gemini'].some((x) => build.includes(x)), 'nothing of the prompt or the tool from the request');
+  assert.ok(build.includes(JSON.stringify(CONTRACT.template)), 'our prompt template is in the chain');
+  assert.ok(build.includes('"OLD_CLIENT"') && build.includes('BAD_REQ'));
+  assert.ok(node(a, 'Role and chat limit').configuration.tbelScript.includes('"dashboards.build"'));
+  assert.ok(node(a, 'Parse LLM reply').configuration.tbelScript.includes('out["dbb_chat_resp"] = resp;'));
+  assert.match(node(a, 'Error reply').configuration.tbelScript, /Build dashboards/);
+  assert.ok(!a.nodes.some((n) => n.name === 'Role guard (store changes)'));
+  assert.equal(node(g, 'Role guard (store changes)').configuration.ruleChainId, GUARD);
+  assert.ok(linksOf(g).some((l) => l[0] === 'Is chat request' && l[1] === 'False' && l[2] === 'Role guard (store changes)'));
+  assert.throws(() => load().DBB_CHAT_CHAIN.call(null, Object.assign({}, W.DBB_DEPLOY_DEFAULTS, { chatContract: { v: 1 } }), null), /chat contract missing/);
 });
 
 // ---- fixtures: ours = today's chain; base = an older one (no D-066 nodes, another Error reply); server = base + edits
@@ -170,7 +206,7 @@ function fakeServer(meta0, opt = {}) {
   let reads = 0;
   const cfgs = opt.cfgs || [{ id: 'cfg1', name: 'DBBLLM-CONFIG', customer: NULL_CUSTOMER, from: ['store1'] }];
   const stores = opt.stores || [{ id: { id: 'store1' }, name: 'DashboardStore', assetProfileId: { id: 'ap' }, customerId: { id: 'ithena' } }];
-  const assets = [...stores, ...cfgs.map((x) => ({ id: { id: x.id }, name: x.name, assetProfileId: { id: 'default' }, customerId: { id: x.customer } })), { id: { id: 'z' }, name: 'DBB-LLM-CONFIG', assetProfileId: { id: 'default' }, customerId: { id: NULL_CUSTOMER } }, { id: { id: 'sc' }, name: 'System Configuration', assetProfileId: { id: 'default' }, customerId: { id: 'ithena' } }];
+  const assets = [...stores, ...cfgs.map((x) => ({ id: { id: x.id }, name: x.name, assetProfileId: { id: 'default' }, customerId: { id: x.customer } })), { id: { id: 'z' }, name: 'DBB-LLM-CONFIG', assetProfileId: { id: 'default' }, customerId: { id: NULL_CUSTOMER } }, { id: { id: 'sc' }, name: 'System Configuration', assetProfileId: { id: 'default' }, customerId: { id: 'ithena' } }, ...(opt.noRegistry ? [] : [{ id: { id: 'reg' }, name: 'iMEX Role Registry', assetProfileId: { id: 'default' }, customerId: { id: NULL_CUSTOMER } }])];
   const chains = [{ name: RC_NAME, id: { id: 'rc' } }, ...(opt.noKeeper ? [] : [{ name: 'iMEX Licence keeper', id: { id: KEEPER } }])];
   const page = (data) => data;
   const api = async (method, path, body) => {
@@ -265,6 +301,7 @@ test('server mode: conflicts, edits during the run and wrong setups stop with no
   assert.equal(d.code, 1); assert.match(d.text, /changed on the server during this run/); assert.deepEqual(during.writes, []);
   for (const [opt, re] of [
     [{ noKeeper: true }, /no rule chain "iMEX Licence keeper"/],
+    [{ noRegistry: true }, /no asset "iMEX Role Registry": install the role guard first/], // D-074
     [{ cfgs: [] }, /no LLM config asset is linked/],
     [{ cfgs: [{ id: 'c1', name: 'A', customer: NULL_CUSTOMER, from: ['store1'] }, { id: 'c2', name: 'B', customer: NULL_CUSTOMER, from: ['store1'] }] }, /2 LLM config assets are linked/],
     [{ cfgs: [{ id: 'c1', name: 'DBBLLM-CONFIG', customer: 'some-customer', from: ['store1'] }] }, /assigned to a customer/],
@@ -298,7 +335,8 @@ test('server mode: a missing UsesAppConfig relation is shown in the dry run and 
   assert.match(dry.text, /relation UsesAppConfig to "System Configuration" missing from DashboardStore: added with --go/);
   const go = await run(srv, { base, go: true });
   assert.equal(go.code, 0, go.text);
-  assert.deepEqual(srv.writes, [['POST', '/api/ruleChain/metadata'], ['POST', '/api/v2/relation']]);
+  // D-074 (services audit S2): the relation first, then the chain
+  assert.deepEqual(srv.writes, [['POST', '/api/v2/relation'], ['POST', '/api/ruleChain/metadata']]);
   const current = fakeServer(OURS, { noAppRel: true });
   const b2 = await writeBase(dir, OURS);
   const only = await run(current, { base: b2, go: true });
@@ -311,7 +349,8 @@ test('the chain reads the AI switches first and the gate stops the request when 
   const at = (name) => n.indexOf(name);
   assert.ok(at('Read AI switches') >= 0 && at('AI switches unreadable') >= 0);
   const link = (f, t, type) => OURS.connections.some((c) => c.fromIndex === at(f) && c.toIndex === at(t) && c.type === type);
-  assert.ok(link('Is chat request', 'Read AI switches', 'True') && !link('Is chat request', 'Licence and AI usage', 'True'));
+  // D-074: after the role check (back on the store)
+  assert.ok(link('Back to the store', 'Read AI switches', 'Success') && !link('Is chat request', 'Licence and AI usage', 'True') && !link('Is chat request', 'Read AI switches', 'True'));
   assert.ok(link('Read AI switches', 'Licence and AI usage', 'Success') && link('Read AI switches', 'AI switches unreadable', 'Failure'));
   assert.ok(link('AI switches unreadable', 'Licence and AI usage', 'Success'));
   const sw = OURS.nodes[at('Read AI switches')].configuration;

@@ -24,6 +24,6 @@ var errText = "";
 if (!ok) { errText = "The model returned no dashboard operations."; }
 var resp = {reqId: metadata.reqId, ok: ok, provider: p, toolInput: tool, toolInputJson: toolJson, usage: usage, error: errText};
 var out = {};
-out["dbb_chat_resp_" + metadata.userId] = resp;
-var md = {reqId: "" + metadata.reqId, userId: "" + metadata.userId};
+out["dbb_chat_resp"] = resp;
+var md = {reqId: "" + metadata.reqId, userId: "" + metadata.userId, userEmail: "" + metadata.userEmail, llmCall: "1"};
 return {msg: out, metadata: md, msgType: "POST_ATTRIBUTES_REQUEST"};

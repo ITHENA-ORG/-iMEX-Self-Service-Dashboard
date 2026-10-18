@@ -32,7 +32,11 @@
 //      imexAiUsage; D-066) -> Licence and quota (builder + builder.ai + genAi, mode active / grace, this month's count
 //      below llmCallsPerMonth; else the error reply) -> Read LLM settings (config asset attributes via relation UsesLlmConfig) ->
 //      Build LLM request (provider picked from the key format) -> Pick provider -> Call Claude | Call OpenAI |
-//      Call Gemini -> Parse LLM reply / Error reply -> Save reply attribute (`dbb_chat_resp_<userId>`); a parsed reply
+//      Call Gemini -> Parse LLM reply / Error reply -> To the user (reply) -> Save reply attribute (`dbb_chat_resp` on the
+//      requesting USER, D-074). D-074: first the writer's role from the role guard's registry ("iMEX Role Registry":
+//      Build dashboards) and a per-user hourly count (`dbb_rate_<userId>` on "iMEX Keeper"); the system prompt and the
+//      tool are the chain's own (widgets/dist/glue.json `chat`, from core/chat-prompt.ts); other store attribute changes
+//      go on to the "iMEX Role guard" chain when it exists. A parsed reply
 //      is also metered (D-066): one llm_builder point on the tenant-only asset "iMEX Keeper", then the licence keeper
 //      chain recounts the month (when it exists: App UI scripts/relay.mjs).
 //      A key pasted into the pre-D-021 "Call LLM" node is moved to the config asset (step 3b).
@@ -68,6 +72,8 @@ window.DBB_DEPLOY_DEFAULTS = {
   llmConfigName: 'DBB-LLM-CONFIG',
   // D-070: the app's configuration asset (the customer's): the chat chain reads the AI switches imexLlm there
   appConfigName: 'System Configuration',
+  // D-074: the role guard's tenant-only registry (App UI scripts/role-guard.mjs REGISTRY): the chat checks the writer's role there
+  roleRegistryName: 'iMEX Role Registry',
   profileKeys: {},
   userEmails: [],
 };
@@ -75,11 +81,16 @@ window.DBB_DEPLOY_DEFAULTS = {
 // Step 2's rule chain "DBB Chat relay (POC)" as metadata { nodes, connections } (node 0 first). o = DBB_DEPLOY's
 // options (llmModel, openaiModel, geminiModel, llmConfigName); keeperChainId = the id of the chain "iMEX Licence keeper"
 // (App UI scripts/relay.mjs), or null: then no "Recount (licence keeper)" node. Pure: no REST calls.
-window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
-  // TBEL scripts. The builder writes `dbb_chat_req` = {reqId, userId, body} on the store asset, where body =
-  // {system, messages, tools, tool_choice (Anthropic format), openai: {tools, tool_choice}, gemini: {tools, toolConfig}}
-  // (core/chat.ts buildRequest). Replies go to `dbb_chat_resp_<userId>` =
-  // {reqId, ok, provider, toolInput | toolInputJson | error, usage}.
+window.DBB_CHAT_CHAIN = function (o, keeperChainId, more) {
+  // D-074: the system prompt template and the tool are fixed here (o.chatContract, else widgets/dist/glue.json `chat`,
+  // built from widgets/src/core/chat-prompt.ts); the browser sends only {v: 2, catalog, machine, messages}.
+  const C = o.chatContract || (window.__dbbGlue && window.__dbbGlue.chat);
+  if (!C || C.v !== 2 || !C.template || !C.tool) throw new Error('chat contract missing: run npm run build:widgets (widgets/dist/glue.json "chat")');
+  const guardChainId = (more && more.guardChainId) || null;
+  // TBEL scripts. The builder writes `dbb_chat_req` = {reqId, userId, body} on the store asset, where body (D-074) =
+  // {v: 2, catalog (the aliased catalogue JSON), machine (alias or null), messages [{role, content}]} (core/chat.ts
+  // buildRequest). Replies go to `dbb_chat_resp` on the requesting user = {reqId, ok, provider, toolInput |
+  // toolInputJson | error, usage}.
   const filterScript = "return msgType == 'ATTRIBUTES_UPDATED' && msg.dbb_chat_req != null && msg.dbb_chat_req.body != null;";
   // Key -> provider: sk-ant-... = Anthropic, AIza... or AQ.... (newer AI Studio keys) = Google Gemini, any other sk-... = OpenAI.
   // Model per provider: config asset attribute dbb_llm_model_<provider>, else the default below.
@@ -88,24 +99,44 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     'var b = req.body;',
     'var i = 0;',
     // D-028: the reply goes to the user ThingsBoard says wrote the request (REST attribute updates carry
-    // metadata.userId), never to an id taken from the request body.
+    // metadata.userId / userEmail), never to an id taken from the request body.
     'var uid = metadata.userId;',
     'if (uid == null || uid == "") { uid = "" + req.userId; }',
-    'var md = {reqId: "" + req.reqId, userId: "" + uid};',
+    'var md = {reqId: "" + req.reqId, userId: "" + uid, userEmail: "" + metadata.userEmail};',
     'if (req.userId != null && ("" + req.userId) != ("" + uid)) { md.error = "USER_MISMATCH"; }',
-    // D-028: size caps and only the builder's own tool, so the relay can't be used as a general LLM proxy
+    // D-074: only the version-2 body: the catalogue (data), the open machine's alias and plain-text messages. The system
+    // prompt and the tool are this chain's own, so the relay can't be used as a general LLM proxy.
+    'if (md.error == null && (b == null || !(b.v is Number) || b.v != 2)) { md.error = "OLD_CLIENT"; }',
+    'var cat = "";',
+    `var mach = ${JSON.stringify(C.fill.noMachine)};`,
+    'var msgs = [];',
     'if (md.error == null) {',
-    '  if (b.system == null || b.messages == null || ("" + b.system).length() > 60000 || b.messages.size() > 24) { md.error = "TOO_BIG"; }',
-    '  else { for (i = 0; i < b.messages.size(); i++) { if (("" + b.messages[i].content).length() > 60000) { md.error = "TOO_BIG"; } } }',
+    '  if (!(b.catalog is String) || !(b.messages is java.util.List)) { md.error = "BAD_REQ"; }',
+    '  else if (b.messages.size() < 1 || b.messages.size() > 24) { md.error = "TOO_BIG"; }',
+    '  else {',
+    '    cat = b.catalog;',
+    '    var total = cat.length();',
+    '    if (b.machine != null) { if (b.machine is String && b.machine.matches("^D[0-9]{1,5}$")) { mach = b.machine; } else { md.error = "BAD_REQ"; } }',
+    '    for (i = 0; i < b.messages.size(); i++) {',
+    '      var m = b.messages[i];',
+    '      if (m is java.util.Map && m.content is String && (m.role == "user" || m.role == "assistant")) { total = total + m.content.length(); msgs.add({role: "" + m.role, content: "" + m.content}); }',
+    '      else { md.error = "BAD_REQ"; }',
+    '    }',
+    '    if (md.error == null && msgs[msgs.size() - 1].role != "user") { md.error = "BAD_REQ"; }',
+    '    if (md.error == null && (cat.length() > 60000 || total > 90000)) { md.error = "TOO_BIG"; }',
+    '  }',
     '}',
-    'if (md.error == null && (b.tools == null || b.tools.size() != 1 || b.tools[0].name != "dashboard_ops")) { md.error = "BAD_TOOL"; }',
+    // the role's "apply to many machines" (from the registry, D-074) and the licence's alarm list fill the prompt
+    `var sys = ${JSON.stringify(C.template)};`,
+    `if (metadata.cApplyMany == "1") { sys = sys.replace(${JSON.stringify(C.mark.apply)}, ${JSON.stringify(C.fill.applyYes)}); } else { sys = sys.replace(${JSON.stringify(C.mark.apply)}, ${JSON.stringify(C.fill.applyNo)}); }`,
+    `if (metadata.cAlerts == "0") { sys = sys.replace(${JSON.stringify(C.mark.noAlarms)}, ${JSON.stringify(C.fill.noAlarms)}); } else { sys = sys.replace(${JSON.stringify(C.mark.noAlarms)}, ""); }`,
+    `sys = sys.replace(${JSON.stringify(C.mark.machine)}, mach);`,
+    `sys = sys.replace(${JSON.stringify(C.mark.catalog)}, cat);`,
     'var key = metadata.llmKey;',
     'if (key == null) { key = ""; }',
     'key = key.trim();',
     'var provider = "none";',
     'if (key.startsWith("sk-ant-")) { provider = "anthropic"; } else if (key.startsWith("AIza") || key.startsWith("AQ.")) { provider = "gemini"; } else if (key.startsWith("sk-")) { provider = "openai"; }',
-    // a builder page loaded before D-021 sends no openai/gemini tool block: answer with a clear error instead of failing inside TBEL
-    'if ((provider == "openai" && b.openai == null) || (provider == "gemini" && b.gemini == null)) { provider = "none"; md.error = "OLD_CLIENT"; }',
     'if (md.error != null) { provider = "none"; }',
     'md.provider = provider;',
     'md.llmKey = key;',
@@ -114,31 +145,30 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     'if (provider == "anthropic") {',
     '  model = metadata.llmModelAnthropic;',
     `  if (model == null || model == "") { model = "${o.llmModel}"; }`,
-    '  body = {model: model, max_tokens: 2048, system: b.system, messages: b.messages, tools: [b.tools[0]], tool_choice: {type: "tool", name: "dashboard_ops"}};',
+    `  var aTool = JSON.parse(${JSON.stringify(JSON.stringify(C.tool))});`,
+    '  body = {model: model, max_tokens: 2048, system: sys, messages: msgs, tools: [aTool], tool_choice: {type: "tool", name: "dashboard_ops"}};',
     '} else if (provider == "openai") {',
     '  model = metadata.llmModelOpenai;',
     `  if (model == null || model == "") { model = "${o.openaiModel}"; }`,
-    '  var msgs = [{role: "system", content: b.system}];',
-    '  for (i = 0; i < b.messages.size(); i++) { msgs.add(b.messages[i]); }',
-    '  var oTool = b.openai.tools[0];',
-    '  oTool["function"]["name"] = "dashboard_ops";',
+    '  var oMsgs = [{role: "system", content: sys}];',
+    '  for (i = 0; i < msgs.size(); i++) { oMsgs.add(msgs[i]); }',
+    `  var oTool = JSON.parse(${JSON.stringify(JSON.stringify(C.openaiTool))});`,
     // `function` is a TBEL keyword: set it by index, not in a map literal
     '  var oChoice = {type: "function"};',
     '  oChoice["function"] = {name: "dashboard_ops"};',
-    '  body = {model: model, max_completion_tokens: 2048, messages: msgs, tools: [oTool], tool_choice: oChoice};',
+    '  body = {model: model, max_completion_tokens: 2048, messages: oMsgs, tools: [oTool], tool_choice: oChoice};',
     '} else if (provider == "gemini") {',
     '  model = metadata.llmModelGemini;',
     `  if (model == null || model == "") { model = "${o.geminiModel}"; }`,
     '  var contents = [];',
-    '  for (i = 0; i < b.messages.size(); i++) {',
-    '    var m = b.messages[i];',
+    '  for (i = 0; i < msgs.size(); i++) {',
+    '    var gm = msgs[i];',
     '    var role = "user";',
-    '    if (m.role == "assistant") { role = "model"; }',
-    '    contents.add({role: role, parts: [{text: m.content}]});',
+    '    if (gm.role == "assistant") { role = "model"; }',
+    '    contents.add({role: role, parts: [{text: gm.content}]});',
     '  }',
-    '  var gDecl = b.gemini.tools[0].functionDeclarations[0];',
-    '  gDecl.name = "dashboard_ops";',
-    '  body = {systemInstruction: {parts: [{text: b.system}]}, contents: contents, tools: [{functionDeclarations: [gDecl]}], toolConfig: {functionCallingConfig: {mode: "ANY", allowedFunctionNames: ["dashboard_ops"]}}, generationConfig: {maxOutputTokens: 2048}};',
+    `  var gDecl = JSON.parse(${JSON.stringify(JSON.stringify(C.geminiDecl))});`,
+    '  body = {systemInstruction: {parts: [{text: sys}]}, contents: contents, tools: [{functionDeclarations: [gDecl]}], toolConfig: {functionCallingConfig: {mode: "ANY", allowedFunctionNames: ["dashboard_ops"]}}, generationConfig: {maxOutputTokens: 2048}};',
     '} else {',
     `  if (md.error == null) { md.error = "NO_KEY"; }`,
     '}',
@@ -194,6 +224,12 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     '  else if (!(sw.enabled is Boolean) || sw.enabled != true) { metadata.error = "AI_OFF"; }',
     '  else if (isMap(sw.features) && sw.features.builder is Boolean && sw.features.builder == false) { metadata.error = "AI_OFF"; }',
     '}',
+    // D-074: the role check / chat limit wins over everything (it says who may use the chat at all)
+    'if (metadata.cRoleErr != null && metadata.cRoleErr != "") { metadata.error = metadata.cRoleErr; }',
+    'metadata.remove("cRoleErr");',
+    // D-074: the prompt leaves the alarm list out when the licence has no alerts (D-073)
+    'metadata.cAlerts = "1";',
+    'if ((mode == "active" || mode == "grace") && !(isMap(st.parsed.features) && st.parsed.features.alerts == true)) { metadata.cAlerts = "0"; }',
     'metadata.remove("llmSw");',
     'metadata.remove("llmSwErr");',
     'metadata.remove("lStatus");',
@@ -202,6 +238,87 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     'return {msg: msg, metadata: metadata, msgType: msgType};',
   ].join('\n');
   const gateRoute = 'if (metadata.error != null && metadata.error != "") { return ["no"]; } return ["ok"];';
+  // D-074 (round 11 audit H5): who may use the chat. The writer's authority and customer come from its user record, its
+  // role from the role guard's registry ("iMEX Role Registry", tenant-only: u_<userId>, cfg_imexRoles), never from
+  // anything the user can write. Allowed: tenant administrators, and customer users of the store's customer whose role
+  // can build dashboards (dashboards.build: implied at Full on Dashboards, tickable at View). The role's "apply to many
+  // machines" fills the prompt. Then at most RATE requests per user per hour (dbb_rate_<userId> on "iMEX Keeper", tenant-
+  // only; the browser's own limit is 30 turns, a turn makes 1-2 requests). ROLE_TBEL is a copy of App UI
+  // scripts/role-guard.mjs ROLE_TBEL (keep in sync).
+  const RATE = 60;
+  const roleScript = [
+    'function asObj(v) { if (v is String) { if (v == "") { return null; } return JSON.parse(v); } return v; }',
+    'function isMap(v) { return v != null && v is java.util.Map; }',
+    "function isTrue(v) { return (v is Boolean && v == true) || (v is String && v == 'true'); }",
+    "function lvl(v) { if (v is String && (v == 'full' || v == 'view' || v == 'hidden')) { return v; } return 'hidden'; }",
+    'function storeOk(s) { return isMap(s) && s.v == 1 && s.roles is java.util.List; }',
+    'function findRole(s, id) {',
+    '  if (!storeOk(s)) { return null; }',
+    '  foreach (r : s.roles) { if (isMap(r) && r.id is String && r.id == id) { return r; } }',
+    '  return null;',
+    '}',
+    'function roleOf(u, s) {',
+    "  var adm = {'guardAdmin': true};",
+    "  if (!isMap(u)) { return findRole(s, 'viewer'); }",
+    '  var rid = u.imexRole;',
+    "  if (rid is String && rid != '') {",
+    "    if (rid == 'admin') { return adm; }",
+    '    var r = findRole(s, rid);',
+    '    if (r != null) { return r; }',
+    "    return findRole(s, 'viewer');",
+    '  }',
+    "  var name = u.Role is String ? u.Role.trim().toLowerCase() : '';",
+    "  if (name == 'admin' || name == 'customer admin' || name == 'administrator' || isTrue(u.dbbAdmin)) { return adm; }",
+    "  return findRole(s, 'viewer');",
+    '}',
+    "function isAdmin(r) { return isMap(r) && r.containsKey('guardAdmin') && isTrue(r.guardAdmin); }",
+    'function page(r, key) {',
+    "  if (isAdmin(r)) { return 'full'; }",
+    "  if (!isMap(r) || !isMap(r.perms)) { return 'hidden'; }",
+    '  return lvl(r.perms[key]);',
+    '}',
+    // perm.js effective(): an action is implied at Full on its page and can be ticked at View
+    'function actOk(r, a) {',
+    '  if (isAdmin(r)) { return true; }',
+    "  var lv = page(r, 'dashboards');",
+    "  if (lv == 'full') { return true; }",
+    "  return lv == 'view' && isMap(r) && isMap(r.actions) && isTrue(r.actions[a]);",
+    '}',
+    'var auth = metadata.cActorAuth;',
+    'var me = metadata.cActorId;',
+    'var NIL = "13814000-1dd2-11b2-8080-808080808080";',
+    'var err = "";',
+    'var many = "0";',
+    'if (me == null || me == "" || me != metadata.userId) { err = "ROLE_ERR"; }',
+    'else if (auth == "TENANT_ADMIN") { many = "1"; }',
+    'else if (auth != "CUSTOMER_USER") { err = "ROLE"; }',
+    'else if (metadata.cActorCust == null || metadata.cActorCust == NIL || metadata.cActorCust != metadata.cStoreCust) { err = "ROLE"; }',
+    'else {',
+    "  var r = roleOf(asObj(metadata['ss_u_' + me]), asObj(metadata.ss_cfg_imexRoles));",
+    '  if (!actOk(r, "dashboards.build")) { err = "ROLE"; }',
+    '  else if (actOk(r, "dashboards.applyMany")) { many = "1"; }',
+    '}',
+    'var hour = new Date().toISOString().substring(0, 13);',
+    'var n = 0;',
+    "if (me != null && me != '') {",
+    "  var rc = asObj(metadata['ss_dbb_rate_' + me]);",
+    '  if (isMap(rc) && rc.h == hour && rc.n is Number) { n = rc.n; }',
+    "  metadata.remove('ss_u_' + me);",
+    "  metadata.remove('ss_dbb_rate_' + me);",
+    '}',
+    `if (err == "" && metadata.cNoKeeper != "1" && n >= ${RATE}) { err = "RATE"; }`,
+    'metadata.remove("ss_cfg_imexRoles");',
+    'metadata.cRoleErr = err;',
+    'metadata.cApplyMany = many;',
+    'metadata.cRate = JSON.stringify({h: hour, n: n + 1});',
+    'return {msg: msg, metadata: metadata, msgType: msgType};',
+  ].join('\n');
+  // counted only when allowed and the keeper was read (else nothing is written). One line of nodes, no fan-out: a node
+  // with two outgoing links puts copies back on the queue, which held the request for up to two minutes on LOCAL. So the
+  // count record carries the request in metadata (cReq) and "Restore the request" puts it back after the save.
+  const countFilter = 'return metadata.cRoleErr == "" && metadata.cNoKeeper != "1" && metadata.cActorId != null && metadata.cActorId != "";';
+  const countScript = 'var o = {}; o["dbb_rate_" + metadata.cActorId] = JSON.parse(metadata.cRate); metadata.cReq = JSON.stringify(msg); metadata.cReqType = msgType; return {msg: o, metadata: metadata, msgType: "POST_ATTRIBUTES_REQUEST"};';
+  const restoreScript = 'var m = JSON.parse(metadata.cReq); var t = metadata.cReqType; metadata.remove("cReq"); metadata.remove("cReqType"); return {msg: m, metadata: metadata, msgType: t};';
   // D-066: one point per provider call that answered, server time, on the tenant-only keeper asset (customers can
   // neither read nor delete it); kKind 'recount' makes the keeper chain recount the month (imexAiUsage)
   const meterScript = 'var m = {}; m.llm_builder = 1; var md = {}; md.kKind = "recount"; return {msg: m, metadata: md, msgType: "POST_TELEMETRY_REQUEST"};';
@@ -234,8 +351,10 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     'if (!ok) { errText = "The model returned no dashboard operations."; }',
     'var resp = {reqId: metadata.reqId, ok: ok, provider: p, toolInput: tool, toolInputJson: toolJson, usage: usage, error: errText};',
     'var out = {};',
-    'out["dbb_chat_resp_" + metadata.userId] = resp;',
-    'var md = {reqId: "" + metadata.reqId, userId: "" + metadata.userId};',
+    // D-074: on the requesting user (node "To the user (reply)"), not on the customer-writable store
+    'out["dbb_chat_resp"] = resp;',
+    // D-074: llmCall marks a provider call that answered: metered after the reply is saved (one line, no fan-out)
+    'var md = {reqId: "" + metadata.reqId, userId: "" + metadata.userId, userEmail: "" + metadata.userEmail, llmCall: "1"};',
     'return {msg: out, metadata: md, msgType: "POST_ATTRIBUTES_REQUEST"};',
   ].join('\n');
   // Also reached when the config asset is not linked (related-data node failure) or no key is set.
@@ -252,7 +371,11 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     `if (err.startsWith("NO_KEY")) { err = "No LLM API key is set. A tenant admin sets dbb_llm_api_key (Claude, OpenAI or Gemini key) on the asset ${o.llmConfigName}."; }`,
     'else if (err.startsWith("USER_MISMATCH")) { err = "The chat request did not come from your user. Reload the page and try again."; }',
     'else if (err.startsWith("TOO_BIG")) { err = "The chat request is too large. Start a new conversation or ask for fewer changes at once."; }',
-    'else if (err.startsWith("BAD_TOOL")) { err = "The chat request was not made by the Dashboard Builder."; }',
+    'else if (err.startsWith("BAD_TOOL") || err.startsWith("BAD_REQ")) { err = "The chat request was not made by the Dashboard Builder."; }',
+    // D-074
+    'else if (err.startsWith("ROLE_ERR")) { err = "Your role could not be checked, so the chat stays off. Try again; if it keeps happening, ask your administrator."; }',
+    'else if (err.startsWith("ROLE")) { err = "Your role can\'t use the chat assistant (it needs Build dashboards). Ask your administrator."; }',
+    'else if (err.startsWith("RATE")) { err = "Chat limit reached (' + RATE + ' requests per hour). Try again later."; }',
     'else if (err.startsWith("NOT_LICENSED")) { err = "The chat assistant is not included in this installation\'s licence. Ask your administrator."; }',
     'else if (err.startsWith("QUOTA")) { err = "Monthly AI limit reached (" + metadata.qUsed + " of " + metadata.qLimit + ") — contact your administrator"; }',
     'else if (err.startsWith("AI_OFF")) { err = "AI (LLM) use is switched off for the Dashboard builder chat. An administrator can switch it on in Configuration › General › AI (LLM) usage."; }',
@@ -275,8 +398,9 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     'if (msg.dbb_chat_req != null) { if (rid == null) { rid = msg.dbb_chat_req.reqId; } if (uid == null) { uid = msg.dbb_chat_req.userId; } }',
     'var resp = {reqId: rid, ok: false, provider: p, status: "" + metadata.status, error: err};',
     'var out = {};',
-    'out["dbb_chat_resp_" + uid] = resp;',
-    'var md = {reqId: "" + rid, userId: "" + uid};',
+    // D-074: on the requesting user (node "To the user (reply)")
+    'out["dbb_chat_resp"] = resp;',
+    'var md = {reqId: "" + rid, userId: "" + uid, userEmail: "" + metadata.userEmail};',
     'return {msg: out, metadata: md, msgType: "POST_ATTRIBUTES_REQUEST"};',
   ].join('\n');
   // Node order matters: connections below refer to nodes by index (0 = first node).
@@ -377,14 +501,76 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     },
     /* 17 */ { type: 'org.thingsboard.rule.engine.transform.TbTransformMsgNode', name: 'AI switches unreadable', configuration: tbel('metadata.llmSwErr = "1"; return {msg: msg, metadata: metadata, msgType: msgType};'), additionalInfo: { layoutX: 50, layoutY: 200 } },
   ];
+  // D-074: the role check and the per-user count (18-30), between "Is chat request" and "Read AI switches"; the reply
+  // goes to the requesting user (31); other store attribute changes go to the role guard (when it exists)
+  const byName = (entityType, entityNamePattern) => ({ originatorSource: 'ENTITY', entityType, entityNamePattern, relationsQuery: { direction: 'FROM', maxLevel: 1, filters: [{ relationType: 'Contains', entityTypes: [] }], fetchLastLevelOnly: false } });
+  const fetchSrv = (keys) => ({ fetchTo: 'METADATA', clientAttributeNames: [], sharedAttributeNames: [], serverAttributeNames: keys, latestTsKeyNames: [], tellFailureIfAbsent: false, getLatestValueWithTs: false });
+  const T = 'org.thingsboard.rule.engine.';
+  nodes.push(
+    /* 18 */ { type: T + 'metadata.TbGetOriginatorFieldsNode', name: 'The store', configurationVersion: 1, configuration: { fetchTo: 'METADATA', dataMapping: { id: 'cStoreId', name: 'cStoreName', customerId: 'cStoreCust' }, ignoreNullStrings: false }, additionalInfo: { layoutX: 300, layoutY: 600 } },
+    /* 19 */ { type: T + 'filter.TbCheckMessageNode', name: 'Made by a user?', configurationVersion: 0, configuration: { messageNames: [], metadataNames: ['userId', 'userEmail'], checkAllKeys: true }, additionalInfo: { layoutX: 550, layoutY: 600 } },
+    /* 20 */ { type: T + 'transform.TbChangeOriginatorNode', name: 'To the user', configurationVersion: 0, configuration: byName('USER', '${userEmail}'), additionalInfo: { layoutX: 800, layoutY: 600 } },
+    /* 21 */ { type: T + 'metadata.TbGetOriginatorFieldsNode', name: 'The user', configurationVersion: 1, configuration: { fetchTo: 'METADATA', dataMapping: { id: 'cActorId', authority: 'cActorAuth', customerId: 'cActorCust' }, ignoreNullStrings: false }, additionalInfo: { layoutX: 1050, layoutY: 600 } },
+    /* 22 */ { type: T + 'transform.TbChangeOriginatorNode', name: 'To the role registry', configurationVersion: 0, configuration: byName('ASSET', o.roleRegistryName), additionalInfo: { layoutX: 1300, layoutY: 600 } },
+    /* 23 */ { type: T + 'metadata.TbGetAttributesNode', name: 'Role (registry)', configurationVersion: 1, configuration: fetchSrv(['u_${cActorId}', 'cfg_imexRoles']), additionalInfo: { layoutX: 1550, layoutY: 600 } },
+    /* 24 */ { type: T + 'transform.TbChangeOriginatorNode', name: 'To the keeper (count)', configurationVersion: 0, configuration: byName('ASSET', 'iMEX Keeper'), additionalInfo: { layoutX: 1800, layoutY: 600 } },
+    /* 25 */ { type: T + 'metadata.TbGetAttributesNode', name: 'Chat count', configurationVersion: 1, configuration: fetchSrv(['dbb_rate_${cActorId}']), additionalInfo: { layoutX: 2050, layoutY: 600 } },
+    /* 26 */ { type: T + 'transform.TbTransformMsgNode', name: 'Role and chat limit', configuration: tbel(roleScript), additionalInfo: { layoutX: 2300, layoutY: 600 } },
+    /* 27 */ { type: T + 'filter.TbJsFilterNode', name: 'Count it?', configuration: { scriptLang: 'TBEL', tbelScript: countFilter, jsScript: 'return false;' }, additionalInfo: { layoutX: 2300, layoutY: 750 } },
+    /* 28 */ { type: T + 'transform.TbTransformMsgNode', name: 'Chat count record', configuration: tbel(countScript), additionalInfo: { layoutX: 2550, layoutY: 750 } },
+    /* 29 */ { type: T + 'telemetry.TbMsgAttributesNode', name: 'Save the chat count', configurationVersion: 3, configuration: { processingSettings: { type: 'ON_EVERY_MESSAGE' }, scope: 'SERVER_SCOPE', notifyDevice: false, sendAttributesUpdatedNotification: false, updateAttributesOnlyOnValueChange: false }, additionalInfo: { layoutX: 2800, layoutY: 750 } },
+    /* 30 */ { type: T + 'transform.TbTransformMsgNode', name: 'Role unreadable', configuration: tbel('metadata.cRoleErr = "ROLE_ERR"; return {msg: msg, metadata: metadata, msgType: msgType};'), additionalInfo: { layoutX: 1300, layoutY: 800 } },
+    /* 31 */ { type: T + 'transform.TbTransformMsgNode', name: 'No keeper', configuration: tbel('metadata.cNoKeeper = "1"; return {msg: msg, metadata: metadata, msgType: msgType};'), additionalInfo: { layoutX: 2050, layoutY: 800 } },
+    /* 32 */ { type: T + 'transform.TbChangeOriginatorNode', name: 'Back to the store', configurationVersion: 0, configuration: byName('ASSET', '${cStoreName}'), additionalInfo: { layoutX: 2550, layoutY: 600 } },
+    /* 33 */ { type: T + 'transform.TbChangeOriginatorNode', name: 'To the user (reply)', configurationVersion: 0, configuration: byName('USER', '${userEmail}'), additionalInfo: { layoutX: 1550, layoutY: 420 } },
+    /* 34 */ { type: T + 'transform.TbTransformMsgNode', name: 'Restore the request', configuration: tbel(restoreScript), additionalInfo: { layoutX: 3050, layoutY: 750 } },
+    /* 35 */ { type: T + 'filter.TbJsFilterNode', name: 'A provider call?', configuration: { scriptLang: 'TBEL', tbelScript: 'return metadata.llmCall == "1";', jsScript: 'return false;' }, additionalInfo: { layoutX: 1800, layoutY: 300 } },
+  );
   // the keeper chain (App UI scripts/relay.mjs) recounts the month after each point; without it the count follows on
   // the keeper's next recount
-  if (keeperChainId) nodes.push(/* 18 */ { type: 'org.thingsboard.rule.engine.flow.TbRuleChainInputNode', name: 'Recount (licence keeper)', configurationVersion: 1, configuration: { ruleChainId: keeperChainId, forwardMsgToDefaultRuleChain: false }, additionalInfo: { layoutX: 2300, layoutY: 120 } });
+  const KI = nodes.length;
+  if (keeperChainId) nodes.push(/* KI */ { type: 'org.thingsboard.rule.engine.flow.TbRuleChainInputNode', name: 'Recount (licence keeper)', configurationVersion: 1, configuration: { ruleChainId: keeperChainId, forwardMsgToDefaultRuleChain: false }, additionalInfo: { layoutX: 2300, layoutY: 120 } });
+  // D-074: every other change of the store's attributes goes to the role guard (App UI scripts/role-guard.mjs), because
+  // the store's profile sends them here instead of the root chain; the guard decides which dbb_* keys a role may write
+  const GI = nodes.length;
+  if (guardChainId) nodes.push(/* GI */ { type: 'org.thingsboard.rule.engine.flow.TbRuleChainInputNode', name: 'Role guard (store changes)', configurationVersion: 1, configuration: { ruleChainId: guardChainId, forwardMsgToDefaultRuleChain: false }, additionalInfo: { layoutX: 300, layoutY: 800 } });
   // D-066: no debug on any node (the LLM key and the user's request pass through them)
   for (const nd of nodes) nd.debugSettings = { failuresEnabled: false, allEnabled: false, allEnabledUntil: 0 };
   const connections = [
-    // D-070: the AI switches first (16), unreadable -> 17 marks it, the gate (11) decides
-    { fromIndex: 0, toIndex: 16, type: 'True' },
+    // D-074: the role check and the chat count first (18-31), then back to the store (32)
+    { fromIndex: 0, toIndex: 18, type: 'True' },
+    { fromIndex: 18, toIndex: 19, type: 'Success' },
+    { fromIndex: 18, toIndex: 30, type: 'Failure' },
+    { fromIndex: 19, toIndex: 20, type: 'True' },
+    { fromIndex: 19, toIndex: 30, type: 'False' },
+    { fromIndex: 19, toIndex: 30, type: 'Failure' },
+    { fromIndex: 20, toIndex: 21, type: 'Success' },
+    { fromIndex: 20, toIndex: 30, type: 'Failure' },
+    { fromIndex: 21, toIndex: 22, type: 'Success' },
+    { fromIndex: 21, toIndex: 30, type: 'Failure' },
+    { fromIndex: 22, toIndex: 23, type: 'Success' },
+    { fromIndex: 22, toIndex: 30, type: 'Failure' },
+    { fromIndex: 23, toIndex: 24, type: 'Success' },
+    { fromIndex: 23, toIndex: 30, type: 'Failure' },
+    { fromIndex: 24, toIndex: 25, type: 'Success' },
+    { fromIndex: 24, toIndex: 31, type: 'Failure' },
+    { fromIndex: 25, toIndex: 26, type: 'Success' },
+    { fromIndex: 25, toIndex: 31, type: 'Failure' },
+    { fromIndex: 31, toIndex: 26, type: 'Success' },
+    { fromIndex: 26, toIndex: 27, type: 'Success' },
+    { fromIndex: 26, toIndex: 30, type: 'Failure' },
+    { fromIndex: 27, toIndex: 28, type: 'True' },
+    { fromIndex: 27, toIndex: 32, type: 'False' },
+    { fromIndex: 27, toIndex: 32, type: 'Failure' },
+    { fromIndex: 28, toIndex: 29, type: 'Success' },
+    { fromIndex: 28, toIndex: 32, type: 'Failure' },
+    { fromIndex: 29, toIndex: 34, type: 'Success' },
+    { fromIndex: 29, toIndex: 34, type: 'Failure' },
+    { fromIndex: 34, toIndex: 32, type: 'Success' },
+    { fromIndex: 34, toIndex: 30, type: 'Failure' },
+    { fromIndex: 30, toIndex: 32, type: 'Success' },
+    // D-070: the AI switches (16), unreadable -> 17 marks it, the gate (11) decides
+    { fromIndex: 32, toIndex: 16, type: 'Success' },
     { fromIndex: 16, toIndex: 10, type: 'Success' },
     { fromIndex: 16, toIndex: 17, type: 'Failure' },
     { fromIndex: 17, toIndex: 10, type: 'Success' },
@@ -408,10 +594,13 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     { fromIndex: 3, toIndex: 8, type: 'Failure' },
   ];
   for (const r of [4, 5, 6]) connections.push({ fromIndex: r, toIndex: 7, type: 'Success' }, { fromIndex: r, toIndex: 8, type: 'Failure' });
-  connections.push({ fromIndex: 7, toIndex: 9, type: 'Success' }, { fromIndex: 7, toIndex: 8, type: 'Failure' }, { fromIndex: 8, toIndex: 9, type: 'Success' });
+  // D-074: replies are saved on the requesting user (33 -> 9); without a user (no e-mail) nothing is written
+  connections.push({ fromIndex: 7, toIndex: 33, type: 'Success' }, { fromIndex: 7, toIndex: 8, type: 'Failure' }, { fromIndex: 8, toIndex: 33, type: 'Success' }, { fromIndex: 33, toIndex: 9, type: 'Success' });
   // D-066: a parsed reply = one provider call that answered: metered on the keeper
-  connections.push({ fromIndex: 7, toIndex: 13, type: 'Success' }, { fromIndex: 13, toIndex: 14, type: 'Success' }, { fromIndex: 14, toIndex: 15, type: 'Success' });
-  if (keeperChainId) connections.push({ fromIndex: 15, toIndex: 18, type: 'Success' });
+  // D-074: after the reply is saved (9), not as a second link from Parse (a fan-out re-queues copies and delays the reply)
+  connections.push({ fromIndex: 9, toIndex: 35, type: 'Success' }, { fromIndex: 35, toIndex: 13, type: 'True' }, { fromIndex: 13, toIndex: 14, type: 'Success' }, { fromIndex: 14, toIndex: 15, type: 'Success' });
+  if (keeperChainId) connections.push({ fromIndex: 15, toIndex: KI, type: 'Success' });
+  if (guardChainId) connections.push({ fromIndex: 0, toIndex: GI, type: 'False' });
   return { nodes, connections };
 };
 
@@ -459,7 +648,9 @@ window.DBB_DEPLOY = async function (opts) {
   const oldKey = oldRest && oldRest.configuration && oldRest.configuration.headers && oldRest.configuration.headers['x-api-key'];
   const legacyKey = oldKey && !/PASTE_/.test(oldKey) && !oldKey.includes('${') ? oldKey : null;
   const keeperChain = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Licence keeper')}`)).find((x) => x.name === 'iMEX Licence keeper');
-  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeperChain ? keeperChain.id.id : null);
+  // D-074: other store attribute changes go on to the role guard (App UI scripts/role-guard.mjs) when it is installed
+  const guardChain = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Role guard')}`)).find((x) => x.name === 'iMEX Role guard');
+  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeperChain ? keeperChain.id.id : null, { guardChainId: guardChain ? guardChain.id.id : null });
   // Replaces all nodes and connections of the chain (passing the current version for optimistic locking).
   await api('POST', '/api/ruleChain/metadata', { ruleChainId: rc.id, version: existingMeta.version, firstNodeIndex: 0, nodes, connections, ruleChainConnections: null });
   say(`rule chain "${rcName}" written (Claude / OpenAI / Gemini, key read from ${o.llmConfigName})`);

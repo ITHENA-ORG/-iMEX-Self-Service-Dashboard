@@ -11,7 +11,10 @@
  *
  * How keys are picked (`pickKeys`), from the profile-key catalogue `ctx.profileKeys[profile]`
  * in catalogue order, using the property kinds from `core/compat.ts` (D-020):
- * - status: the first property that is not a plain number (on/off, text or coded state);
+ * - status (D-074): the machine type's status tag from the app's machine model (Settings › Machines › Status, D-064),
+ *   else the first automatic run key the type sends (Run_Status, runStatus, status, Status), else the first property
+ *   that is not a plain number (on/off, text or coded state). Status cards, run-state timelines and the running-time
+ *   donut carry NO colour rules of their own, so they show the model's words and colours (one status rule);
  * - nums: number/coded properties except the status key, preferring ones whose name is not a
  *   counter (hours / count / total); if only counters exist they are used anyway;
  * - power: the first number/coded property named like power / kW / energy / current.
@@ -30,6 +33,7 @@ import { newId } from '../core/schema';
 import { STATUS } from './theme';
 import { keyMeta } from './widgets';
 import { propKind } from '../core/compat';
+import * as machine from '../core/machine';
 
 /** A gallery entry. */
 export interface Template {
@@ -69,7 +73,10 @@ interface Keys {
 function pickKeys(ctx: UserContext, profile: string): Keys {
   const all = ctx.profileKeys[profile] ?? [];
   // Only properties whose kind fits: states for status/timeline, numbers for KPIs, gauges and charts.
-  const status = all.find((k) => propKind(k) !== 'number')?.key;
+  // D-074: the app's one status rule first (the type's status tag), then the automatic run keys, then the old guess
+  const tag = machine.typeOf(machine.model(), machine.kindOf(profile, '')).status.key;
+  const has = (key: string) => all.some((k) => k.key === key);
+  const status = (tag && has(tag) ? tag : undefined) ?? machine.RUN_KEYS.find(has) ?? all.find((k) => propKind(k) !== 'number')?.key;
   const numeric = all.filter((k) => k.key !== status && (propKind(k) === 'number' || propKind(k) === 'coded'));
   const nums = numeric.filter((k) => !/hours|count|total/i.test(k.key)).map((k) => k.key);
   const power = numeric.find((k) => /power|kw|energy|current/i.test(k.key))?.key;
@@ -109,11 +116,6 @@ function rangeRules(ctx: UserContext, profile: string, key: string): ColorRule[]
   ];
 }
 
-/** Running = green, stopped = grey, for on/off status keys. */
-const statusRules: ColorRule[] = [
-  { op: 'isTrue', color: STATUS.good, label: 'Running' },
-  { op: 'isFalse', color: STATUS.neutral, label: 'Stopped' },
-];
 
 /**
  * Full-width, frameless text widget used as a page heading. `html` may use the built-in
@@ -140,7 +142,7 @@ export const TEMPLATES: Template[] = [
       // Row 1: optional status pill, then up to 3 KPIs (3 columns each) shifted right if the pill exists.
       let x = 0;
       if (k.status) {
-        ws.push(W('status', 'Status', 0, 1, 3, 2, [k.status], { colorRules: statusRules, style: { icon: 'power' } }));
+        ws.push(W('status', 'Status', 0, 1, 3, 2, [k.status], { style: { icon: 'power' } }));
         x = 3;
       }
       k.nums.slice(0, 3).forEach((key, i) => {
@@ -154,7 +156,7 @@ export const TEMPLATES: Template[] = [
       }
       let y = 7;
       if (k.status) {
-        ws.push(W('timeline', 'Run state', 0, y, 12, 2, [k.status], { colorRules: statusRules }));
+        ws.push(W('timeline', 'Run state', 0, y, 12, 2, [k.status], {}));
         y += 2;
       }
       ws.push(W('alarms', 'Alarms', 0, y, 12, 3, [], { alarmStatus: 'ANY', maxRows: 10 }));
@@ -180,7 +182,7 @@ export const TEMPLATES: Template[] = [
         W('bar', `${m.displayName} per hour`, 0, 2, 6, 4, [key], { groupBy: 'hour', agg: 'AVG' }),
         W('heatmap', `${m.displayName} · same-type machines`, 6, 2, 6, 4, [key], { heatColor: 'orange' }, { mode: 'siblings', profile }),
       ];
-      if (k.status) ws.push(W('donut', 'Running time share', 0, 6, 4, 4, [k.status], { donutMode: 'state', colorRules: statusRules }));
+      if (k.status) ws.push(W('donut', 'Running time share', 0, 6, 4, 4, [k.status], { donutMode: 'state' }));
       ws.push(W('line', `${m.displayName} · trend`, k.status ? 4 : 0, 6, k.status ? 8 : 12, 4, [key], { smooth: true }));
       return ws;
     },
@@ -198,14 +200,14 @@ export const TEMPLATES: Template[] = [
       const k = pickKeys(ctx, profile);
       const ws: Widget[] = [header('<h2><span style="color: #3987e5">●</span> {{machine}} health</h2>')];
       const sib = { mode: 'siblings' as const, profile };
-      if (k.status) ws.push(W('status', 'Status', 0, 1, 3, 2, [k.status], { colorRules: statusRules, colorTarget: 'accent' }));
+      if (k.status) ws.push(W('status', 'Status', 0, 1, 3, 2, [k.status], { colorTarget: 'accent' }));
       const cols = k.nums.slice(0, 3);
       if (cols.length) {
         // One rule set per column, scoped with `key` so each cell is judged against its own range.
         const rules: ColorRule[] = cols.flatMap((c) => rangeRules(ctx, profile, c).map((r) => ({ ...r, key: c })));
         ws.push(W('table', `All ${profile} machines here`, k.status ? 3 : 0, 1, k.status ? 9 : 12, 3, cols, { colorRules: rules }, sib));
       }
-      if (k.status) ws.push(W('timeline', 'Run state · same-type machines', 0, 4, 12, 3, [k.status], { colorRules: statusRules }, sib));
+      if (k.status) ws.push(W('timeline', 'Run state · same-type machines', 0, 4, 12, 3, [k.status], {}, sib));
       ws.push(W('alarms', 'Alarms', 0, 7, 12, 4, [], { alarmStatus: 'ANY', maxRows: 20 }, sib));
       return ws;
     },

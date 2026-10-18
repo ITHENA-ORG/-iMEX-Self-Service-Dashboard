@@ -19,13 +19,17 @@ import { normalise, merge3, metadataFromFile, nodeDiff, mask, canon } from './ch
 
 export const RC_NAME = 'DBB Chat relay (POC)';
 export const KEEPER_CHAIN = 'iMEX Licence keeper';
+// D-074: the chat checks the writer's role in the role guard's registry, and passes other store changes to the guard
+export const GUARD_CHAIN = 'iMEX Role guard';
+export const REGISTRY = 'iMEX Role Registry';
 export const RECORD = 'mirror-data/target-chat-chain.json';
 const NULL_CUSTOMER = '13814000-1dd2-11b2-8080-808080808080';
 const list = (v) => String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
 
 /**
  * c = { api(method, path, body, { allow404 }), all(path), base }; o = { go, base, takeOurs, keepServer, record, backupDir,
- * now }; chain(o, keeperChainId) = window.DBB_CHAT_CHAIN with DBB_DEPLOY_DEFAULTS merged in. Returns an exit code.
+ * now }; chain(o, keeperChainId, more) = window.DBB_CHAT_CHAIN with DBB_DEPLOY_DEFAULTS (and the chat contract) merged in.
+ * Returns an exit code.
  */
 export async function serverChatChain(c, o, chain, say = console.log) {
   const now = o.now || Date.now();
@@ -36,12 +40,15 @@ export async function serverChatChain(c, o, chain, say = console.log) {
   if (!rc) { say(`STOP: no rule chain "${RC_NAME}" on the server (this mode only updates the existing chain)`); return 1; }
   const keeper = (await c.all(`/api/ruleChains?textSearch=${encodeURIComponent(KEEPER_CHAIN)}`)).find((x) => x.name === KEEPER_CHAIN);
   if (!keeper) { say(`STOP: no rule chain "${KEEPER_CHAIN}": install the relay first (App UI relay.mjs --install), then run this`); return 1; }
+  const guard = (await c.all(`/api/ruleChains?textSearch=${encodeURIComponent(GUARD_CHAIN)}`)).find((x) => x.name === GUARD_CHAIN);
 
   // the LLM config asset the server's chain reads: store --UsesLlmConfig--> config
   const ap = (await c.all('/api/assetProfiles?textSearch=DashboardStore')).find((x) => x.name === 'DashboardStore');
   if (!ap) { say('STOP: no asset profile "DashboardStore" on the server'); return 1; }
   const prof = await c.api('GET', `/api/assetProfile/${ap.id.id}`);
   const assets = await c.all('/api/tenant/assets');
+  // D-074: without the registry every chat turn would answer "your role could not be checked"
+  if (!assets.some((a) => a.name === REGISTRY)) { say(`STOP: no asset "${REGISTRY}": install the role guard first (App UI role-guard.mjs --install), then run this`); return 1; }
   const stores = assets.filter((a) => a.assetProfileId && a.assetProfileId.id === ap.id.id);
   const cfgIds = new Map();
   for (const s of stores) {
@@ -73,7 +80,7 @@ export async function serverChatChain(c, o, chain, say = console.log) {
     if (!rels.some((r) => r.to && r.to.id === sc.id.id)) needRel.push(s);
   }
 
-  say(`chain "${RC_NAME}" ${rc.id.id}; keeper chain ${keeper.id.id}`);
+  say(`chain "${RC_NAME}" ${rc.id.id}; keeper chain ${keeper.id.id}; role guard ${guard ? guard.id.id + ' (other store changes go there)' : 'NOT INSTALLED (store changes are not checked)'}`);
   say(`LLM config asset: "${cfg.name}" (tenant-owned, linked from ${cfgStores.join(', ')}), key ${cfgAttrs.dbb_llm_api_key ? 'set' : 'EMPTY'}, models ${models} — read only, kept as it is`);
   if (others.length) say(`  note: ${others.map((n) => '"' + n + '"').join(', ')} exist(s) but no store uses it: left alone`);
   say(needRel.length ? `AI switches: relation UsesAppConfig to "System Configuration" missing from ${needRel.map((s) => s.name).join(', ')}: added with --go (without it the chat answers "could not read the AI switches")` : 'AI switches: the store(s) are linked to "System Configuration" (UsesAppConfig)');
@@ -82,7 +89,7 @@ export async function serverChatChain(c, o, chain, say = console.log) {
   // ---- the three versions
   const curMeta = await c.api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
   const server = normalise(curMeta);
-  const ours = normalise(chain({ llmConfigName: cfg.name }, keeper.id.id));
+  const ours = normalise(chain({ llmConfigName: cfg.name }, keeper.id.id, { guardChainId: guard ? guard.id.id : null }));
   let base = null, baseFrom = null;
   const baseFile = o.base || (existsSync(record) ? record : null);
   if (baseFile) {
@@ -143,11 +150,13 @@ export async function serverChatChain(c, o, chain, say = console.log) {
   const again = await c.api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
   const n2 = normalise(again);
   if (canon([...n2.cmp]) !== canon([...server.cmp]) || canon([...n2.links].sort()) !== canon([...server.links].sort())) { say('STOP: the chain changed on the server during this run: run again. Nothing written.'); return 1; }
+  // D-074 (services audit S2): the relation first; a relation without the new chain is harmless, the new chain without
+  // it would answer every turn "could not read the AI switches"
+  await addRels();
   await c.api('POST', '/api/ruleChain/metadata', { ruleChainId: rc.id, version: again.version, firstNodeIndex: m.metadata.firstNodeIndex, nodes: m.metadata.nodes, connections: m.metadata.connections, ruleChainConnections: null });
   const after = await c.api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
   const na = normalise(after), want = normalise(m.metadata);
   const off = [...want.order].filter((n) => na.cmp.get(n) !== want.cmp.get(n));
-  await addRels();   // D-070: after the chain, so a failed save leaves nothing half done
   say(`saved: ${after.nodes.length} nodes / ${(after.connections || []).length} links${off.length ? '; the server stored these differently from what was sent (TB defaults): ' + off.join(', ') : ''}`);
   mkdirSync(dirname(record), { recursive: true });
   writeFileSync(record, mask(JSON.stringify({ note: 'the chat relay chain as deploy-node.mjs --target=server last left it on the server: the base of the next run', at: new Date(now).toISOString(), target: c.base, ruleChainId: rc.id.id, metadata: after }, null, 1)));

@@ -48,10 +48,10 @@ import * as scope from '../core/scope';
 import type { UserContext } from '../core/scope';
 import * as store from '../core/store';
 import * as chat from '../core/chat';
-import { RELATIVE_MODES, Dashboard, Widget, WidgetType, WIDGET_TYPES, WIDGET_LABELS, WIDGET_CAPS, WIDGET_GROUPS, CONTENT_TYPES, DEFAULT_SIZE, TIME_RANGES, HISTORIC_RANGES, SHIFT_RANGES, MAX_WIDGETS, MAX_KEYS, MAX_DEVICES, normalizeRange, rangeLabel, isShiftRange, rangeWindow, checkDashboard, dashboardKind, newId } from '../core/schema';
+import { RELATIVE_MODES, Dashboard, Widget, WidgetType, WIDGET_TYPES, WIDGET_LABELS, WIDGET_CAPS, WIDGET_GROUPS, CONTENT_TYPES, DEFAULT_SIZE, TIME_RANGES, HISTORIC_RANGES, SHIFT_RANGES, MAX_WIDGETS, MAX_KEYS, MAX_DEVICES, MAX_IMAGE_CHARS, imageChars, normalizeRange, rangeLabel, isShiftRange, rangeWindow, checkDashboard, dashboardKind, newId } from '../core/schema';
 import { calendarFor, shiftWindowText } from '../core/shifts';
-import { ensureKitCss, topProgress, progressBar } from '../render/kit';
-import type { TopProgress } from '../render/kit';
+import { ensureKitCss, topProgress, progressBar, kitSelects } from '../render/kit';
+import type { TopProgress, KitSelects } from '../render/kit';
 import { Grid, GRID_CSS, firstFit, resolveCollisions, fitWarning } from '../render/grid';
 import { CSS, ensureCss, esc, el, applyTheme, PRESETS, loadFont, miniMarkdown as miniToHtml } from '../render/theme';
 import { bindingLabel, defaultWidgets, keyMeta } from '../render/widgets';
@@ -340,6 +340,18 @@ class Builder {
   private navKey = '';
   private navWatch: ReturnType<typeof setInterval> | null = null;
   private navAsking = false;
+  /** D-074: the app's drop-downs on the Builder's selects (null on a page without the kit: native selects). */
+  private dd: KitSelects | null = null;
+
+  /**
+   * D-074 (UI audit H2): every native <select> in the overlay (top bar, panels, editors and the dialogs, which open
+   * inside the overlay) becomes the app's drop-down. The kit watches the overlay, so redraws need no further call;
+   * compact buttons in the top bar, the rich-text toolbar and the colour-rule rows.
+   */
+  kitDropdowns() {
+    if (this.dd || !this.root) return;
+    this.dd = kitSelects(this.root, { sm: (s) => !!s.closest('.dbb-top,.dbb-rte-bar,.dbb-rule-main') });
+  }
 
   /** D-030: top of the overlay = bottom of the app navbar (options.topOffset); full screen when 0. */
   placeBelowNavbar() {
@@ -426,6 +438,7 @@ class Builder {
       this.navWatch = setInterval(() => void this.checkNavigation(), 500);
     }
     this.renderShell();
+    this.kitDropdowns();
     if (this.o.dashboardId) void this.openDashboard(this.o.dashboardId);
     else if (this.deviceId) void this.selectMachine(this.deviceId);
     else this.renderAll();
@@ -504,6 +517,8 @@ class Builder {
     this.licOff?.();
     if (this.navWatch) clearInterval(this.navWatch);
     this.grid?.destroy();
+    this.dd?.destroy(); // D-074: an open drop-down list closes, the kit stops watching the overlay
+    this.dd = null;
     this.root.remove();
     if (openNow === this) openNow = null;
     this.o.onClose?.(this.savedAnything);
@@ -614,7 +629,8 @@ class Builder {
     const t = e.target as HTMLElement;
     // Let inputs and the rich-text editor keep their native undo and Backspace/Delete. (Before 28 Sep 2026
     // contenteditable was not excluded: Backspace while typing in a Text widget deleted the whole widget.)
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    // D-074: nor keys in an open drop-down list of the kit (it lives on <body>, outside the overlay)
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable || t.closest?.('.imx-dd-pop'))) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       e.shiftKey ? this.redoLast() : this.undoLast();
@@ -896,6 +912,7 @@ class Builder {
     this.renderLeft();
     this.renderCanvas();
     this.renderRight();
+    this.kitDropdowns(); // D-074: when the app's kit arrived after mount
   }
 
   /**
@@ -1717,7 +1734,13 @@ class Builder {
           // Uploads are stored inline as a data: URI in the dashboard JSON, hence the 150 KB cap (D-019).
           if (f.size > 150 * 1024) return toast(this.root, 'That image is over 150 KB. Use a smaller file or an https:// address.', 'warn');
           const r = new FileReader();
-          r.onload = () => set('url', String(r.result), true);
+          r.onload = () => {
+            // D-074: all uploads of a dashboard together stay under MAX_IMAGE_CHARS (else it could not be saved any more)
+            const url = String(r.result);
+            const others = imageChars({ widgets: this.draft.widgets.filter((x) => x.id !== w.id), theme: this.draft.theme });
+            if (others + url.length > MAX_IMAGE_CHARS) return toast(this.root, `This dashboard already holds ${Math.round(others / 1024)} KB of uploaded images; together they may take ${Math.round(MAX_IMAGE_CHARS / 1024)} KB. Use a smaller file or an https:// address.`, 'warn');
+            set('url', url, true);
+          };
           r.readAsDataURL(f);
         });
         return;
@@ -2228,8 +2251,11 @@ class Builder {
     };
     // Recomputes the preview; `seq` makes sure only the latest (possibly slow) preview is shown.
     let seq = 0;
+    // D-074: what the shown preview saw in each slot the apply writes (apply refuses when another admin changed it since)
+    let seen: Record<string, string | null> | undefined;
     const refresh = async () => {
       const t = target();
+      seen = undefined;
       body.querySelectorAll<HTMLElement>('[data-for]').forEach((x) => (x.hidden = x.dataset.for !== (body.querySelector('input[name="t"]:checked') as HTMLInputElement)?.value));
       const pvEl = body.querySelector('.dbb-preview') as HTMLElement;
       m.button('apply').disabled = true;
@@ -2244,6 +2270,7 @@ class Builder {
       const my = ++seq;
       const pv = await store.previewApply(this.ctx, d, t).catch((e) => ({ errors: [e.message] }) as any as store.ApplyPreview);
       if (my !== seq) return;
+      seen = pv.seen;
       const parts: string[] = [];
       if (pv.errors?.length) parts.push(`<div class="dbb-banner err">${esc(pv.errors.join(' '))}</div>`);
       else {
@@ -2273,7 +2300,7 @@ class Builder {
     if (t.type === 'none') return;
     this.setBusy(true, 'Applying…');
     try {
-      const ids = await store.apply(this.ctx, d, t);
+      const ids = await store.apply(this.ctx, d, t, { seen });
       this.savedAnything = true;
       void audit(this.ctx, 'dashboard.apply', { id: d.id, target: t, devices: ids.length });
       toast(this.root, `Applied to ${ids.length} machine${ids.length === 1 ? '' : 's'}.`, 'ok');

@@ -56,6 +56,12 @@ const out = {
 };
 // Build id for DBB_DEPLOY: goes into the widget-type description and the store attribute dbb_lib_version (D-022).
 out.version = version;
+// D-074: the chat assistant's system prompt template and tool (widgets/src/core/chat-prompt.ts) for the rule chain
+// "DBB Chat relay (POC)": DBB_DEPLOY / deploy-node.mjs put them into the chain, so the browser no longer sends them.
+await build({ entryPoints: ['widgets/src/core/chat-prompt.ts'], bundle: true, format: 'esm', platform: 'node', target: 'node18', outfile: 'widgets/dist/chat-prompt.mjs', logLevel: 'warning' });
+const { chatContract } = await import(new URL('./dist/chat-prompt.mjs?' + Date.now(), import.meta.url).href);
+out.chat = chatContract();
+writeFileSync('widgets/dist/chat-contract.json', JSON.stringify(out.chat, null, 2));
 writeFileSync('widgets/dist/glue.json', JSON.stringify(out, null, 2));
 const gz = gzipSync(Buffer.from(lib, 'utf8'), { level: 9 });
 writeFileSync('widgets/dist/imex-dbb.js.gz.b64', gz.toString('base64'));

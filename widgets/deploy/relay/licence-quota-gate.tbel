@@ -38,6 +38,10 @@ else if (sw != null) {
   else if (!(sw.enabled is Boolean) || sw.enabled != true) { metadata.error = "AI_OFF"; }
   else if (isMap(sw.features) && sw.features.builder is Boolean && sw.features.builder == false) { metadata.error = "AI_OFF"; }
 }
+if (metadata.cRoleErr != null && metadata.cRoleErr != "") { metadata.error = metadata.cRoleErr; }
+metadata.remove("cRoleErr");
+metadata.cAlerts = "1";
+if ((mode == "active" || mode == "grace") && !(isMap(st.parsed.features) && st.parsed.features.alerts == true)) { metadata.cAlerts = "0"; }
 metadata.remove("llmSw");
 metadata.remove("llmSwErr");
 metadata.remove("lStatus");

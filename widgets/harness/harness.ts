@@ -116,7 +116,7 @@ const role = new URLSearchParams(location.search).get('role') ?? 'Admin';
 asUser(tb, 'u1', role, [role === 'Viewer' ? 'pun' : role === 'Manager' ? 'ric' : 'root']);
 localStorage.setItem('jwt_token', 'x');
 // Chat relay stub (E2E): when the builder writes dbb_chat_req, answer with the next scripted tool input
-// from window.__chatQueue (or an error string) as the rule chain would, in dbb_chat_resp_<userId>.
+// from window.__chatQueue (or an error string) as the rule chain would, in dbb_chat_resp on the user (D-074).
 (window as any).__chatQueue = [] as any[];
 (window as any).__chatReqs = [] as any[];
 const baseFetch = tb.fetch;
@@ -128,7 +128,7 @@ const baseFetch = tb.fetch;
     const next = (window as any).__chatQueue.shift();
     setTimeout(() => {
       const resp = typeof next === 'string' ? { reqId: req.reqId, ok: false, provider: 'gemini', error: next } : { reqId: req.reqId, ok: true, provider: 'gemini', toolInput: next ?? { reply: 'ok', ops: [] } };
-      tb.setAttrs('ASSET', 'store', { [`dbb_chat_resp_${req.userId}`]: resp });
+      tb.setAttrs('USER', req.userId, { dbb_chat_resp: resp });
     }, 200);
   }
   return r;

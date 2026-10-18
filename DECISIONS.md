@@ -1123,3 +1123,63 @@ kept, back with the module. One place: `core/licence.ts` `WIDGET_LIC` (`alarms: 
   (chat apply / prompt / suggestions, default dashboard, templates); tsc clean, vitest 385 pass. Built and deployed to
   LOCAL (`deploy-node.mjs --go`, lib 2026-10-18T16:00:45Z). Not run: e2e. The coordinator's uncommitted phone
   `.dbb-tw` line in `entries/renderer.ts` is kept.
+
+### D-074 Round 11 audit fixes: the chat relay checks the role and owns its prompt; Apply failures and conflicts; size budget; templates on the one status rule; kit drop-downs, 19 Oct 2026 (Round 11 stream F5)
+From the 19 Oct audits (AUDIT_SECURITY H5, M5; AUDIT_SERVICES B-Builder 1-5, S2; AUDIT_UI H2, M8, M10). Bugs and
+security only, no new feature.
+- **H5: the chat relay was an open LLM proxy.** Chain "DBB Chat relay (POC)" (`widgets/deploy/deploy-browser.js`):
+  - **Role, server-side:** "Is chat request" -> The store (name, customer) -> Made by a user? -> To the user (by e-mail)
+    -> The user (id, authority, customer) -> To the role registry ("iMEX Role Registry", the role guard's tenant-only
+    store) -> Role (registry) `u_<id>`, `cfg_imexRoles` -> "Role and chat limit" (TBEL; `roleOf` / `page` copied from
+    App UI `role-guard.mjs` ROLE_TBEL): tenant admin, or a customer user of the store's customer whose role has
+    `dashboards.build` (implied at Full on Dashboards, tickable at View); anything unreadable = refused ("Your role could
+    not be checked"); refusal "Your role can't use the chat assistant (it needs Build dashboards)". The role's
+    `dashboards.applyMany` fills the prompt. The role error wins over every later reason (gate).
+  - **Per-user limit:** 60 requests per user per hour (the browser's 30 turns make 1-2 requests each), `dbb_rate_<userId>`
+    = {h, n} on the tenant-only "iMEX Keeper"; no keeper = not limited (the role check stays). "Chat limit reached (60
+    requests per hour)".
+  - **Prompt and tool are the chain's:** `widgets/src/core/chat-prompt.ts` (moved from chat.ts: `promptTemplate` with
+    four markers, `fillPrompt`, `TOOL`, `PROVIDER_TOOLS`, `chatContract`); `npm run build:widgets` writes the contract
+    to `widgets/dist/glue.json` (`chat`) and `dist/chat-contract.json`; DBB_DEPLOY / deploy-node put it into "Build LLM
+    request". The browser sends `{v: 2, catalog, machine, messages}` only (`buildRequest`); the chain accepts only that
+    (else "older version, reload"), plain-text user / assistant turns (the last one the user's), machine `D<n>` or null,
+    catalogue at most 60,000 and everything at most 90,000 characters; it fills the role's apply rule, the licence's alarm
+    list (`alerts`, from the gate), the machine and the catalogue. A client can no longer choose instructions or a tool.
+  - **M5 forged reply:** the reply is written on the requesting USER (`dbb_chat_resp`, node "To the user (reply)"), which
+    other customer users cannot write (checked on LOCAL: a Viewer's write to another user's attributes = 403); the old
+    store slot `dbb_chat_resp_<userId>` is no longer read or written.
+  - **No fan-out on the request path:** a node with two links of one type re-queues copies; on LOCAL that held the
+    request about 110 s. The count record carries the request in metadata and "Restore the request" puts it back; the
+    meter now runs after the reply is saved ("A provider call?", `llmCall`) instead of as a second link from "Parse LLM
+    reply" (that D-066 fan-out probably delayed real replies too). Reply time on LOCAL now about 330 ms.
+  - Other store attribute changes go on to the "iMEX Role guard" chain when it exists (the store profile's chain gets
+    them instead of the root chain). The guard does not protect `dbb_*` yet (App UI owns the rule list).
+  - Server mode (`deploy-node.mjs --target=server`): passes the guard chain, STOPs without the registry asset (install
+    the role guard first), adds the UsesAppConfig relation before the chain (services audit S2).
+- **M5 sinks:** `render/widgets.ts` image `object-fit` and link `buttonColor` / `buttonStyle` escaped.
+- **Apply** (`core/store.ts` `apply`, `planWrites`, `seenSlots`; the builder's Apply dialog):
+  - customer-wide Apply no longer writes inside the best-effort revision bump (a failure said "Applied");
+  - every slot is read fresh first; a failure part-way puts back what was written (and deletes copy-mode copies), bumps
+    `dbb_assign_rev` and says "It stopped after N of M changes, which were undone." (or what could not be put back);
+  - the preview records what each slot holds (`ApplyPreview.seen`); Apply refuses with `ApplyConflictError` ("Someone
+    else changed the dashboard of ... after you opened this. Nothing was applied.") when another administrator changed it
+    meanwhile; per-type maps are merged into the fresh value.
+- **Size:** uploaded (data:) images of one dashboard together at most 1,000,000 characters (`MAX_IMAGE_CHARS`,
+  `checkDashboard`, and on upload in the builder); a save refuses a document over 2.5 M characters (`DOC_CHARS`) and
+  keeps only as many earlier versions as fit in 8 M characters (`SAVE_CHARS`), so a big dashboard stays saveable.
+- **Templates on the one status rule (D-064):** the status key is the machine type's status tag (else an automatic run
+  key, else the old guess); status cards, run-state timelines and the running-time donut carry no colour rules of their
+  own; timelines and "state" donuts without own rules use the machine model's words and colours (`modelStateMap`).
+- **UI (AUDIT_UI H2, M8, M10):** every `<select>` in the Builder overlay is the app's kit drop-down (`render/kit.ts`
+  `kitSelects` -> `window.imxKit.selects`; the native select stays when the kit is absent); the navbar edit menu's
+  chosen row is bold + check (no fill, no left bar); the New dashboard option card has no fill; the listing's tree row
+  is outlined, its colours are theme tokens (dark mode), its cards lost the coloured left edge.
+- **Tests:** `widgets/test/round11.test.ts` (12), `kit-selects.test.ts` (3), `deploy/chat-chain-selftest.mjs` (+1 test,
+  no-fan-out check, registry STOP), `deploy/relay/script-selftest.mjs` (new: 39 cases on LOCAL's TBEL engine: role,
+  limit, request, reply, gate). tsc clean; vitest 27 files pass; e2e all passed; gate-selftest 19 pass.
+- **LOCAL:** built and deployed (`deploy-node.mjs --go`, then `--chain-only --go`). Live: Viewer -> "needs Build
+  dashboards"; app admin -> "AI (LLM) use is switched off ..." (master OFF), about 330 ms, reply on the user, nothing in
+  the store slot; the Builder's Chat tab shows it (`scratch/f5-chat-live.mjs`). Test counters removed from the keeper.
+- **Server:** widget push + `deploy-node.mjs --target=server --go-ahead=... --go` in the SAME session (the new widgets'
+  v2 request is refused by the old chain and vice versa), and only after the role guard is installed there (the chain
+  STOPs without the registry).

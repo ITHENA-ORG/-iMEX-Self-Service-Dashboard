@@ -54,7 +54,11 @@ const svg = (p: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 // The menu is appended to <body> (the navbar widget's own box clips overflow).
 // D-033: styled like the app's own dropdowns (alerts menu): plain text rows, light cyan hover with a tiny lift,
-// a dark bar on the left of the selected row; no taglines.
+// no taglines. D-074 (UI audit H2): the selected row is bold with a check mark on the right (as the side menu and
+// the kit drop-downs); no fill and no bar on its left edge.
+/** D-074: the check mark of the selected row (the kit drop-downs' icon). */
+const MENU_CHECK =
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>';
 const MENU_CSS = `
 .dbb-emenu{position:fixed;z-index:10050;min-width:230px;max-width:320px;background:#fff;color:#1d2939;border:1px solid #e4e7ec;border-radius:10px;box-shadow:0 10px 28px rgba(16,24,40,.16),0 2px 6px rgba(16,24,40,.06);padding:6px 0;font:14px Inter,"Segoe UI",Roboto,Arial,sans-serif;animation:dbb-menu-in .12s ease-out}
 .dbb-emenu,.dbb-emenu *{box-sizing:border-box}
@@ -64,9 +68,10 @@ const MENU_CSS = `
 .dbb-emenu-h b{display:block;font-size:13px;font-weight:600;color:#101828;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dbb-emenu-h span{display:block;font-size:11.5px;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dbb-emenu-sec{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#98a2b3;padding:8px 16px 4px}
-.dbb-emenu button{all:unset;box-sizing:border-box;position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px 10px 19px;font:inherit;font-size:14px;line-height:1.3;color:#1d2939;cursor:pointer;border-left:3px solid transparent;transition:background .12s,transform .12s,box-shadow .12s}
+.dbb-emenu button{all:unset;box-sizing:border-box;position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px 10px 22px;font:inherit;font-size:14px;line-height:1.3;color:#1d2939;cursor:pointer;transition:background .12s,transform .12s,box-shadow .12s}
 .dbb-emenu button:hover,.dbb-emenu button:focus-visible{background:#e3f6fa;transform:translateY(-1px);box-shadow:0 2px 6px rgba(16,24,40,.08);outline:none;z-index:1}
-.dbb-emenu button.sel{background:#e9f7fb;border-left-color:#0b2f4f;font-weight:600}
+.dbb-emenu button.sel{font-weight:600}
+.dbb-emenu button .ck{flex:none;display:inline-flex;width:16px;color:var(--imx-p2,#1D4ED8)}
 .dbb-emenu button.danger{color:#b42323}
 .dbb-emenu button.danger:hover{background:#fdf0f0}
 .dbb-emenu button .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -76,7 +81,8 @@ html[data-imx-mode="dark"] .dbb-emenu{background:var(--imx-surface,#121A2B);colo
 html[data-imx-mode="dark"] .dbb-emenu-h,html[data-imx-mode="dark"] .dbb-emenu hr{border-color:var(--imx-line,#26324A)}
 html[data-imx-mode="dark"] .dbb-emenu-h b,html[data-imx-mode="dark"] .dbb-emenu button{color:var(--imx-text,#E6EBF3)}
 html[data-imx-mode="dark"] .dbb-emenu-h span,html[data-imx-mode="dark"] .dbb-emenu-sec{color:var(--imx-muted,#97A6BC)}
-html[data-imx-mode="dark"] .dbb-emenu button:hover,html[data-imx-mode="dark"] .dbb-emenu button:focus-visible,html[data-imx-mode="dark"] .dbb-emenu button.sel{background:var(--imx-ph,#1B263C)}
+html[data-imx-mode="dark"] .dbb-emenu button:hover,html[data-imx-mode="dark"] .dbb-emenu button:focus-visible{background:var(--imx-ph,#1B263C)}
+html[data-imx-mode="dark"] .dbb-emenu button .ck{color:var(--imx-a2,#7DD3FC)}
 html[data-imx-mode="dark"] .dbb-emenu button.danger{color:var(--imx-bad-tx,#FCA5A5)}
 html[data-imx-mode="dark"] .dbb-emenu button.danger:hover{background:var(--imx-bad-bg,rgba(239,68,68,.18))}
 `;
@@ -376,7 +382,7 @@ export function init(tbCtx: any) {
   };
   // D-033: text-only rows; the hint (tagline) becomes the tooltip; a checked item is the selected row.
   const item = (a: Pick<EditAction, 'id' | 'label' | 'hint' | 'danger' | 'checked'> & { icon?: string }) =>
-    `<button role="${a.checked !== undefined ? 'menuitemradio' : 'menuitem'}" data-m="${esc(a.id)}" class="${a.danger ? 'danger' : ''}${a.checked ? ' sel' : ''}" ${a.hint ? `title="${esc(a.hint)}"` : ''} ${a.checked !== undefined ? `aria-checked="${!!a.checked}"` : ''}><span class="t">${esc(a.label)}</span></button>`;
+    `<button role="${a.checked !== undefined ? 'menuitemradio' : 'menuitem'}" data-m="${esc(a.id)}" class="${a.danger ? 'danger' : ''}${a.checked ? ' sel' : ''}" ${a.hint ? `title="${esc(a.hint)}"` : ''} ${a.checked !== undefined ? `aria-checked="${!!a.checked}"` : ''}><span class="t">${esc(a.label)}</span>${a.checked ? `<span class="ck" aria-hidden="true">${MENU_CHECK}</span>` : ''}</button>`;
   // Builds the menu from the renderer's published actions (if any) plus the fixed "Dashboard Builder"
   // item, positions it under the icon (clamped to the viewport) and focuses the first item.
   const openMenu = () => {

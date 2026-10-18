@@ -30,7 +30,9 @@ if (process.argv.some((a) => a.startsWith('--target'))) {
   if (!t || t.title !== goAhead) { console.error(`REFUSED: TGT_TB_* log in to tenant "${t && t.title}", not "${goAhead}"`); process.exit(2); }
   globalThis.window = globalThis;
   await import('./deploy-browser.js');
-  const chain = (o, keeperChainId) => window.DBB_CHAT_CHAIN(Object.assign({}, window.DBB_DEPLOY_DEFAULTS, o), keeperChainId);
+  // D-074: the chat's system prompt and tool from the build (widgets/dist/glue.json `chat`)
+  const chatContract = JSON.parse(readFileSync('widgets/dist/glue.json', 'utf8')).chat;
+  const chain = (o, keeperChainId, more) => window.DBB_CHAT_CHAIN(Object.assign({}, window.DBB_DEPLOY_DEFAULTS, { chatContract }, o), keeperChainId, more);
   const go = process.argv.includes('--go');
   console.log(`target ${c.base}, tenant "${t.title}" — chat relay chain only — ${go ? 'WRITING' : 'DRY RUN (--go writes)'}`);
   const { serverChatChain } = await import('./chat-chain-server.mjs');
@@ -50,11 +52,13 @@ const { base, token, api, all } = await tbLogin();
 if (process.argv.includes('--chain-only')) {
   globalThis.window = globalThis;
   await import('./deploy-browser.js');
-  const o = Object.assign({}, window.DBB_DEPLOY_DEFAULTS, opts);
+  // D-074: the chat's system prompt and tool from the build (widgets/dist/glue.json `chat`)
+  const o = Object.assign({}, window.DBB_DEPLOY_DEFAULTS, { chatContract: JSON.parse(readFileSync('widgets/dist/glue.json', 'utf8')).chat }, opts);
   const rc = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('DBB Chat relay')}`)).find((x) => x.name === 'DBB Chat relay (POC)');
   if (!rc) { console.error('no rule chain "DBB Chat relay (POC)": run the full deploy (--go) first'); process.exit(1); }
   const keeper = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Licence keeper')}`)).find((x) => x.name === 'iMEX Licence keeper');
-  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeper ? keeper.id.id : null);
+  const guard = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Role guard')}`)).find((x) => x.name === 'iMEX Role guard');
+  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeper ? keeper.id.id : null, { guardChainId: guard ? guard.id.id : null });
   const store = await api('GET', `/api/tenant/assets?assetName=${encodeURIComponent(o.storeName)}`, undefined, true);
   const appCfg = await api('GET', `/api/tenant/assets?assetName=${encodeURIComponent(o.appConfigName)}`, undefined, true);
   console.log(`chain "${rc.name}": ${nodes.length} nodes / ${connections.length} links (key from ${o.llmConfigName}, AI switches from ${o.appConfigName}); store ${store ? store.name : 'MISSING'}`);

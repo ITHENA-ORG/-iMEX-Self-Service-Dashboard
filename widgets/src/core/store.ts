@@ -80,6 +80,10 @@ const VIS = (id: string) => `dbb_vis_${id}`;
 const dev = (id: string): api.EntityRef => ({ id, entityType: 'DEVICE' });
 const asset = (id: string): api.EntityRef => ({ id, entityType: 'ASSET' });
 
+/** D-074: largest dashboard document (characters of its JSON) and largest single save (document + kept versions). */
+export const DOC_CHARS = 2_500_000;
+export const SAVE_CHARS = 8_000_000;
+
 /** Thrown by `saveDashboard` when the stored version differs from the one being saved; carries the stored copy. */
 export class ConflictError extends Error {
   constructor(public current: Dashboard) {
@@ -176,7 +180,14 @@ export async function saveDashboard(
   const next: Dashboard = { ...parsed, version: doc.version + 1, updatedAt: Date.now(), updatedBy: ctx.displayName };
   const hist: any[] = Array.isArray(cur[H(doc.id)]) ? cur[H(doc.id)] : [];
   if (existing.success) hist.unshift({ version: existing.data.version, savedAt: existing.data.updatedAt, savedBy: existing.data.updatedBy, doc: existing.data });
-  const attrs: Record<string, unknown> = { [D(doc.id)]: next, [H(doc.id)]: hist.slice(0, 10) };
+  // D-074: one save stays well under the platform's request limit: the document is capped (uploaded images: checkDashboard)
+  // and only as many earlier versions are kept as fit in SAVE_CHARS (newest first; at most 10)
+  const docChars = JSON.stringify(next).length;
+  if (docChars > DOC_CHARS) throw new Error(`This dashboard is too large to save (${Math.round(docChars / 1024)} KB; at most ${Math.round(DOC_CHARS / 1024)} KB). Remove uploaded images or widgets, or use https:// image addresses.`);
+  const keep = hist.slice(0, 10);
+  let histChars = JSON.stringify(keep).length;
+  while (keep.length && docChars + histChars > SAVE_CHARS) histChars -= JSON.stringify(keep.pop()).length + 1;
+  const attrs: Record<string, unknown> = { [D(doc.id)]: next, [H(doc.id)]: keep };
   if (visibility) attrs[VIS(doc.id)] = visibility;
   else if (!existing.success) attrs[VIS(doc.id)] = 'shared';
   await api.saveAttrs(store, attrs);
@@ -442,6 +453,8 @@ export interface ApplyPreview {
   replacesAssignment: { dashboardId: string; name: string } | null;
   missingKeys: { key: string; devices: string[] }[];
   errors: string[];
+  /** D-074: the dashboard each slot the apply will write points at now (slotKey -> id or null); pass it to `apply`. */
+  seen?: Record<string, string | null>;
 }
 
 /**
@@ -552,7 +565,79 @@ export async function previewApply(ctx: UserContext, doc: Dashboard, t: ApplyTar
     }),
   );
   pv.missingKeys = [...missing.entries()].map(([key, devs]) => ({ key, devices: devs }));
+  // D-074: what the apply will overwrite, as it is now (apply refuses when it changed meanwhile)
+  pv.seen = await seenSlots(ctx, doc, t);
   return pv;
+}
+
+/** D-074: one attribute an apply writes: a device's or location's `dbb_assign`, or the store's `dbb_assign_customer`. */
+interface Slot {
+  e: api.EntityRef;
+  key: 'dbb_assign' | 'dbb_assign_customer';
+  /** set for the per-type maps (location `dbb_assign`, `dbb_assign_customer`); unset for a device's own assignment */
+  profile?: string;
+  label: string;
+}
+interface SlotWrite {
+  slot: Slot;
+  /** the new value from the current one and the dashboard to assign (a copy's id in copy mode) */
+  make: (cur: any, dashId: string) => unknown;
+  /** copy mode: this machine gets its own copy of the dashboard first */
+  copyFor?: string;
+}
+/** Key of a slot in `ApplyPreview.seen`. */
+export const slotKey = (s: Pick<Slot, 'e' | 'key' | 'profile'>) => `${s.e.entityType}:${s.e.id}:${s.key}:${s.profile ?? ''}`;
+/** The dashboard a slot's current value points at, or null. */
+function slotDash(cur: any, s: Slot): string | null {
+  const v = s.profile !== undefined ? cur?.[s.profile] : cur;
+  return v && typeof v === 'object' && typeof v.dashboardId === 'string' ? v.dashboardId : null;
+}
+
+/** Thrown by `apply` when an assignment it would overwrite changed since the preview (another administrator). */
+export class ApplyConflictError extends Error {}
+
+/** What `apply` writes for a target (not personal / none) and which machines it covers. Pure. */
+function planWrites(ctx: UserContext, doc: Dashboard, t: ApplyTarget, now: number): { writes: SlotWrite[]; covers: string[] } {
+  const label = (id: string) => ctx.nodes.get(id)?.label ?? id;
+  const a: Assignment = { dashboardId: doc.id, by: ctx.displayName, at: now };
+  const merge = (profile: string) => (cur: any) => ({ ...(cur && typeof cur === 'object' ? cur : {}), [profile]: a });
+  if (t.type === 'devices')
+    return {
+      writes: t.deviceIds.map((id) => ({ slot: { e: dev(id), key: 'dbb_assign', label: label(id) }, make: (_c: any, dashId: string): DeviceAssignment => ({ dashboardId: dashId, mode: t.mode, by: ctx.displayName, at: now }), copyFor: t.mode === 'copy' ? id : undefined })),
+      covers: [...t.deviceIds],
+    };
+  if (t.type === 'managed') {
+    // D-065: a location assignment on every managed location (followed by machines added there later), a device
+    // assignment on each fixed-grant machine (see managedPlan)
+    const plan = managedPlan(ctx, t.profile);
+    return {
+      writes: [
+        ...plan.nodes.map((n) => ({ slot: { e: asset(n.id), key: 'dbb_assign' as const, profile: t.profile, label: n.label }, make: merge(t.profile) })),
+        ...plan.devices.map((d) => ({ slot: { e: dev(d.id), key: 'dbb_assign' as const, label: d.label }, make: (): DeviceAssignment => ({ ...a, mode: 'linked' }) })),
+      ],
+      covers: plan.all.map((d) => d.id),
+    };
+  }
+  if (t.type === 'node') return { writes: [{ slot: { e: asset(t.nodeId), key: 'dbb_assign', profile: t.profile, label: label(t.nodeId) }, make: merge(t.profile) }], covers: scope.devicesUnder(ctx, t.nodeId, t.profile).map((d) => d.id) };
+  if (t.type === 'customer') return { writes: [{ slot: { e: requireStore(ctx), key: 'dbb_assign_customer', profile: t.profile, label: `all ${t.profile} machines` }, make: merge(t.profile) }], covers: scope.allDevices(ctx, t.profile).map((d) => d.id) };
+  return { writes: [], covers: [] };
+}
+
+/**
+ * D-074: the dashboard each slot an apply would write points at now, for `ApplyPreview.seen` (fresh reads, one per
+ * slot; a slot that can't be read is left out and so not checked).
+ */
+async function seenSlots(ctx: UserContext, doc: Dashboard, t: ApplyTarget): Promise<Record<string, string | null>> {
+  if (t.type === 'none' || t.type === 'personal' || canApply(ctx, t)) return {};
+  const { writes } = planWrites(ctx, doc, t, Date.now());
+  const out: Record<string, string | null> = {};
+  await Promise.all(
+    writes.map(async (w) => {
+      const r = await api.getAttrs(w.slot.e, [w.slot.key]).catch(() => null);
+      if (r) out[slotKey(w.slot)] = slotDash(r[w.slot.key] ?? null, w.slot);
+    }),
+  );
+  return out;
 }
 
 /**
@@ -565,63 +650,72 @@ export async function previewApply(ctx: UserContext, doc: Dashboard, t: ApplyTar
  * - customer: store `dbb_assign_customer[profile]` (merged).
  * - managed:  D-065: asset `dbb_assign[profile]` on every managed location + device `dbb_assign` on each fixed-grant
  *             machine of the type (managedPlan).
- * Read-modify-write without locking: concurrent applies on the same entity can lose one update.
+ * D-074 (round 11 audit):
+ * - every slot is read fresh first; with `opts.seen` (the preview's `seen`) a slot whose dashboard changed since the
+ *   preview stops the apply before anything is written (`ApplyConflictError`: two administrators no longer overwrite
+ *   each other silently); the per-type maps are merged into the fresh value;
+ * - a write that fails part-way puts back what this apply already wrote (and deletes its copies), tells the other
+ *   pages (`dbb_assign_rev`) and throws a message that says so; nothing is reported as applied;
+ * - the customer-wide assignment is no longer written inside the best-effort revision bump (its failure was swallowed
+ *   and the Builder said "Applied").
  * Device-level assignments are not touched by node/customer applies (they keep winning).
  * @returns ids of the machines in scope that the assignment covers (for the audit/summary).
  */
-export async function apply(ctx: UserContext, doc: Dashboard, t: ApplyTarget): Promise<string[]> {
+export async function apply(ctx: UserContext, doc: Dashboard, t: ApplyTarget, opts: { seen?: Record<string, string | null> } = {}): Promise<string[]> {
   const deny = canApply(ctx, t);
   if (deny) throw new Error(deny);
   const now = Date.now();
-  const done: string[] = [];
-  if (t.type === 'none') return done;
+  if (t.type === 'none') return [];
   if (t.type === 'personal') {
     const cur = (await api.getAttrs({ id: ctx.userId, entityType: 'USER' }, ['dbb_personal'])).dbb_personal ?? {};
     await api.saveAttrs({ id: ctx.userId, entityType: 'USER' }, { dbb_personal: { ...cur, [t.deviceId]: doc.id } });
     await assignChanged(ctx);
     return [t.deviceId];
   }
-  if (t.type === 'devices') {
-    for (const id of t.deviceIds) {
+  const { writes, covers } = planWrites(ctx, doc, t, now);
+  // 1. what is there now (a read error stops here, before anything is written)
+  const cur = await Promise.all(writes.map((w) => api.getAttrs(w.slot.e, [w.slot.key]).then((r) => (r[w.slot.key] === undefined ? null : r[w.slot.key]))));
+  const seen = opts.seen;
+  if (seen) {
+    const moved = writes.filter((w, i) => Object.prototype.hasOwnProperty.call(seen, slotKey(w.slot)) && slotDash(cur[i], w.slot) !== seen[slotKey(w.slot)]);
+    if (moved.length)
+      throw new ApplyConflictError(`Someone else changed the dashboard of ${moved.slice(0, 3).map((w) => w.slot.label).join(', ')}${moved.length > 3 ? ` and ${moved.length - 3} more` : ''} after you opened this. Nothing was applied. Check the preview again, then apply.`);
+  }
+  // 2. write, remembering what was written; on a failure put it back
+  const done: number[] = [];
+  const copies: string[] = [];
+  try {
+    for (let i = 0; i < writes.length; i++) {
+      const w = writes[i];
       let dashId = doc.id;
-      if (t.mode === 'copy') {
-        const label = ctx.nodes.get(id)?.label ?? id;
-        const copy = await saveDashboard(ctx, { ...doc, id: newId('d'), name: `${doc.name} — ${label}`, version: 0, copiedFrom: doc.id, ownerId: ctx.userId, ownerName: ctx.displayName });
+      if (w.copyFor) {
+        const copy = await saveDashboard(ctx, { ...doc, id: newId('d'), name: `${doc.name} — ${w.slot.label}`, version: 0, copiedFrom: doc.id, ownerId: ctx.userId, ownerName: ctx.displayName });
+        copies.push(copy.id);
         dashId = copy.id;
       }
-      const a: DeviceAssignment = { dashboardId: dashId, mode: t.mode, by: ctx.displayName, at: now };
-      await api.saveAttrs(dev(id), { dbb_assign: a });
-      done.push(id);
+      await api.saveAttrs(w.slot.e, { [w.slot.key]: w.make(cur[i], dashId) });
+      done.push(i);
     }
-    await assignChanged(ctx);
-    return done;
-  }
-  const a: Assignment = { dashboardId: doc.id, by: ctx.displayName, at: now };
-  if (t.type === 'managed') {
-    // D-065: a location assignment on every managed location (followed by machines added there later), a device
-    // assignment on each fixed-grant machine (see managedPlan)
-    const plan = managedPlan(ctx, t.profile);
-    for (const n of plan.nodes) {
-      const cur = (await readAssign(asset(n.id))) ?? {};
-      await api.saveAttrs(asset(n.id), { dbb_assign: { ...cur, [t.profile]: a } });
+  } catch (e: any) {
+    const stuck: string[] = [];
+    for (const i of [...done].reverse()) {
+      const w = writes[i];
+      try {
+        if (cur[i] === null) await api.deleteAttrs(w.slot.e, [w.slot.key]);
+        else await api.saveAttrs(w.slot.e, { [w.slot.key]: cur[i] });
+      } catch {
+        stuck.push(w.slot.label);
+      }
     }
-    for (const d of plan.devices) {
-      const da: DeviceAssignment = { ...a, mode: 'linked' };
-      await api.saveAttrs(dev(d.id), { dbb_assign: da });
-    }
-    await assignChanged(ctx);
-    return plan.all.map((d) => d.id);
+    if (ctx.store && copies.length) await api.deleteAttrs(ctx.store, copies.flatMap((id) => [D(id), H(id), VIS(id)])).catch(() => stuck.push(`${copies.length} machine cop${copies.length === 1 ? 'y' : 'ies'} of the dashboard`));
+    if (done.length) await assignChanged(ctx);
+    const why = String(e?.message ?? e).replace(/[.\s]+$/, '');
+    const what = !done.length ? 'Nothing was changed.' : stuck.length ? `It stopped after ${done.length} of ${writes.length} changes; these could not be put back: ${stuck.join(', ')}.` : `It stopped after ${done.length} of ${writes.length} changes, which were undone.`;
+    throw new Error(`${why}. ${what}`);
   }
-  if (t.type === 'node') {
-    const cur = (await readAssign(asset(t.nodeId))) ?? {};
-    await api.saveAttrs(asset(t.nodeId), { dbb_assign: { ...cur, [t.profile]: a } });
-    await assignChanged(ctx);
-    return scope.devicesUnder(ctx, t.nodeId, t.profile).map((d) => d.id);
-  }
-  const store = requireStore(ctx);
-  const cur = (await api.getAttrs(store, ['dbb_assign_customer'])).dbb_assign_customer ?? {};
-  await assignChanged(ctx, { dbb_assign_customer: { ...cur, [t.profile]: a } });
-  return scope.allDevices(ctx, t.profile).map((d) => d.id);
+  // 3. tell the other pages (a cache hint: best effort)
+  await assignChanged(ctx);
+  return covers;
 }
 
 /**

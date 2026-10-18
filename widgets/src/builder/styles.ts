@@ -263,7 +263,7 @@ export const BUILDER_CSS = `
 .dbb-nd-opt{display:flex;flex-direction:row;gap:12px;align-items:flex-start;width:100%;padding:14px 16px;border:1px solid #e1e4ea;border-radius:10px;cursor:pointer;background:#fff;transition:border-color .12s,background .12s,box-shadow .12s;margin:0;font-weight:400;text-align:left;outline:none}
 .dbb-nd-opt:hover{border-color:#b9d3f3}
 .dbb-nd-opt:focus-visible{box-shadow:0 0 0 3px rgba(42,120,214,.2)}
-.dbb-nd-opt.on{border-color:#2a78d6;background:#f3f8fe;box-shadow:0 0 0 1px #2a78d6 inset}
+.dbb-nd-opt.on{border-color:#2a78d6;box-shadow:0 0 0 1px #2a78d6 inset}
 .dbb-nd-opt.off{opacity:.55;cursor:not-allowed}
 .dbb-nd-dot{flex:none;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin:1px 0 0;padding:0;border-radius:50%;border:1.5px solid #b4bac4;background:#fff}
 .dbb-nd-dot>span{display:block;width:8px;height:8px;border-radius:50%;background:transparent}
@@ -383,7 +383,7 @@ html[data-imx-mode="dark"] .dbb-nd-t{color:var(--imx-text,#E6EBF3)}
 html[data-imx-mode="dark"] .dbb-nd-in{color:var(--imx-text,#E6EBF3);background:var(--imx-surface2,#162036);border-color:var(--imx-line2,#33415C)}
 html[data-imx-mode="dark"] .dbb-nd-opt{background:var(--imx-surface,#121A2B);border-color:var(--imx-line,#26324A)}
 html[data-imx-mode="dark"] .dbb-nd-opt:hover{border-color:var(--imx-line2,#33415C)}
-html[data-imx-mode="dark"] .dbb-nd-opt.on{border-color:#3987e5;background:color-mix(in srgb,#3987e5 12%,var(--imx-surface,#121A2B));box-shadow:0 0 0 1px #3987e5 inset}
+html[data-imx-mode="dark"] .dbb-nd-opt.on{border-color:#3987e5;box-shadow:0 0 0 1px #3987e5 inset}
 html[data-imx-mode="dark"] .dbb-nd-dot{background:var(--imx-surface,#121A2B);border-color:var(--imx-line2,#33415C)}
 html[data-imx-mode="dark"] .dbb-nd-opt.on .dbb-nd-dot{border-color:#3987e5}
 html[data-imx-mode="dark"] .dbb-nd-opt.on .dbb-nd-dot>span{background:#3987e5}
@@ -403,4 +403,11 @@ html[data-imx-mode="dark"] .dbb-od-count,html[data-imx-mode="dark"] .dbb-od-mute
 html[data-imx-mode="dark"] .dbb-od-list{border-color:var(--imx-line,#26324A)}
 html[data-imx-mode="dark"] .dbb-od-row{border-bottom-color:var(--imx-line,#26324A);color:var(--imx-text2,#C9D3E1)}
 html[data-imx-mode="dark"] .dbb-od-name{color:var(--imx-text,#E6EBF3)}
+/* D-074 (UI audit H2): the app's drop-down (kit, window.imxKit.selects) on the Builder's selects, at the Builder's
+   field size and font; its colours, list and dark mode are the kit's. Compact in the top bar, the rich-text toolbar
+   and the colour-rule rows (as narrow as the native selects there were). */
+.dbb-overlay button.imx-dd-b.imx-dd-b.imx-dd-b{height:32px;font-family:inherit;font-size:12.5px;border-radius:8px;border-color:var(--line)}
+.dbb-overlay button.imx-dd-b.imx-dd-b.imx-dd-b.imx-dd-sm{height:32px;font-size:12.5px}
+.dbb-overlay .dbb-rte-bar button.imx-dd-b.imx-dd-b.imx-dd-b{height:28px;min-width:0!important;max-width:120px;padding:0 4px 0 7px;border-radius:6px;font-size:11.5px}
+.dbb-overlay .dbb-rule-main button.imx-dd-b.imx-dd-b.imx-dd-b{flex:0 1 auto;min-width:0!important;max-width:120px}
 `;
