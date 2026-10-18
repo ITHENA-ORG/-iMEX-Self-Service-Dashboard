@@ -52,6 +52,19 @@ describe('feature gates', () => {
     off.add('builder');
     expect([lic.builderLicensed(), lic.chatLicensed()]).toEqual([false, false]);
   });
+  it('D-073: the chat also needs genAi; the Alarm list needs alerts; other widget types need nothing', () => {
+    const off = new Set<string>(['genAi']);
+    setWindow({ has: (k: string) => !off.has(k) });
+    expect([lic.builderLicensed(), lic.chatLicensed()]).toEqual([true, false]);
+    off.clear();
+    expect(lic.chatLicensed()).toBe(true);
+    off.add('alerts');
+    expect([lic.widgetLicensed('alarms'), lic.widgetLicensed('value'), lic.widgetLicensed('table'), lic.alertsLicensed()]).toEqual([false, true, true, false]);
+    off.clear();
+    expect([lic.widgetLicensed('alarms'), lic.alertsLicensed()]).toEqual([true, true]);
+    vi.stubGlobal('window', new EventTarget()); // no licence API on the page: allowed
+    expect(lic.widgetLicensed('alarms')).toBe(true);
+  });
   it('mayBuild = the role AND the licence', () => {
     let on = true;
     setWindow({ has: () => on });

@@ -22,5 +22,5 @@ Rules:
 - Never run teardown; ask before setup/backfill/simulator. Back up before overwriting (`backups/<date>/`).
 - `DBB_DEPLOY` overwrites `dbb_profile_keys` (deploy-node.mjs passes the stored one back unless given) and, without
   `skipAppDashboard`, replaces the whole app dashboard configuration: read before you write.
-- Every change: tests (`npm test`, `npm run test:e2e`), `npm run build:widgets`, a `DECISIONS.md` entry (next: D-072), a
+- Every change: tests (`npm test`, `npm run test:e2e`), `npm run build:widgets`, a `DECISIONS.md` entry (next: D-074), a
   `docs/CHANGELOG.md` row; commit, push only when asked.

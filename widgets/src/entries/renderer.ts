@@ -54,7 +54,7 @@ import { openBuilder } from '../builder/builder';
 import { BUILDER_CSS } from '../builder/styles';
 import { modal, confirmModal, toast } from '../builder/ui';
 import { audit } from '../core/audit';
-import { mayBuild, builderLicensed, onLicenceChange, licHas, licenceApi } from '../core/licence';
+import { mayBuild, builderLicensed, onLicenceChange, licHas, licenceApi, widgetLicensed } from '../core/licence';
 import type { LicenceApi } from '../core/licence';
 import { userContextFor, currentEntity, currentParam, RSTATE_KEY, CHANGED_EVENT, notifyChanged, publishActions, EditAction, EditActions, scheduleRedraw, liveLend, liveRelease, pageGate, NO_ACCESS_HTML, isMobileApp } from './common';
 
@@ -117,6 +117,7 @@ html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn svg{color:var(--imx-a2,#7DD3F
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.34)}
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:focus-visible{box-shadow:0 0 0 3px rgba(125,211,252,.45)}
 html.imx-mobile .dbb-rbtn{width:40px;height:40px;padding:0}
+html.imx-mobile .dbb-rend .dbb-tw{height:40px;padding:0 10px 0 13px;border-radius:10px}
 html.imx-mobile .dbb-rright .dbb-upd{order:3;flex-basis:100%;justify-content:flex-end}
 html.imx-mobile .dbb-rbtn span{display:none}
 /* D-058: "Edit dashboard" (dashboards.build only): always the last button of the bar; open = the hover look */
@@ -747,7 +748,8 @@ export function init(tbCtx: any) {
       if (stale()) return;
     }
     const grid = ensureGrid(ctx, deviceId, range, dash?.theme);
-    const shown = dash ? dash.widgets : defaultWidgets(ctx, node.profile);
+    // D-073: a card whose module is not licensed (the alarm list without alerts) is not shown; the dashboard keeps it
+    const shown = (dash ? dash.widgets : defaultWidgets(ctx, node.profile)).filter((w) => widgetLicensed(w.type));
     grid.render(shown);
     barActions(ctx, deviceId, node, where, dash, shown, range);
     // Status pill after the grid has started loading (D-022): the header no longer holds up the widgets.
@@ -767,7 +769,7 @@ export function init(tbCtx: any) {
     const items: EditAction[] = [{ id: 'edit', label: dash ? 'Edit this dashboard' : 'Build a dashboard for this machine', hint: dash ? `Opens “${dash.name}” in the Dashboard Builder` : 'Opens the Dashboard Builder', icon: 'edit' }];
     if (canCustomise && dash) items.push({ id: 'cust', label: 'Customise for this machine', hint: `Gives ${node.label} its own copy`, icon: 'copy' });
     if (canReset) items.push({ id: 'reset', label: 'Reset to shared dashboard', hint: 'Deletes the customised copy', icon: 'reset', danger: true });
-    items.push({ id: 'thr', label: 'Alarm thresholds…', hint: 'Limits that raise alarms for this machine', icon: 'sliders' });
+    if (licHas('alerts')) items.push({ id: 'thr', label: 'Alarm thresholds…', hint: 'Limits that raise alarms for this machine', icon: 'sliders' }); // D-073
     if (res.candidates.length > 1)
       for (const c of res.candidates) items.push({ id: `switch:${c.dashboard.id}`, label: c.dashboard.name, hint: c.sourceLabel, group: 'switch', checked: c.dashboard.id === st.shownId, icon: 'eye' });
     if (level === 'personal') items.push({ id: 'clearp', label: 'Clear my personal view', icon: 'reset' });
@@ -1041,7 +1043,7 @@ export function init(tbCtx: any) {
     helpButton('dashboard_overview'); // D-063
     wirePill(ctx, null);
     shiftLabel(ctx, null);
-    ensureGrid(ctx, null, range, d.theme).render(d.widgets);
+    ensureGrid(ctx, null, range, d.theme).render(d.widgets.filter((w) => widgetLicensed(w.type))); // D-073
     const acts: Omit<EditActions, 'owner'> | null = mayBuild(ctx) // D-059: role AND licence
       ? { el: root, title: d.name, subtitle: `Dashboard overview · by ${d.ownerName}`, items: [{ id: 'edit', label: 'Edit this dashboard', hint: `Opens “${d.name}” in the Dashboard Builder`, icon: 'edit' }], run: () => openBuilder({ ctx, dashboardId: d.id, chatEnabled: tbCtx.settings?.chatEnabled !== false, onClose: (ch) => ch && notifyChanged() }) }
       : null;
@@ -1086,7 +1088,7 @@ export function init(tbCtx: any) {
   window.addEventListener(CHANGED_EVENT, onChanged);
   // D-059: the licence switched the Builder on or off: the bar's "Edit dashboard" and the published actions follow
   // D-068: also the bar's licensed buttons (Analyzer, Create playbook): the side menu answers yes before it knows
-  const licOff = onLicenceChange(() => `${builderLicensed()}|${licHas('analyzer')}|${licHas('playbooks')}`, () => void load());
+  const licOff = onLicenceChange(() => `${builderLicensed()}|${licHas('analyzer')}|${licHas('playbooks')}|${licHas('alerts')}`, () => void load());
   // Redraws (D-021): on WebSocket pushes (at most every 2 s) + every 60 s; if the socket is down, REST polling
   // every refreshSeconds (10 s) in realtime and every 60 s for historic ranges, as before.
   const stopRedraw = scheduleRedraw(

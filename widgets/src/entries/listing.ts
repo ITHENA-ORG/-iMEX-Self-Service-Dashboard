@@ -27,6 +27,7 @@ import type { UserContext, Node } from '../core/scope';
 import { CSS, ensureCss, esc, fmtNum, STATUS, loadFont } from '../render/theme';
 import { keyMeta } from '../render/widgets';
 import { ICON_SVG } from '../render/icons';
+import { alertsLicensed } from '../core/licence';
 import { userContext, stateEntity, CHANGED_EVENT, scheduleRedraw, liveLend, liveRelease, pageGate, NO_ACCESS_HTML } from './common';
 
 const L_CSS = `
@@ -144,11 +145,12 @@ function initMap(tbCtx: any, host: HTMLElement) {
           const run = stats.filter((x) => x.running).length;
           const alarms = stats.reduce((a, x) => a + x.alarms, 0);
           const pct = devs.length ? Math.round((run / devs.length) * 100) : 0;
+          const alOn = alertsLicensed(); // D-073
           return `<div class="dbb-site" role="button" tabindex="0" data-site="${n.id}" data-m="${devs.length}">
             <div class="dbb-site-h"><span class="dbb-pin"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span><b>${esc(n.label)}</b><span class="go">→</span></div>
-            <div class="dbb-stats"><div><span>Machines</span><b>${devs.length}</b></div><div><span>Running</span><b>${run}<small style="font-size:12px;color:var(--ink-3);font-weight:400"> / ${devs.length}</small></b></div><div><span>Alarms</span><b style="color:${alarms ? STATUS.critical : 'inherit'}">${alarms}</b></div></div>
+            <div class="dbb-stats"><div><span>Machines</span><b>${devs.length}</b></div><div><span>Running</span><b>${run}<small style="font-size:12px;color:var(--ink-3);font-weight:400"> / ${devs.length}</small></b></div>${alOn ? `<div><span>Alarms</span><b style="color:${alarms ? STATUS.critical : 'inherit'}">${alarms}</b></div>` : ''}</div>
             <div class="dbb-bar" style="--st:${STATUS.good}" title="${pct}% running"><i style="width:${pct}%"></i></div>
-            <div class="dbb-chip">${alarms ? `<span class="dbb-dot" style="background:${STATUS.critical}"></span>${alarms} active alarm${alarms > 1 ? 's' : ''}` : `<span class="dbb-dot" style="background:${STATUS.good}"></span>No active alarms`} · ${pct}% running</div></div>`;
+            <div class="dbb-chip">${!alOn ? `<span class="dbb-dot" style="background:${STATUS.good}"></span>${pct}% running` : `${alarms ? `<span class="dbb-dot" style="background:${STATUS.critical}"></span>${alarms} active alarm${alarms > 1 ? 's' : ''}` : `<span class="dbb-dot" style="background:${STATUS.good}"></span>No active alarms`} · ${pct}% running`}</div></div>`;
         }),
       );
       sitesEl.innerHTML = cards.join('');
@@ -238,7 +240,7 @@ export function init(tbCtx: any) {
       <div class="dbb-kv">${metas
         .map((m) => `<div><span>${esc(m.displayName)}</span><b>${lv[m.key] ? `${fmtNum(lv[m.key]!.value, m.decimals)}<small>${esc(m.unit)}</small>` : '—'}</b></div>`)
         .join('')}</div>
-      <div class="dbb-mc-f">${al.length ? `<span class="dbb-dot" style="background:${STATUS.critical}"></span><b style="color:${STATUS.critical}">${al.length} active alarm${al.length > 1 ? 's' : ''}</b>` : `<span class="dbb-dot" style="background:${STATUS.good}"></span>No active alarms`}${ts ? `<span style="margin-left:auto;color:var(--ink-3)">${agoTxt(ts)}</span>` : ''}</div></div>`;
+      <div class="dbb-mc-f">${!alertsLicensed() ? '' : al.length ? `<span class="dbb-dot" style="background:${STATUS.critical}"></span><b style="color:${STATUS.critical}">${al.length} active alarm${al.length > 1 ? 's' : ''}</b>` : `<span class="dbb-dot" style="background:${STATUS.good}"></span>No active alarms`}${ts ? `<span style="margin-left:auto;color:var(--ink-3)">${agoTxt(ts)}</span>` : ''}</div></div>`;
   };
 
   // Location card: counts over every device below the node (from the page's machineStats, D-022).
@@ -249,7 +251,7 @@ export function init(tbCtx: any) {
     const alarms = stats.reduce((a, s) => a + s.alarms, 0);
     const pct = devs.length ? Math.round((run / devs.length) * 100) : 0;
     return `<div class="dbb-mc" data-node="${n.id}" style="--st:${alarms ? STATUS.critical : STATUS.good}"><div class="dbb-mc-h"><span class="dbb-mc-ic">${ICON_SVG.pin}</span><div><div class="dbb-mc-t">${esc(n.label)}</div><div class="dbb-mc-s">${esc(n.profile)}</div></div><span style="color:var(--ink-3)">→</span></div>
-      <div class="dbb-kv"><div><span>Machines</span><b>${devs.length}</b></div><div><span>Active alarms</span><b style="color:${alarms ? STATUS.critical : 'inherit'}">${alarms}</b></div></div>
+      <div class="dbb-kv"><div><span>Machines</span><b>${devs.length}</b></div>${alertsLicensed() ? `<div><span>Active alarms</span><b style="color:${alarms ? STATUS.critical : 'inherit'}">${alarms}</b></div>` : ''}</div>
       <div class="dbb-mc-f"><span>${pct}% running</span></div><div class="dbb-bar" style="--st:${STATUS.good}"><i style="width:${pct}%"></i></div></div>`;
   };
 
@@ -363,7 +365,8 @@ async function machineStats(ctx: UserContext, devs: Node[]): Promise<Map<string,
   );
   const [lv, al] = await Promise.all([
     api.latestMany(req).catch(() => new Map<string, api.Latest>()),
-    api.activeAlarmCounts(devs.map((d) => d.id)).catch(() => new Map<string, number>()),
+    // D-073: no alarm counts (and no alarm read) without the Alarms module
+    (alertsLicensed() ? api.activeAlarmCounts(devs.map((d) => d.id)) : Promise.resolve(new Map<string, number>())).catch(() => new Map<string, number>()),
   ]);
   const out = new Map<string, MStat>();
   for (const d of devs) {

@@ -97,6 +97,7 @@ import type { ViewWindow } from '../core/viewwindow';
 import * as fmt from '../core/datefmt';
 import { cardSkeleton, topProgress, pageBusy } from './kit';
 import { compatible } from '../core/compat';
+import { widgetLicensed } from '../core/licence';
 import { SERIES, SERIES_DARK, STATUS, SEVERITY_COLOR, RAMP_BLUE, RAMP_ORANGE, esc, fmtNum, ago, miniMarkdown, fontStack, loadFont, safeUrl, darkColor } from './theme';
 import { lineChart, barChart, gauge, sparkline, donut, stateTimeline, heatmap, Slice, TimelineRow, HeatRow } from './charts';
 import { effectiveRules, matchRule, thresholdLines, stateLabel, valueType, asBool, cssColor } from './rules';
@@ -1051,6 +1052,9 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
   }
 
   if (w.type === 'alarms') {
+    // D-073: without the Alarms module the card stays empty (the renderer does not even place it; the Builder's canvas
+    // keeps it so a save does not lose it): nothing is read, no error
+    if (!widgetLicensed('alarms')) return void (body.innerHTML = '');
     // Alarms raised since the window start, per device, merged newest first and cut to maxRows.
     const lists = await Promise.all(devices.map((d) => api.alarms({ id: d.id, entityType: 'DEVICE' }, { status: s.alarmStatus ?? 'ANY', severities: s.severities, limit: s.maxRows ?? 20, startTs, endTs: ended ? endTs : undefined })));
     const all = lists
@@ -1248,6 +1252,7 @@ export function defaultWidgets(ctx: UserContext, profile: string): Widget[] {
     ws.push({ id: `def-trend-${m.key}`, type: 'line', title: `${m.displayName} trend`, x: trend.length === 1 ? 0 : i * 6, y: rows, w: trend.length === 1 ? 12 : 6, h: 4, binding: cur, keys: [m.key], settings: {} }),
   );
   const ay = rows + (trend.length ? 4 : 0);
+  if (!widgetLicensed('alarms')) return ws; // D-073: no alarm list without the Alarms module
   ws.push({ id: 'def-alarms', type: 'alarms', title: 'Active alarms', x: 0, y: ay, w: 12, h: 3, binding: cur, keys: [], settings: { alarmStatus: 'ACTIVE', maxRows: 10 } });
   return ws;
 }

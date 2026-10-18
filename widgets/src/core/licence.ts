@@ -12,7 +12,9 @@
  * Features used here:
  *   builder     the Build / Edit actions (renderer bar menu + published edit actions, launcher pencil menu, Dashboards
  *               page buttons and Edit, openBuilder). Viewing dashboards is core and never licence-gated.
- *   builder.ai  the Builder's Chat tab and its "Describe it in chat" tiles (the side menu's has() also needs the parent).
+ *   builder.ai  the Builder's Chat tab and its "Describe it in chat" tiles (the side menu's has() also needs the parent);
+ *               with genAi (D-073).
+ *   alerts      the Alarm list widget, alarm counts on the listing cards (D-073).
  *
  * LLM metering (DESIGN 10.4, since D-066 / CC-013 §12.5): every provider call is metered SERVER-side, by the chat relay
  * rule chain, as one telemetry point `llm_builder` on the tenant-only asset "iMEX Keeper" (customer users can neither
@@ -54,8 +56,22 @@ export function licHas(key: string, L: LicenceApi | null = licenceApi()): boolea
 
 /** Building and editing dashboards is licensed (feature `builder`). */
 export const builderLicensed = (L: LicenceApi | null = licenceApi()) => licHas('builder', L);
-/** The Builder's chat assistant is licensed (`builder.ai`, a sub-feature of `builder`). */
-export const chatLicensed = (L: LicenceApi | null = licenceApi()) => licHas('builder', L) && licHas('builder.ai', L);
+/**
+ * The Builder's chat assistant is licensed (`builder.ai`, a sub-feature of `builder`) AND generative AI is (`genAi`;
+ * D-073: the chat relay refuses a turn without it anyway, so the Chat tab is not offered at all, App UI U-102).
+ */
+export const chatLicensed = (L: LicenceApi | null = licenceApi()) => licHas('builder', L) && licHas('builder.ai', L) && licHas('genAi', L);
+
+/**
+ * D-073 (App UI U-102: a module the licence drops is gone from every page): widget types that need a licensed module.
+ * The Alarm list needs `alerts`. Without it the type is not in the palette, the templates, the default machine
+ * dashboard or the chat; a saved dashboard keeps its alarm card (stored data stays) but the card is not shown.
+ */
+export const WIDGET_LIC: Readonly<Record<string, string>> = { alarms: 'alerts' };
+/** The licence allows widget type `t` (always true for a type that needs no module). */
+export const widgetLicensed = (t: string, L: LicenceApi | null = licenceApi()) => !WIDGET_LIC[t] || licHas(WIDGET_LIC[t], L);
+/** Alarms are licensed (`alerts`): alarm lists, alarm counts and chips. */
+export const alertsLicensed = (L: LicenceApi | null = licenceApi()) => licHas('alerts', L);
 /** The role may build (`dashboards.build`) AND the licence includes the Builder. */
 export const mayBuild = (ctx: { canBuild: boolean } | null | undefined, L: LicenceApi | null = licenceApi()) => !!ctx?.canBuild && builderLicensed(L);
 

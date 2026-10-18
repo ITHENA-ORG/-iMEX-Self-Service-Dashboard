@@ -46,6 +46,8 @@ export interface Template {
   swatch: [string, string, string];
   /** Informational: the template compares same-type machines at a location (not read by the builder yet). */
   needsSiblings?: boolean;
+  /** D-073: the licence feature the template is about (not offered without it, e.g. the alarm board needs `alerts`). */
+  needs?: string;
   /**
    * Creates the widgets (fresh ids, positions on the 12-column grid).
    * @param ctx User context; only `profileKeys` is read.
@@ -191,6 +193,7 @@ export const TEMPLATES: Template[] = [
     timeRange: 'realtime',
     swatch: ['#141a23', '#3987e5', '#d03b3b'],
     needsSiblings: true,
+    needs: 'alerts',
     build(ctx, profile) {
       const k = pickKeys(ctx, profile);
       const ws: Widget[] = [header('<h2><span style="color: #3987e5">●</span> {{machine}} health</h2>')];

@@ -418,7 +418,7 @@ class Builder {
     window.addEventListener('imx-mode-changed', this.modeHandler);
     // D-059: the licence changed: Chat tab and tiles follow builder.ai, the banner and Save follow builder
     this.licOff = lic.onLicenceChange(
-      () => `${lic.builderLicensed()}|${lic.chatLicensed()}`,
+      () => `${lic.builderLicensed()}|${lic.chatLicensed()}|${lic.alertsLicensed()}`,
       () => this.licenceChanged(),
     );
     if (this.o.pageKey) {
@@ -446,7 +446,13 @@ class Builder {
     if (this.tab === 'chat' && !this.chatOn()) this.tab = 'settings';
     this.renderBanner();
     this.renderRight();
-    if (!this.draft.widgets.length) this.renderCanvas();
+    this.renderLeft(); // D-073: the palette follows the modules (the Alarm list needs alerts)
+    this.renderCanvas();
+  }
+
+  /** D-073: the templates the licence allows (the alarm board needs alerts). */
+  templates(): typeof TEMPLATES {
+    return TEMPLATES.filter((t) => !t.needs || lic.licHas(t.needs));
   }
 
   /**
@@ -726,6 +732,7 @@ class Builder {
    * machine type fits. Selects the new widget and opens the Widget tab.
    */
   addWidget(type: WidgetType, at?: { x: number; y: number }) {
+    if (!lic.widgetLicensed(type)) return; // D-073: not in the palette without its module
     if (this.draft.widgets.length >= MAX_WIDGETS) return toast(this.root, `A dashboard can have at most ${MAX_WIDGETS} widgets.`, 'warn');
     const size = DEFAULT_SIZE[type];
     const profile = this.draft.profile ?? (this.deviceId ? this.ctx.nodes.get(this.deviceId)?.profile ?? null : null);
@@ -1046,7 +1053,7 @@ class Builder {
     const match = (t: WidgetType) => !f || WIDGET_LABELS[t].toLowerCase().includes(f) || HELP[t].toLowerCase().includes(f);
     left.innerHTML = `<div class="dbb-pal-search"><input type="search" placeholder="Search widgets" value="${esc(this.palFilter)}" aria-label="Search widgets"/></div>
       ${WIDGET_GROUPS.map((g) => {
-        const ts = g.types.filter(match);
+        const ts = g.types.filter((t) => match(t) && lic.widgetLicensed(t)); // D-073
         if (!ts.length) return '';
         return `<div class="dbb-sec">${esc(g.title)}</div><div class="dbb-palette">${ts
           .map((t) => {
@@ -1126,7 +1133,7 @@ class Builder {
     empty.hidden = this.draft.widgets.length > 0;
     if (!this.draft.widgets.length) {
       const n = this.deviceId ? this.ctx.nodes.get(this.deviceId) : null;
-      const tpls = n ? TEMPLATES.slice(0, 4) : [];
+      const tpls = n ? this.templates().slice(0, 4) : [];
       empty.innerHTML = !n
         ? this.startScreenHtml()
         : `<div class="dbb-empty-card">
@@ -1217,12 +1224,12 @@ class Builder {
    * One undo step.
    */
   async useTemplate(id: string) {
-    const t = TEMPLATES.find((x) => x.id === id);
+    const t = this.templates().find((x) => x.id === id);
     const n = this.deviceId ? this.ctx.nodes.get(this.deviceId) : null;
     if (!t) return;
     if (!n) return toast(this.root, 'Pick a machine at the top first; templates adapt to its properties.', 'warn');
     if (this.draft.widgets.length && !(await confirmModal(this.root, `Use “${t.name}”?`, 'This replaces the widgets and theme of the current draft. You can undo it.', 'Use template'))) return;
-    const ws = t.build(this.ctx, n.profile, n.id);
+    const ws = t.build(this.ctx, n.profile, n.id).filter((w) => lic.widgetLicensed(w.type)); // D-073
     if (!ws.length) return toast(this.root, `${n.profile} has no suitable properties for this template.`, 'warn');
     this.mutate((d) => {
       d.profile = n.profile;
@@ -1243,7 +1250,7 @@ class Builder {
       this.root,
       'Start from a template',
       `${n ? `<div class="dbb-hint">Templates adapt to the properties of <b>${esc(n.profile)}</b> machines. You can change everything afterwards.</div>` : `<div class="dbb-banner warn">Pick a machine at the top first; templates adapt to its properties.</div>`}
-       <div class="dbb-tpl-grid">${TEMPLATES.map((t) => this.tplCard(t)).join('')}</div>`,
+       <div class="dbb-tpl-grid">${this.templates().map((t) => this.tplCard(t)).join('')}</div>`,
       [['cancel', 'Close']],
     );
     m.body.querySelectorAll<HTMLElement>('[data-tpl]').forEach((b) =>
@@ -1464,6 +1471,7 @@ class Builder {
     const typeOpts = WIDGET_GROUPS.map(
       (g) =>
         `<optgroup label="${esc(g.title)}">${g.types
+          .filter((t) => t === w.type || lic.widgetLicensed(t)) // D-073
           .map((t) => {
             const bad = t !== w.type && !CONTENT_TYPES.has(t) && t !== 'alarms' && metas.length > 0 && !metas.some((m) => this.fits(t, m, w, true).ok);
             return `<option value="${t}" ${t === w.type ? 'selected' : ''} ${bad ? 'disabled' : ''}>${WIDGET_LABELS[t]}${bad ? ' — no suitable property' : ''}</option>`;

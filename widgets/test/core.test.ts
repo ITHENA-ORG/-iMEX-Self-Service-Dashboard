@@ -704,3 +704,50 @@ describe('D-033 state URL, data clock, wording', () => {
     expect(d({ bgFit: 'stretch' })).toBe(false);
   });
 });
+
+// D-073 (App UI U-102): a module the licence drops is gone from the Builder: the Alarm list without `alerts`
+describe('module gates (D-073)', () => {
+  const out = (ops: any[]) => chat.normaliseToolInput({ reply: 'ok', ops });
+  const withLicence = (off: string[]) => {
+    const w: any = new EventTarget();
+    w.__imexLicence = { has: (k: string) => !off.includes(k) };
+    vi.stubGlobal('window', w);
+  };
+
+  it('the chat leaves an alarm list out without alerts, and says nothing of alarms', async () => {
+    const ctx = await ctxFor('Manager', ['ric']);
+    const cat = chat.buildCatalog(ctx);
+    const rcA = cat.byId.get('rc')!;
+    const ops = [
+      { op: 'addWidget', type: 'value', title: 'P', binding: { mode: 'fixed', machines: [rcA] }, keys: ['dischargePressure'] },
+      { op: 'addWidget', type: 'alarms', title: 'Alarms', binding: { mode: 'fixed', machines: [rcA] }, keys: [] },
+    ];
+    withLicence(['alerts']);
+    const res = chat.applyOps(ctx, store.blankDashboard(ctx, 'x', null), out(ops), cat);
+    expect(res.draft.widgets.map((w) => w.type)).toEqual(['value']);
+    expect(res.warnings.join(' ')).toMatch(/alarm list cannot be added/);
+    expect(chat.systemPrompt(ctx, cat, null)).toMatch(/This app has no alarm list/);
+    expect(chat.suggestedPrompts(ctx, null).join(' ')).not.toMatch(/Alarm/);
+    // a type change to an alarm list is left out too
+    const d1 = { ...store.blankDashboard(ctx, 'x', 'Compressor'), widgets: [widget()] } as any;
+    const r2 = chat.applyOps(ctx, d1, out([{ op: 'updateWidget', widget: 'W1', type: 'alarms' }]), cat);
+    expect(r2.draft.widgets[0].type).toBe('value');
+    withLicence([]);
+    const all = chat.applyOps(ctx, store.blankDashboard(ctx, 'x', null), out(ops), cat);
+    expect(all.draft.widgets.map((w) => w.type).sort()).toEqual(['alarms', 'value']);
+    expect(chat.systemPrompt(ctx, cat, null)).not.toMatch(/This app has no alarm list/);
+    vi.unstubAllGlobals();
+  });
+
+  it('the default machine dashboard has no alarm list without alerts; templates follow', async () => {
+    const { defaultWidgets } = await import('../src/render/widgets');
+    const { TEMPLATES } = await import('../src/render/templates');
+    const ctx = await ctxFor('Admin', ['root']);
+    withLicence(['alerts']);
+    expect(defaultWidgets(ctx, 'Compressor').some((w) => w.type === 'alarms')).toBe(false);
+    withLicence([]);
+    expect(defaultWidgets(ctx, 'Compressor').some((w) => w.type === 'alarms')).toBe(true);
+    expect(TEMPLATES.filter((t) => t.needs === 'alerts').map((t) => t.id)).toEqual(['alarms']);
+    vi.unstubAllGlobals();
+  });
+});

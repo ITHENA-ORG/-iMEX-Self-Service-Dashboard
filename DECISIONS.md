@@ -1098,3 +1098,28 @@ Akshay: on smaller screens the options wrap to a second line (fine) but the alig
 - `widgets/src/core/perm.ts`: the Playbooks page row moved to the side menu section "ACT" (menu restructure U-099);
   no permission changed. `test/perm-vectors.json` and `test/format-vectors.json` are byte-identical copies of App UI's
   (India region: week starts on Monday, U-098).
+
+### D-073 A module the licence drops is gone from the Builder too, 18 Oct 2026 (Round 10 stream L2, Akshay; App UI U-102)
+Akshay: "the module addition or specially the removal - removes it from all the pages where it is used ... Verify
+once." App UI U-102 found the Alarm list offered without `alerts`. Same principle here: module off = gone, stored data
+kept, back with the module. One place: `core/licence.ts` `WIDGET_LIC` (`alarms: 'alerts'`), `widgetLicensed(type)`,
+`alertsLicensed()`.
+- **Alarm list without `alerts`**: not in the palette or a widget's Type list (a saved alarm card keeps its own type
+  there), refused by `addWidget` (a stale palette / drop); the "Alarm & health board" template is not offered
+  (`Template.needs`) and the other templates leave their alarm list out; the default machine dashboard has none;
+  the chat drops an `addWidget` / type change to `alarms` with a short warning, the system prompt says the app has no
+  alarm list, and "Alarm list for everything I can see" is not suggested.
+- **Existing dashboards with an alarm card**: the renderer (machine page and dashboard overview) does not place the
+  card, no alarm is read, no error; in the Builder the card stays (empty) so a save does not lose it. The renderer and
+  the Builder re-render when `alerts` changes (`onLicenceChange` probes).
+- **Machine page edit menu**: "Alarm thresholds…" only with `alerts` (it edits the limits that raise alarms).
+- **Listing / map stand-in**: no alarm counts (no alarm query), no Alarms stat or "N active alarms" chip without `alerts`.
+- **Chat assistant** (`chatLicensed`): `builder` AND `builder.ai` AND `genAi` (the relay chain already refused a turn
+  without genAi, D-066; now the Chat tab and "Describe it in chat" are not offered at all).
+- Checked, nothing to gate: no Reports links, SPC or Energy & Carbon widgets in the Builder (the "Energy &
+  performance" template reads raw power telemetry, not the Energy module); the Analyzer and Create playbook bar
+  buttons were already gated (D-059 / D-068).
+- Tests: `test/licence.test.ts` (genAi for the chat, widgetLicensed), `test/core.test.ts` "module gates (D-073)"
+  (chat apply / prompt / suggestions, default dashboard, templates); tsc clean, vitest 385 pass. Built and deployed to
+  LOCAL (`deploy-node.mjs --go`, lib 2026-10-18T16:00:45Z). Not run: e2e. The coordinator's uncommitted phone
+  `.dbb-tw` line in `entries/renderer.ts` is kept.
