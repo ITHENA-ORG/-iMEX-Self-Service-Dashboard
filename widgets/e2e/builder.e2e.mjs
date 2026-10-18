@@ -2380,7 +2380,7 @@ test('D-063: "?" Help for this page at the right end of the machine bar and the 
       const others = [...h.querySelectorAll('.dbb-rbtn, .dbb-tw')].map((x) => x.getBoundingClientRect());
       const s = getComputedStyle(b);
       return {
-        last: h.lastElementChild === b,
+        last: (h.querySelector(':scope > .dbb-rright') ?? h).lastElementChild === b, // D-071: the last item of the right-hand group
         w: r.width,
         h: r.height,
         svg: b.querySelector('svg').getBoundingClientRect().width,
@@ -2401,6 +2401,13 @@ test('D-063: "?" Help for this page at the right end of the machine bar and the 
   await t.page.waitForTimeout(300);
   g = await geo();
   ok(g.iconOnly && g.fits && g.rightmost, `1100 px: the bar buttons stay icon-only, the "?" at the right end: ${JSON.stringify(g)}`);
+  // D-071 (U-096): too narrow for one line: the time window and the buttons on a second line from the title's left edge, the "?" at its right end
+  await t.page.setViewportSize({ width: 560, height: 800 });
+  await t.page.waitForTimeout(400);
+  const w2 = await t.b(() => { const h = document.querySelector('.dbb-rhead'), r = h.querySelector(':scope > .dbb-rright'), f = h.firstElementChild, b = h.querySelector('.dbb-rhelp'); const rr = r.getBoundingClientRect(), fr = f.getBoundingClientRect(), br = b.getBoundingClientRect(), hr = h.getBoundingClientRect(); return { wrap: h.classList.contains('dbb-wrap'), below: rr.top >= fr.bottom - 1, left: Math.abs(rr.left - fr.left) <= 1, helpRight: Math.abs(hr.right - parseFloat(getComputedStyle(h).paddingRight) - br.right) <= 2 }; });
+  eq(w2, { wrap: true, below: true, left: true, helpRight: true }, 'two-line bar aligned under the title');
+  await t.page.setViewportSize({ width: 1100, height: 800 });
+  await t.page.waitForTimeout(400);
   await t.click('.dbb-rhelp');
   await t.page.waitForTimeout(200);
   eq(await t.b(() => [window.__stateId(), window.__stateParams()]), ['help', { helpFrom: 'machine' }], 'opens Help told it came from the machine page');
@@ -2413,7 +2420,7 @@ test('D-063: "?" Help for this page at the right end of the machine bar and the 
   await t.page.click('.dbb-dl [data-open="sa7"]');
   await t.page.waitForFunction(() => /SA VALUE 7/.test(document.querySelector('.dbb-rbody')?.textContent ?? ''), null, { timeout: 5000 });
   await t.page.waitForSelector('.dbb-rhead .dbb-rhelp');
-  ok(await t.b(() => document.querySelector('.dbb-rhead').lastElementChild.classList.contains('dbb-rhelp')), 'the "?" ends the Dashboard Overview bar');
+  ok(await t.b(() => { const h = document.querySelector('.dbb-rhead'); return (h.querySelector(':scope > .dbb-rright') ?? h).lastElementChild.classList.contains('dbb-rhelp'); }), 'the "?" ends the Dashboard Overview bar');
   await t.click('.dbb-rhelp');
   await t.page.waitForTimeout(200);
   eq(await t.b(() => [window.__stateId(), window.__stateParams()]), ['help', { helpFrom: 'dashboard_overview' }], 'opens Help told it came from the Dashboard Overview page');

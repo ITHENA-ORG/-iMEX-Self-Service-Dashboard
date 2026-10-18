@@ -41,7 +41,34 @@ const opts = Object.assign(
   { customerTitle: 'ITHENA', storeName: 'DBB-STORE-ITHENA', userEmails: [] },
   existsSync('deploy.local.json') ? JSON.parse(readFileSync('deploy.local.json', 'utf8')) : {},
 );
-const { base, token, api } = await tbLogin();
+const { base, token, api, all } = await tbLogin();
+
+// LOCAL, chain only (D-070): node widgets/deploy/deploy-node.mjs --chain-only [--go]. Rewrites "DBB Chat relay (POC)"
+// from deploy-browser.js and links the store to the app's configuration asset (UsesAppConfig, the AI switches); the
+// widget types, bundle, store attributes and dashboards are NOT touched (a chain change while the widgets' build may be
+// someone else's work in progress).
+if (process.argv.includes('--chain-only')) {
+  globalThis.window = globalThis;
+  await import('./deploy-browser.js');
+  const o = Object.assign({}, window.DBB_DEPLOY_DEFAULTS, opts);
+  const rc = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('DBB Chat relay')}`)).find((x) => x.name === 'DBB Chat relay (POC)');
+  if (!rc) { console.error('no rule chain "DBB Chat relay (POC)": run the full deploy (--go) first'); process.exit(1); }
+  const keeper = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Licence keeper')}`)).find((x) => x.name === 'iMEX Licence keeper');
+  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeper ? keeper.id.id : null);
+  const store = await api('GET', `/api/tenant/assets?assetName=${encodeURIComponent(o.storeName)}`, undefined, true);
+  const appCfg = await api('GET', `/api/tenant/assets?assetName=${encodeURIComponent(o.appConfigName)}`, undefined, true);
+  console.log(`chain "${rc.name}": ${nodes.length} nodes / ${connections.length} links (key from ${o.llmConfigName}, AI switches from ${o.appConfigName}); store ${store ? store.name : 'MISSING'}`);
+  if (!process.argv.includes('--go')) { console.log('Dry run. Re-run with --chain-only --go.'); process.exit(0); }
+  const cur = await api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
+  await api('POST', '/api/ruleChain/metadata', { ruleChainId: rc.id, version: cur.version, firstNodeIndex: 0, nodes, connections, ruleChainConnections: null });
+  console.log('rule chain written');
+  if (store && appCfg) {
+    const rel = { from: store.id, to: appCfg.id, type: 'UsesAppConfig', typeGroup: 'COMMON' };
+    await api('POST', '/api/v2/relation', rel).catch(() => api('POST', '/api/relation', rel));
+    console.log(`store ${store.name} --UsesAppConfig--> ${appCfg.name}`);
+  } else console.log(`NOTE: ${store ? 'no asset "' + o.appConfigName + '"' : 'no store'}: the chat answers "could not read the AI switches"`);
+  process.exit(0);
+}
 
 if (!opts.profileKeys) {
   const store = await api('GET', `/api/tenant/assets?assetName=${encodeURIComponent(opts.storeName)}`, undefined, true);

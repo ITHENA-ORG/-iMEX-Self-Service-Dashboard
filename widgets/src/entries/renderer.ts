@@ -163,6 +163,11 @@ html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rhelp{color:rgba(219,229,245,.82)}
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rhelp:hover{background:rgba(255,255,255,.12);color:#FFFFFF}
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rhelp:focus-visible{outline:2px solid rgba(255,255,255,.7);outline-offset:1px}
 .dbb-rhelp[hidden],html.imx-mobile .dbb-rhelp{display:none !important}
+/* D-071 (U-096): the bar on two lines (dbb-wrap, measured in init): the title line, then the time window and the buttons
+   from the left edge under the title, the "?" at the right end; even padding above and below */
+.dbb-root.dbb-rend .dbb-rhead.dbb-wrap{padding-top:10px;padding-bottom:10px;row-gap:8px}
+.dbb-root.dbb-rend .dbb-rhead.dbb-wrap>.dbb-rright{flex:1 1 100%;margin-left:0;justify-content:flex-start}
+.dbb-root.dbb-rend .dbb-rhead.dbb-wrap>.dbb-rright>.dbb-rhelp{margin-left:auto}
 .dbb-rhead-skel{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 .dbb-rhead-skel .imx-skel{flex:none;height:14px}
 .dbb-dark .dbb-rhead-skel .imx-skel{--imx-skel1:rgba(255,255,255,.07);--imx-skel2:rgba(255,255,255,.13)}
@@ -520,6 +525,33 @@ export function init(tbCtx: any) {
   const root = host.querySelector('.dbb-rend') as HTMLElement;
   const head = root.querySelector('.dbb-rhead') as HTMLElement;
   const gridHost = root.querySelector('.dbb-rgrid') as HTMLElement;
+  // D-071 (U-096): a bar too narrow for one line puts the time window and the buttons on a second line; that line
+  // starts under the title (left-aligned, the "?" at its right end) instead of hanging right-aligned under it. The class
+  // dbb-wrap is set by measuring the one-line layout (no class) after every size or content change of the bar.
+  let fitRaf = 0;
+  const fitHead = () => {
+    fitRaf = 0;
+    const right = head.querySelector(':scope > .dbb-rright') as HTMLElement | null;
+    const first = head.firstElementChild as HTMLElement | null;
+    head.classList.remove('dbb-wrap');
+    if (!right || !first || first === right) return;
+    head.classList.toggle('dbb-wrap', right.getBoundingClientRect().top >= first.getBoundingClientRect().bottom - 1);
+  };
+  const scheduleFit = () => {
+    if (!fitRaf) fitRaf = requestAnimationFrame(fitHead);
+  };
+  const headRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleFit) : null;
+  const watchHead = () => {
+    if (!headRO) return;
+    headRO.disconnect();
+    headRO.observe(head);
+    const right = head.querySelector(':scope > .dbb-rright');
+    if (right) headRO.observe(right);
+    scheduleFit();
+  };
+  const headMO = typeof MutationObserver !== 'undefined' ? new MutationObserver(watchHead) : null;
+  headMO?.observe(head, { childList: true });
+  watchHead();
 
   // (Re)loads from the dashboard state: a DEVICE entity -> showDevice; else a `dbbDashboardId` state
   // param or settings.dashboardId -> showStandalone; else a placeholder. `force` reloads the user context.
@@ -832,7 +864,8 @@ export function init(tbCtx: any) {
       const at = helpFrom(tbCtx, fallback);
       if (at) goPage(HELP_STATE, { helpFrom: at });
     });
-    head.appendChild(b);
+    // D-071: inside the right-hand group (its last item), so it wraps with the time window and the buttons
+    (head.querySelector(':scope > .dbb-rright') ?? head).appendChild(b);
   }
   /**
    * Opens another app page with the app's page bar until it is ready (key 'nav' + window.__imxNav, which the next page's
@@ -1112,6 +1145,9 @@ export function init(tbCtx: any) {
     closeBarMenu(root);
     closeWindowMenu(root);
     st.grid?.destroy();
+    headMO?.disconnect(); // D-071
+    headRO?.disconnect();
+    if (fitRaf) cancelAnimationFrame(fitRaf);
   };
   // onStateChanged: reload only if the page key changed (the watch may already have done it).
   (tbCtx as any).__dbbReload = () => {

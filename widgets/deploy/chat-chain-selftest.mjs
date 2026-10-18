@@ -182,8 +182,11 @@ function fakeServer(meta0, opt = {}) {
         meta.nodes.forEach((n, i) => { n.id = { id: 'm' + i }; n.ruleChainId = { id: 'rc' }; n.singletonMode = n.singletonMode || false; n.queueName = n.queueName || null; });
         return meta;
       }
+      if (path === '/api/v2/relation' && method === 'POST' && body.type === 'UsesAppConfig') return body;   // D-070
       throw new Error(`fake server: unexpected ${method} ${path}`);
     }
+    // D-070: store --UsesAppConfig--> System Configuration (present unless opt.noAppRel)
+    if (/relationType=UsesAppConfig$/.test(path)) return opt.noAppRel ? [] : [{ from: { entityType: 'ASSET', id: 'store1' }, to: { entityType: 'ASSET', id: 'sc' }, type: 'UsesAppConfig' }];
     if (path === '/api/ruleChain/rc/metadata') { reads++; if (opt.editOnRead === reads) setNode(meta, 'Call OpenAI', (n) => { n.configuration.readTimeoutMs = 1; }); return clone(meta); }
     if (path === '/api/assetProfile/ap') return { id: { id: 'ap' }, name: 'DashboardStore', defaultRuleChainId: { id: 'rc' } };
     let m = /^\/api\/relations\?fromId=([^&]+)&fromType=ASSET&relationType=UsesLlmConfig$/.exec(path);
@@ -283,4 +286,35 @@ test('first server run with the 8 Oct server backup as base and as the server: o
   const untouched = r.actions.filter((a) => a.action === 'same').map((a) => a.name);
   // nodes D-066 did not change compare equal although the server copy is the STORED form: TB keeps configurations as sent
   for (const n of ['Is chat request', 'Read LLM settings', 'Call Claude', 'Save reply attribute']) assert.ok(untouched.includes(n), n + ' same');
+});
+
+// D-070: the AI switches relation (store --UsesAppConfig--> System Configuration)
+test('server mode: a missing UsesAppConfig relation is shown in the dry run and added with --go, also when the chain is current', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'chat-chain-rel-'));
+  const base = await writeBase(dir, baseMeta());
+  const srv = fakeServer(baseMeta(), { noAppRel: true });
+  const dry = await run(srv, { base });
+  assert.equal(dry.code, 0); assert.deepEqual(srv.writes, []);
+  assert.match(dry.text, /relation UsesAppConfig to "System Configuration" missing from DashboardStore: added with --go/);
+  const go = await run(srv, { base, go: true });
+  assert.equal(go.code, 0, go.text);
+  assert.deepEqual(srv.writes, [['POST', '/api/ruleChain/metadata'], ['POST', '/api/v2/relation']]);
+  const current = fakeServer(OURS, { noAppRel: true });
+  const b2 = await writeBase(dir, OURS);
+  const only = await run(current, { base: b2, go: true });
+  assert.equal(only.code, 0, only.text); assert.deepEqual(current.writes, [['POST', '/api/v2/relation']]);
+  assert.match(only.text, /relation added: DashboardStore --UsesAppConfig--> System Configuration/);
+});
+
+test('the chain reads the AI switches first and the gate stops the request when they are off', () => {
+  const n = OURS.nodes.map((x) => x.name);
+  const at = (name) => n.indexOf(name);
+  assert.ok(at('Read AI switches') >= 0 && at('AI switches unreadable') >= 0);
+  const link = (f, t, type) => OURS.connections.some((c) => c.fromIndex === at(f) && c.toIndex === at(t) && c.type === type);
+  assert.ok(link('Is chat request', 'Read AI switches', 'True') && !link('Is chat request', 'Licence and AI usage', 'True'));
+  assert.ok(link('Read AI switches', 'Licence and AI usage', 'Success') && link('Read AI switches', 'AI switches unreadable', 'Failure'));
+  assert.ok(link('AI switches unreadable', 'Licence and AI usage', 'Success'));
+  const sw = OURS.nodes[at('Read AI switches')].configuration;
+  assert.deepEqual(sw.dataMapping, { imexLlm: 'llmSw' }); assert.equal(sw.relationsQuery.filters[0].relationType, 'UsesAppConfig');
+  assert.ok(link('Save the meter point', 'Recount (licence keeper)', 'Success'), 'the keeper link follows the renumbering');
 });

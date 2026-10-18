@@ -35,6 +35,17 @@ const cases = [
   ['another instance', { lStatus: JSON.stringify({ parsed }), lBind: JSON.stringify({ instanceId: 'X' }) }, (o) => o.metadata.error === 'NOT_LICENSED'],
   ['no licence, enforce by default', {}, (o) => o.metadata.error === 'NOT_LICENSED'],
   ['development binding', { lBind: JSON.stringify({ instanceId: 'I', mode: 'dev-open' }) }, (o) => !o.metadata.error],
+  // D-070: the app's AI switches (imexLlm, App UI U-097)
+  ...((L) => [
+    ['switches on', { ...L, llmSw: JSON.stringify({ enabled: true, features: { reports: false } }) }, (o) => !o.metadata.error && o.metadata.llmSw == null],
+    ['switches not migrated (no attribute)', { ...L }, (o) => !o.metadata.error],
+    ['master off', { ...L, llmSw: JSON.stringify({ enabled: false, features: {} }) }, (o) => o.metadata.error === 'AI_OFF'],
+    ['master not exactly true', { ...L, llmSw: JSON.stringify({ enabled: 'true' }) }, (o) => o.metadata.error === 'AI_OFF'],
+    ['builder off', { ...L, llmSw: JSON.stringify({ enabled: true, features: { builder: false } }) }, (o) => o.metadata.error === 'AI_OFF'],
+    ['switches unreadable (no relation)', { ...L, llmSwErr: '1' }, (o) => o.metadata.error === 'AI_SW' && o.metadata.llmSwErr == null],
+    ['switches not an object', { ...L, llmSw: '[1]' }, (o) => o.metadata.error === 'AI_SW'],
+    ['off wins over the licence', { llmSw: JSON.stringify({ enabled: false }) }, (o) => o.metadata.error === 'AI_OFF'],
+  ])({ lStatus: JSON.stringify({ parsed }), lBind: B, lUsage: JSON.stringify({ month, total: 1 }) }),
 ];
 let fail = 0;
 for (const [name, md, test] of cases) {

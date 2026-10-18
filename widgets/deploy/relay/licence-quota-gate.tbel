@@ -1,0 +1,46 @@
+function asObj(v) { if (v is String) { if (v == "") { return null; } return JSON.parse(v); } return v; }
+function isMap(v) { return v != null && v is java.util.Map; }
+function ms(v) { if (v is String && v.length() >= 20) { return new Date(v).getTime(); } return new Date(0).getTime(); }
+var st = asObj(metadata.lStatus);
+var bind = asObj(metadata.lBind);
+var use = asObj(metadata.lUsage);
+var now = new Date().getTime();
+var mode = "none";
+if (isMap(bind) && bind.mode == "dev-open") { mode = "open"; }
+else if (isMap(st) && isMap(st.parsed) && isMap(bind) && bind.instanceId is String && st.parsed.instanceId == bind.instanceId) {
+  var p = st.parsed;
+  var exp = ms(p.expiresAt);
+  var grace = 14.0;
+  if (p.graceDays is Number) { grace = p.graceDays * 1.0; }
+  if (p.status is String && p.status.toLowerCase() == "suspended") { mode = "suspended"; }
+  else if (exp > 0 && now <= exp) { mode = "active"; }
+  else if (exp > 0 && now <= exp + grace * 86400000.0) { mode = "grace"; }
+  else { mode = "expired"; }
+}
+var ok = mode == "open";
+var limit = 0;
+if (mode == "active" || mode == "grace") {
+  var f = st.parsed.features;
+  ok = isMap(f) && f.builder == true && f["builder.ai"] == true && f.genAi == true;
+  var l = st.parsed.limits;
+  if (isMap(l) && l.llmCallsPerMonth is Number && l.llmCallsPerMonth > 0) { limit = l.llmCallsPerMonth; }
+}
+if (!ok) { metadata.error = "NOT_LICENSED"; }
+else if (limit > 0) {
+  var used = 0;
+  if (isMap(use) && use.month == new Date().toISOString().substring(0, 7) && use.total is Number) { used = use.total; }
+  if (used >= limit) { metadata.error = "QUOTA"; metadata.qUsed = "" + used; metadata.qLimit = "" + limit; }
+}
+var sw = asObj(metadata.llmSw);
+if (metadata.llmSwErr == "1") { metadata.error = "AI_SW"; }
+else if (sw != null) {
+  if (!isMap(sw)) { metadata.error = "AI_SW"; }
+  else if (!(sw.enabled is Boolean) || sw.enabled != true) { metadata.error = "AI_OFF"; }
+  else if (isMap(sw.features) && sw.features.builder is Boolean && sw.features.builder == false) { metadata.error = "AI_OFF"; }
+}
+metadata.remove("llmSw");
+metadata.remove("llmSwErr");
+metadata.remove("lStatus");
+metadata.remove("lBind");
+metadata.remove("lUsage");
+return {msg: msg, metadata: metadata, msgType: msgType};

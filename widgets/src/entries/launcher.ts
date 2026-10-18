@@ -494,6 +494,10 @@ const DL_CSS = `
 .dbb-dl .main{flex:1;min-width:0}
 .dbb-dl .nm{display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:600;color:#0f1a2a}
 .dbb-dl .nm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* D-071 (U-096): on a narrow page the tags go to a line of their own instead of squeezing the name to nothing */
+.dbb-dl .nm{flex-wrap:wrap;row-gap:3px}
+.dbb-dl .nm>span:first-child{max-width:100%}
+@media (max-width:560px){.dbb-dl .row{flex-wrap:wrap;row-gap:8px}.dbb-dl .row .acts{flex:1 1 100%;padding-left:54px}}
 .dbb-dl .nm mark{all:unset;background:#fff3c4;border-radius:3px}
 .dbb-dl .badge{flex:none;font-style:normal;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:#f2f4f7;color:#475467}
 .dbb-dl .badge.priv{background:#fef0c7;color:#93370d}

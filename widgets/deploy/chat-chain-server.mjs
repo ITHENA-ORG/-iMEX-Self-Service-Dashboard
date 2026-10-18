@@ -65,10 +65,18 @@ export async function serverChatChain(c, o, chain, say = console.log) {
   const appCust = sc && sc.customerId && sc.customerId.id !== NULL_CUSTOMER ? sc.customerId.id : null;
   const notApp = stores.filter((s) => cfgStores.includes(s.name) && (!s.customerId || s.customerId.id !== appCust)).map((s) => s.name);
   if (!appCust || notApp.length) { say(`STOP: ${!appCust ? 'no app customer ("System Configuration" has no customer)' : 'store(s) ' + notApp.join(', ') + ' do not belong to the app customer'}: the licence gate would refuse every chat request`); return 1; }
+  // D-070: the chain reads the app's AI switches (imexLlm) through store --UsesAppConfig--> "System Configuration". The one
+  // thing this mode adds besides the chain: that relation, for the stores that lack it (written with --go only)
+  const needRel = [];
+  for (const s of stores.filter((x) => cfgStores.includes(x.name))) {
+    const rels = (await c.api('GET', `/api/relations?fromId=${s.id.id}&fromType=ASSET&relationType=UsesAppConfig`)) || [];
+    if (!rels.some((r) => r.to && r.to.id === sc.id.id)) needRel.push(s);
+  }
 
   say(`chain "${RC_NAME}" ${rc.id.id}; keeper chain ${keeper.id.id}`);
   say(`LLM config asset: "${cfg.name}" (tenant-owned, linked from ${cfgStores.join(', ')}), key ${cfgAttrs.dbb_llm_api_key ? 'set' : 'EMPTY'}, models ${models} — read only, kept as it is`);
   if (others.length) say(`  note: ${others.map((n) => '"' + n + '"').join(', ')} exist(s) but no store uses it: left alone`);
+  say(needRel.length ? `AI switches: relation UsesAppConfig to "System Configuration" missing from ${needRel.map((s) => s.name).join(', ')}: added with --go (without it the chat answers "could not read the AI switches")` : 'AI switches: the store(s) are linked to "System Configuration" (UsesAppConfig)');
   say(`DashboardStore profile -> ${prof.defaultRuleChainId && prof.defaultRuleChainId.id === rc.id.id ? 'this chain' : 'ANOTHER chain (' + (prof.defaultRuleChainId ? prof.defaultRuleChainId.id : 'none') + '): not changed here; chat requests do not reach this chain'}`);
 
   // ---- the three versions
@@ -109,7 +117,18 @@ export async function serverChatChain(c, o, chain, say = console.log) {
     say(`CONFLICT: ${m.conflicts.join(', ')} changed on the server AND by us. Look at both diffs above, then re-run with --take-ours=<node,...> (ours replaces their edit: fold it into deploy-browser.js first if it must stay) or --keep-server=<node,...>. Nothing written.`);
     return 1;
   }
-  if (!m.changed) { say('No change: the server chain already is the merged chain.'); return 0; }
+  const addRels = async () => {
+    for (const s of needRel) {
+      const rel = { from: s.id, to: sc.id, type: 'UsesAppConfig', typeGroup: 'COMMON' };
+      await c.api('POST', '/api/v2/relation', rel).catch(() => c.api('POST', '/api/relation', rel));
+      say(`relation added: ${s.name} --UsesAppConfig--> System Configuration`);
+    }
+  };
+  if (!m.changed) {
+    say('No change: the server chain already is the merged chain.');
+    if (needRel.length) { if (o.go) await addRels(); else say('Dry run: only the UsesAppConfig relation would be added. Re-run with --go.'); }
+    return 0;
+  }
   if (!o.go) { say(`Dry run: the chain would be saved with ${m.metadata.nodes.length} nodes / ${m.metadata.connections.length} links. ${base ? 'Re-run with --go.' : 'Give --base=<file> first (see the runbook).'}`); return 0; }
   if (!base) { say('STOP: no base: without it the developers\' edits cannot be told from an older deploy. Give --base=<file>. Nothing written.'); return 1; }
 
@@ -128,6 +147,7 @@ export async function serverChatChain(c, o, chain, say = console.log) {
   const after = await c.api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
   const na = normalise(after), want = normalise(m.metadata);
   const off = [...want.order].filter((n) => na.cmp.get(n) !== want.cmp.get(n));
+  await addRels();   // D-070: after the chain, so a failed save leaves nothing half done
   say(`saved: ${after.nodes.length} nodes / ${(after.connections || []).length} links${off.length ? '; the server stored these differently from what was sent (TB defaults): ' + off.join(', ') : ''}`);
   mkdirSync(dirname(record), { recursive: true });
   writeFileSync(record, mask(JSON.stringify({ note: 'the chat relay chain as deploy-node.mjs --target=server last left it on the server: the base of the next run', at: new Date(now).toISOString(), target: c.base, ruleChainId: rc.id.id, metadata: after }, null, 1)));

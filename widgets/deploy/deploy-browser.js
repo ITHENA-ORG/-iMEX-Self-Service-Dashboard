@@ -27,7 +27,8 @@
 // Steps (each is create-or-update, so the whole call is idempotent and safe to re-run per customer):
 //   1. Customer: looked up by title (throws if missing).
 //   2. Rule chain "DBB Chat relay (POC)" (D-014, D-021): created if missing, then its metadata is rewritten:
-//      Is chat request -> Licence and AI usage (the store's customer: imexLicenceStatus, imexLicenceBinding,
+//      Is chat request -> Read AI switches (D-070: imexLlm on "System Configuration" via relation UsesAppConfig, the
+//      app's master + Builder switch; no relation = "AI switches unreadable" = off) -> Licence and AI usage (the store's customer: imexLicenceStatus, imexLicenceBinding,
 //      imexAiUsage; D-066) -> Licence and quota (builder + builder.ai + genAi, mode active / grace, this month's count
 //      below llmCallsPerMonth; else the error reply) -> Read LLM settings (config asset attributes via relation UsesLlmConfig) ->
 //      Build LLM request (provider picked from the key format) -> Pick provider -> Call Claude | Call OpenAI |
@@ -40,7 +41,8 @@
 //      SERVER_SCOPE attributes `poc=true` + `dbb_profile_keys` written.
 //   3b. Tenant-owned asset `llmConfigName` (never assigned to a customer; the script refuses to continue if it
 //      is): attributes dbb_llm_api_key (empty until a tenant admin sets it), dbb_llm_model_{anthropic,openai,gemini}
-//      (defaults, written only when missing); relation store --UsesLlmConfig--> config asset.
+//      (defaults, written only when missing); relation store --UsesLlmConfig--> config asset; D-070: relation
+//      store --UsesAppConfig--> `appConfigName` ("System Configuration", the AI switches imexLlm).
 //   4. Widget bundle `bundleTitle` and the widget types tenant.imex_dbb_{launcher,renderer,listing}
 //      (controller script = library + glue; settings forms duplicated from widgets/widget-types.mjs),
 //      then the bundle's widget type list is set to those three.
@@ -64,6 +66,8 @@ window.DBB_DEPLOY_DEFAULTS = {
   openaiModel: 'chat-latest',
   geminiModel: 'gemini-flash-latest',
   llmConfigName: 'DBB-LLM-CONFIG',
+  // D-070: the app's configuration asset (the customer's): the chat chain reads the AI switches imexLlm there
+  appConfigName: 'System Configuration',
   profileKeys: {},
   userEmails: [],
 };
@@ -180,6 +184,18 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     '  if (isMap(use) && use.month == new Date().toISOString().substring(0, 7) && use.total is Number) { used = use.total; }',
     '  if (used >= limit) { metadata.error = "QUOTA"; metadata.qUsed = "" + used; metadata.qLimit = "" + limit; }',
     '}',
+    // D-070: the app's AI switches (imexLlm on System Configuration, read through store --UsesAppConfig-->, App UI U-097):
+    // the master and the Builder switch. Missing attribute = not migrated = on; unreadable = off. A switch that is off
+    // wins over the licence reasons (it is what the administrator changed).
+    'var sw = asObj(metadata.llmSw);',
+    'if (metadata.llmSwErr == "1") { metadata.error = "AI_SW"; }',
+    'else if (sw != null) {',
+    '  if (!isMap(sw)) { metadata.error = "AI_SW"; }',
+    '  else if (!(sw.enabled is Boolean) || sw.enabled != true) { metadata.error = "AI_OFF"; }',
+    '  else if (isMap(sw.features) && sw.features.builder is Boolean && sw.features.builder == false) { metadata.error = "AI_OFF"; }',
+    '}',
+    'metadata.remove("llmSw");',
+    'metadata.remove("llmSwErr");',
     'metadata.remove("lStatus");',
     'metadata.remove("lBind");',
     'metadata.remove("lUsage");',
@@ -239,6 +255,8 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
     'else if (err.startsWith("BAD_TOOL")) { err = "The chat request was not made by the Dashboard Builder."; }',
     'else if (err.startsWith("NOT_LICENSED")) { err = "The chat assistant is not included in this installation\'s licence. Ask your administrator."; }',
     'else if (err.startsWith("QUOTA")) { err = "Monthly AI limit reached (" + metadata.qUsed + " of " + metadata.qLimit + ") — contact your administrator"; }',
+    'else if (err.startsWith("AI_OFF")) { err = "AI (LLM) use is switched off for the Dashboard builder chat. An administrator can switch it on in Configuration › General › AI (LLM) usage."; }',
+    'else if (err.startsWith("AI_SW")) { err = "The chat could not read the AI switches of the application, so it stays off. Ask your administrator."; }',
     'else if (err.startsWith("OLD_CLIENT")) { err = "This page is running an older version of the Dashboard Builder. Reload the page (Ctrl+F5) and try again."; }',
     `else if (p == "") { err = "The chat relay could not read the LLM settings or build the request. Check that asset ${o.llmConfigName} exists and is linked to this store (relation UsesLlmConfig)."; }`,
     `else if (err.contains("401") || err.contains("403") || err.contains("authentication") || err.contains("API key not valid") || err.contains("API_KEY_INVALID")) { err = "The " + p + " API key on ${o.llmConfigName} is invalid or has no access to the model."; }`,
@@ -343,14 +361,34 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
       configuration: { defaultTTL: 0, useServerTs: true, processingSettings: { type: 'ON_EVERY_MESSAGE' } },
       additionalInfo: { layoutX: 2050, layoutY: 120 },
     },
+    // D-070: the app's AI switches before the licence gate: store --UsesAppConfig--> "System Configuration", attribute
+    // imexLlm (no relation = Failure = "unreadable" = off)
+    /* 16 */ {
+      type: 'org.thingsboard.rule.engine.metadata.TbGetRelatedAttributeNode',
+      name: 'Read AI switches',
+      configurationVersion: 1,
+      configuration: {
+        relationsQuery: { direction: 'FROM', maxLevel: 1, fetchLastLevelOnly: false, filters: [{ relationType: 'UsesAppConfig', entityTypes: ['ASSET'], negate: false }] },
+        dataToFetch: 'ATTRIBUTES',
+        dataMapping: { imexLlm: 'llmSw' },
+        fetchTo: 'METADATA',
+      },
+      additionalInfo: { layoutX: 50, layoutY: 30 },
+    },
+    /* 17 */ { type: 'org.thingsboard.rule.engine.transform.TbTransformMsgNode', name: 'AI switches unreadable', configuration: tbel('metadata.llmSwErr = "1"; return {msg: msg, metadata: metadata, msgType: msgType};'), additionalInfo: { layoutX: 50, layoutY: 200 } },
   ];
   // the keeper chain (App UI scripts/relay.mjs) recounts the month after each point; without it the count follows on
   // the keeper's next recount
-  if (keeperChainId) nodes.push(/* 16 */ { type: 'org.thingsboard.rule.engine.flow.TbRuleChainInputNode', name: 'Recount (licence keeper)', configurationVersion: 1, configuration: { ruleChainId: keeperChainId, forwardMsgToDefaultRuleChain: false }, additionalInfo: { layoutX: 2300, layoutY: 120 } });
+  if (keeperChainId) nodes.push(/* 18 */ { type: 'org.thingsboard.rule.engine.flow.TbRuleChainInputNode', name: 'Recount (licence keeper)', configurationVersion: 1, configuration: { ruleChainId: keeperChainId, forwardMsgToDefaultRuleChain: false }, additionalInfo: { layoutX: 2300, layoutY: 120 } });
   // D-066: no debug on any node (the LLM key and the user's request pass through them)
   for (const nd of nodes) nd.debugSettings = { failuresEnabled: false, allEnabled: false, allEnabledUntil: 0 };
   const connections = [
-    { fromIndex: 0, toIndex: 10, type: 'True' },
+    // D-070: the AI switches first (16), unreadable -> 17 marks it, the gate (11) decides
+    { fromIndex: 0, toIndex: 16, type: 'True' },
+    { fromIndex: 16, toIndex: 10, type: 'Success' },
+    { fromIndex: 16, toIndex: 17, type: 'Failure' },
+    { fromIndex: 17, toIndex: 10, type: 'Success' },
+    { fromIndex: 17, toIndex: 8, type: 'Failure' },
     // D-066: licence and quota before anything is sent to a provider
     { fromIndex: 10, toIndex: 11, type: 'Success' },
     { fromIndex: 10, toIndex: 11, type: 'Failure' },
@@ -373,7 +411,7 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId) {
   connections.push({ fromIndex: 7, toIndex: 9, type: 'Success' }, { fromIndex: 7, toIndex: 8, type: 'Failure' }, { fromIndex: 8, toIndex: 9, type: 'Success' });
   // D-066: a parsed reply = one provider call that answered: metered on the keeper
   connections.push({ fromIndex: 7, toIndex: 13, type: 'Success' }, { fromIndex: 13, toIndex: 14, type: 'Success' }, { fromIndex: 14, toIndex: 15, type: 'Success' });
-  if (keeperChainId) connections.push({ fromIndex: 15, toIndex: 16, type: 'Success' });
+  if (keeperChainId) connections.push({ fromIndex: 15, toIndex: 18, type: 'Success' });
   return { nodes, connections };
 };
 
@@ -471,6 +509,13 @@ window.DBB_DEPLOY = async function (opts) {
   const rel = { from: store.id, to: cfg.id, type: 'UsesLlmConfig', typeGroup: 'COMMON' };
   await api('POST', '/api/v2/relation', rel).catch(() => api('POST', '/api/relation', rel));
   say(`store linked to ${o.llmConfigName}` + (cfgAttrs.dbb_llm_api_key || legacyKey ? '' : ' (set dbb_llm_api_key on it to enable chat)'));
+  // D-070: store --UsesAppConfig--> the app's configuration asset (read by "Read AI switches": imexLlm, App UI U-097)
+  const appCfg = await api('GET', `/api/tenant/assets?assetName=${encodeURIComponent(o.appConfigName)}`, undefined, true);
+  if (appCfg) {
+    const rel2 = { from: store.id, to: appCfg.id, type: 'UsesAppConfig', typeGroup: 'COMMON' };
+    await api('POST', '/api/v2/relation', rel2).catch(() => api('POST', '/api/relation', rel2));
+    say(`store linked to ${o.appConfigName} (AI switches)`);
+  } else say(`NOTE: no asset "${o.appConfigName}": the chat answers "could not read the AI switches" until it exists and the store is linked to it`);
 
   // --- widget bundle + types
   const bundles = await all('/api/widgetsBundles?tenantOnly=true');

@@ -9,12 +9,16 @@ if (err.startsWith("NO_KEY")) { err = "No LLM API key is set. A tenant admin set
 else if (err.startsWith("USER_MISMATCH")) { err = "The chat request did not come from your user. Reload the page and try again."; }
 else if (err.startsWith("TOO_BIG")) { err = "The chat request is too large. Start a new conversation or ask for fewer changes at once."; }
 else if (err.startsWith("BAD_TOOL")) { err = "The chat request was not made by the Dashboard Builder."; }
+else if (err.startsWith("NOT_LICENSED")) { err = "The chat assistant is not included in this installation's licence. Ask your administrator."; }
+else if (err.startsWith("QUOTA")) { err = "Monthly AI limit reached (" + metadata.qUsed + " of " + metadata.qLimit + ") — contact your administrator"; }
+else if (err.startsWith("AI_OFF")) { err = "AI (LLM) use is switched off for the Dashboard builder chat. An administrator can switch it on in Configuration › General › AI (LLM) usage."; }
+else if (err.startsWith("AI_SW")) { err = "The chat could not read the AI switches of the application, so it stays off. Ask your administrator."; }
 else if (err.startsWith("OLD_CLIENT")) { err = "This page is running an older version of the Dashboard Builder. Reload the page (Ctrl+F5) and try again."; }
 else if (p == "") { err = "The chat relay could not read the LLM settings or build the request. Check that asset DBB-LLM-CONFIG exists and is linked to this store (relation UsesLlmConfig)."; }
 else if (err.contains("401") || err.contains("403") || err.contains("authentication") || err.contains("API key not valid") || err.contains("API_KEY_INVALID")) { err = "The " + p + " API key on DBB-LLM-CONFIG is invalid or has no access to the model."; }
 else if (err.contains("404")) { err = "The " + p + " model was not found. Set dbb_llm_model_" + p + " on the LLM config asset."; }
 else if (err.contains("429")) { err = "The " + p + " API is rate-limited or out of credit. Try again later or switch the key."; }
-else if (err.contains("503") || err.contains("529") || err.contains("UNAVAILABLE") || err.contains("overloaded")) { err = "The " + p + " service is overloaded right now (a temporary problem on the provider's side). Try again in a minute. If it keeps happening, use a paid key or another provider's key on " + "DBB-LLM-CONFIG."; }
+else if (err.contains("503") || err.contains("529") || err.contains("UNAVAILABLE") || err.contains("overloaded")) { err = "The " + p + " service is overloaded right now (a temporary problem on the provider's side). Try again in a minute. If it keeps happening, use a paid key or another provider's key on DBB-LLM-CONFIG."; }
 else if (err.contains("WebClientRequestException") || err.contains("ReadTimeout") || err.contains("timed out") || err.contains("Connection reset")) { err = "Could not reach the " + p + " service (a network problem between ThingsBoard and the provider). Try again in a moment."; }
 else if (body != "") { err = p + " rejected the request: " + body; }
 if (err.length() > 300) { err = err.substring(0, 300); }

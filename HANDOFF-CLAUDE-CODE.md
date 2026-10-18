@@ -18,7 +18,7 @@ Order: discover → back up → plan → **get Akshay's OK** → deploy → veri
 - **Style he asked for:** direct and practical. No flattery, no filler, no "great question". If an idea is flawed, say so and explain why. Treat him as a smart adult.
 - He commits and pushes from his PC. Commit locally, but **push only when he asks**.
 - Commit message footer used so far: `Co-Authored-By: Claude <noreply@anthropic.com>`.
-- **Standing instruction:** every change gets an entry in `DECISIONS.md` (next number **D-070**) with what, why, files and tests.
+- **Standing instruction:** every change gets an entry in `DECISIONS.md` (next number **D-072**) with what, why, files and tests.
   - In Cowork there was also a change-log row in the Claude Doc "New widget instructions" (https://claude.ai/code/artifact/1a25e5dc-f57e-49a6-9325-c1e5369bbd8f). You can't edit that doc from Claude Code.
   - Keep `docs/CHANGELOG.md` instead (create it): date, commit, change, file:line, newest first. Tell Akshay when the Claude Doc needs the same rows; he can paste them or ask a Cowork session.
 

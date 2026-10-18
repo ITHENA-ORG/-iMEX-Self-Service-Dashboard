@@ -1055,3 +1055,39 @@ button was held, so the page felt laggy.
   text "Change site details (address, time zone, map position)" (App U-088; key, state and action id unchanged);
   `widgets/test/perm-vectors.json` copied again (byte-identical). vitest 376 pass, tsc clean, e2e 13 pass; deployed on
   LOCAL (`deploy-node --go`).
+
+### D-070 Chat relay follows the application's AI switches; no LLM key outside DBBLLM-CONFIG, 18 Oct 2026 (Round 8 Y6, Akshay; App UI U-097)
+Akshay: one master switch and one switch per feature on Configuration › General › "AI (LLM) usage", and only one copy
+of the key in the whole application. Spec: App UI `docs/design/LLM_USAGE_SPEC.md`.
+- **Chain "DBB Chat relay (POC)"** (`widgets/deploy/deploy-browser.js`, `DBB_CHAT_CHAIN`): after "Is chat request" a
+  new node "Read AI switches" (related attributes, relation store --UsesAppConfig--> the app's configuration asset
+  "System Configuration", `imexLlm` → metadata `llmSw`); a Failure (no relation / no asset) goes through "AI switches
+  unreadable" (`llmSwErr`). The gate script decides before the licence and quota (D-066): unreadable / not an object →
+  `AI_SW`; master not exactly true or `features.builder` exactly false → `AI_OFF`; attribute missing = not migrated = on.
+  A switch that is off wins over the licence reasons. `relay/error-reply.tbel` words them: "AI (LLM) use is switched
+  off for the Dashboard builder chat. An administrator can switch it on in Configuration › General › AI (LLM) usage." /
+  "The chat could not read the AI switches of the application, so it stays off."
+- **Deploy:** `DBB_DEPLOY` links the store to `appConfigName` ("System Configuration") with `UsesAppConfig` (a note when
+  the asset is missing). `deploy-node.mjs --chain-only [--go]` (LOCAL) rewrites only the chain and the relation;
+  server mode (`--target=server`) adds the relation with `--go` (`chat-chain-server.mjs`, after the chain, so a failed
+  save leaves nothing half done). Self-tests: `chat-chain-selftest.mjs` (relation, node order), `relay/gate-selftest.mjs`
+  (AI_OFF / AI_SW cases).
+- **The key:** `.env.example` no longer has `LLM_PROVIDER` / `LLM_API_KEY` / `LLM_MODEL` (never read); the key lives
+  only on DBBLLM-CONFIG `dbb_llm_api_key`, entered by a tenant administrator on Configuration › General.
+- `widgets/deploy/relay/licence-quota-gate.tbel`: the gate script exported by `relay/export-scripts.mjs` (reference copy
+  next to the other relay scripts; it was missing from the repo since D-066).
+- Round 8 integration (18 Oct): deployed on LOCAL from the final code (`deploy-node --go`); with LOCAL's master OFF a
+  chat request answers "AI (LLM) use is switched off for the Dashboard builder chat ..." (checked as the app admin).
+  vitest 376 pass, tsc clean, e2e 80 pass.
+
+### D-071 Machine page / dashboard bar and Dashboard list on narrow screens, 18 Oct 2026 (Round 8 Y7, Akshay; App UI U-096)
+Akshay: on smaller screens the options wrap to a second line (fine) but the alignment is off.
+- **Renderer bar** (`widgets/src/entries/renderer.ts`): when the bar is too narrow for one line, class `dbb-wrap`
+  (measured after every size or content change: ResizeObserver on the bar and its right-hand group, MutationObserver
+  for new children, one requestAnimationFrame) puts the time window and the buttons on a second line from the title's
+  left edge, the "?" at its right end, even padding above and below. The "?" button now sits inside the right-hand
+  group (its last item) so it wraps with it. Observers are disconnected on destroy.
+- **Dashboard list** (`widgets/src/entries/launcher.ts`): on a narrow page the tags go to a line of their own instead
+  of squeezing the name; under 560 px the row's actions (Open / Open in builder) go under the details.
+- e2e: the "?" test checks it is the last item of the right-hand group; a new case checks the two-line bar (left
+  edges, "?" at the right end).
