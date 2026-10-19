@@ -221,6 +221,23 @@
    "actions": []
   },
   {
+   "key": "losses",
+   "section": "INSIGHTS",
+   "states": [
+    "losses",
+    "machine_stops"
+   ],
+   "levels": [
+    "hidden",
+    "view",
+    "full"
+   ],
+   "actions": [
+    "losses.reason",
+    "losses.override"
+   ]
+  },
+  {
    "key": "users",
    "section": "ADMIN",
    "states": [
@@ -392,6 +409,8 @@
   "reports.edit",
   "reports.schedule",
   "reports.settings",
+  "losses.reason",
+  "losses.override",
   "sitesmachines.structure",
   "playbooks.configure",
   "playbooks.automatic",
@@ -428,6 +447,7 @@
     "reports": "full",
     "energy": "full",
     "value": "full",
+    "losses": "full",
     "users": "full",
     "crew": "full",
     "sitesmachines": "full",
@@ -459,6 +479,8 @@
     "reports.edit": true,
     "reports.schedule": true,
     "reports.settings": true,
+    "losses.reason": true,
+    "losses.override": true,
     "sitesmachines.structure": true,
     "playbooks.configure": true,
     "playbooks.automatic": true,
@@ -489,7 +511,8 @@
     "ai.relations": "view",
     "reports": "view",
     "energy": "view",
-    "value": "view"
+    "value": "view",
+    "losses": "view"
    },
    "actions": {
     "reports.run": true
@@ -526,6 +549,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -557,6 +581,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -593,7 +619,8 @@
      "ai.relations": "view",
      "reports": "view",
      "energy": "view",
-     "value": "view"
+     "value": "view",
+     "losses": "view"
     },
     "actions": {
      "reports.run": true
@@ -623,6 +650,7 @@
      "reports": "full",
      "energy": "view",
      "value": "view",
+     "losses": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -711,6 +739,7 @@
     "reports": "full",
     "energy": "full",
     "value": "full",
+    "losses": "full",
     "users": "full",
     "crew": "full",
     "sitesmachines": "full",
@@ -742,6 +771,8 @@
     "reports.edit": true,
     "reports.schedule": true,
     "reports.settings": true,
+    "losses.reason": true,
+    "losses.override": true,
     "sitesmachines.structure": true,
     "playbooks.configure": true,
     "playbooks.automatic": true,
@@ -772,7 +803,8 @@
     "ai.relations": "view",
     "reports": "view",
     "energy": "view",
-    "value": "view"
+    "value": "view",
+    "losses": "view"
    },
    "actions": {
     "reports.run": true
@@ -898,6 +930,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -929,6 +962,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -959,7 +994,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -1065,6 +1101,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -1096,6 +1133,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -1132,7 +1171,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -1162,6 +1202,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -1261,6 +1302,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -1292,6 +1334,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -1362,7 +1406,7 @@
   },
   {
    "name": "the same as a JSON string",
-   "raw": "{\"v\":1,\"rev\":7,\"at\":1791205976606,\"by\":\"migration\",\"roles\":[{\"id\":\"admin\",\"name\":\"Admin\",\"builtIn\":true,\"locked\":true,\"desc\":\"Everything, including users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"full\",\"dashboards\":\"full\",\"playbooks\":\"full\",\"analyzer\":\"full\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"full\",\"value\":\"full\",\"users\":\"full\",\"crew\":\"full\",\"sitesmachines\":\"full\",\"machinecontrol\":\"full\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"alertrules.grouping\":\"full\",\"alertrules.templates\":\"full\",\"aisettings\":\"full\",\"config\":\"full\",\"licence\":\"full\"},\"actions\":{\"alarms.acknowledge\":true,\"andon.layout\":true,\"andon.boards\":true,\"dashboards.build\":true,\"dashboards.applyMany\":true,\"dashboards.deleteAny\":true,\"playbooks.run\":true,\"playbooks.write\":true,\"playbooks.edit\":true,\"playbooks.approve\":true,\"playbooks.pause\":true,\"playbooks.resume\":true,\"analyzer.export\":true,\"ai.relations.edit\":true,\"reports.run\":true,\"reports.edit\":true,\"reports.schedule\":true,\"reports.settings\":true,\"sitesmachines.structure\":true,\"playbooks.configure\":true,\"playbooks.automatic\":true,\"alertrules.export\":true,\"ai.jobs\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10c85640-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"viewer\",\"name\":\"Viewer\",\"builtIn\":true,\"locked\":false,\"desc\":\"Read only.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"playbooks\":\"view\",\"andon\":\"view\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"view\",\"reports\":\"view\",\"energy\":\"view\",\"value\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_sup001\",\"name\":\"Supervisor\",\"builtIn\":false,\"locked\":false,\"desc\":\"Runs the floor.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"playbooks\":\"view\",\"andon\":\"full\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"view\",\"value\":\"view\",\"users\":\"view\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"view\",\"config\":\"view\"},\"actions\":{\"dashboards.build\":true,\"dashboards.applyMany\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_op0001\",\"name\":\"Operator\",\"builtIn\":false,\"locked\":false,\"desc\":\"\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\"},\"actions\":{\"alarms.acknowledge\":true},\"manageRoles\":false,\"defaultScope\":[{\"id\":\"10aba680-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"r_lead01\",\"name\":\"Lead\",\"builtIn\":false,\"locked\":false,\"desc\":\"Manages users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"users\":\"full\",\"reports\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10cfa940-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]}]}",
+   "raw": "{\"v\":1,\"rev\":7,\"at\":1791205976606,\"by\":\"migration\",\"roles\":[{\"id\":\"admin\",\"name\":\"Admin\",\"builtIn\":true,\"locked\":true,\"desc\":\"Everything, including users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"andon\":\"full\",\"spc\":\"full\",\"dashboards\":\"full\",\"playbooks\":\"full\",\"analyzer\":\"full\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"full\",\"value\":\"full\",\"losses\":\"full\",\"users\":\"full\",\"crew\":\"full\",\"sitesmachines\":\"full\",\"machinecontrol\":\"full\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"alertrules.grouping\":\"full\",\"alertrules.templates\":\"full\",\"aisettings\":\"full\",\"config\":\"full\",\"licence\":\"full\"},\"actions\":{\"alarms.acknowledge\":true,\"andon.layout\":true,\"andon.boards\":true,\"dashboards.build\":true,\"dashboards.applyMany\":true,\"dashboards.deleteAny\":true,\"playbooks.run\":true,\"playbooks.write\":true,\"playbooks.edit\":true,\"playbooks.approve\":true,\"playbooks.pause\":true,\"playbooks.resume\":true,\"analyzer.export\":true,\"ai.relations.edit\":true,\"reports.run\":true,\"reports.edit\":true,\"reports.schedule\":true,\"reports.settings\":true,\"losses.reason\":true,\"losses.override\":true,\"sitesmachines.structure\":true,\"playbooks.configure\":true,\"playbooks.automatic\":true,\"alertrules.export\":true,\"ai.jobs\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10c85640-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"viewer\",\"name\":\"Viewer\",\"builtIn\":true,\"locked\":false,\"desc\":\"Read only.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"playbooks\":\"view\",\"andon\":\"view\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"view\",\"reports\":\"view\",\"energy\":\"view\",\"value\":\"view\",\"losses\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_sup001\",\"name\":\"Supervisor\",\"builtIn\":false,\"locked\":false,\"desc\":\"Runs the floor.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"full\",\"playbooks\":\"view\",\"andon\":\"full\",\"spc\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\",\"ai.forecast\":\"view\",\"ai.anomalies\":\"view\",\"ai.maintenance\":\"view\",\"ai.relations\":\"full\",\"reports\":\"full\",\"energy\":\"view\",\"value\":\"view\",\"losses\":\"view\",\"users\":\"view\",\"alertrules.default\":\"full\",\"alertrules.custom\":\"full\",\"aisettings\":\"view\",\"config\":\"view\"},\"actions\":{\"dashboards.build\":true,\"dashboards.applyMany\":true},\"manageRoles\":false,\"defaultScope\":[]},{\"id\":\"r_op0001\",\"name\":\"Operator\",\"builtIn\":false,\"locked\":false,\"desc\":\"\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"alarms\":\"view\",\"andon\":\"view\",\"dashboards\":\"view\",\"analyzer\":\"view\"},\"actions\":{\"alarms.acknowledge\":true},\"manageRoles\":false,\"defaultScope\":[{\"id\":\"10aba680-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]},{\"id\":\"r_lead01\",\"name\":\"Lead\",\"builtIn\":false,\"locked\":false,\"desc\":\"Manages users and roles.\",\"perms\":{\"sites\":\"view\",\"machines\":\"view\",\"users\":\"full\",\"reports\":\"view\"},\"actions\":{\"reports.run\":true},\"manageRoles\":true,\"defaultScope\":[{\"id\":\"10cfa940-c0be-11f1-add5-5db4ab3ed597\",\"type\":\"ASSET\",\"mode\":\"all\"}]}]}",
    "expect": {
     "source": "imexRoles",
     "rev": 7,
@@ -1420,7 +1464,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -1461,6 +1506,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -1492,6 +1538,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -1577,7 +1625,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -1616,6 +1665,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -1647,6 +1697,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -1691,7 +1743,8 @@
        "playbooks": "view",
        "spc": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {},
       "manageRoles": false,
@@ -1728,6 +1781,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -1759,6 +1813,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -1825,7 +1881,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -1864,6 +1921,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -1895,6 +1953,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -1961,7 +2021,8 @@
        "spc": "hidden",
        "energy": "full",
        "value": "view",
-       "playbooks": "view"
+       "playbooks": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -2000,6 +2061,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -2031,6 +2093,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -2061,7 +2125,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -2174,6 +2239,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -2205,6 +2271,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -2235,7 +2303,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -2380,6 +2449,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -2411,6 +2481,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -2441,7 +2513,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -2559,6 +2632,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -2590,6 +2664,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -2620,7 +2696,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -2668,6 +2745,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -2699,6 +2777,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -2729,7 +2809,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -2781,6 +2862,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -2812,6 +2894,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -2848,7 +2932,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -2878,6 +2963,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -2983,6 +3069,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -3014,6 +3101,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -3050,7 +3139,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -3080,6 +3170,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -3186,6 +3277,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -3217,6 +3309,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -3253,7 +3347,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -3283,6 +3378,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -3388,6 +3484,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -3419,6 +3516,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -3455,7 +3554,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -3485,6 +3585,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -3606,6 +3707,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -3637,6 +3739,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -3673,7 +3777,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -3703,6 +3808,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -3807,6 +3913,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -3838,6 +3945,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -3874,7 +3983,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -3904,6 +4014,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -4008,6 +4119,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -4039,6 +4151,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -4075,7 +4189,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -4105,6 +4220,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -4209,6 +4325,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -4240,6 +4357,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -4276,7 +4395,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -4306,6 +4426,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -4436,6 +4557,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -4467,6 +4589,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -4503,7 +4627,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -4533,6 +4658,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -4637,6 +4763,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -4668,6 +4795,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -4704,7 +4833,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -4734,6 +4864,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -4838,6 +4969,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -4869,6 +5001,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -4905,7 +5039,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -4935,6 +5070,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -5037,6 +5173,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -5068,6 +5205,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -5104,7 +5243,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -5134,6 +5274,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -5239,6 +5380,7 @@
        "reports": "full",
        "energy": "full",
        "value": "full",
+       "losses": "full",
        "users": "full",
        "crew": "full",
        "sitesmachines": "full",
@@ -5270,6 +5412,8 @@
        "reports.edit": true,
        "reports.schedule": true,
        "reports.settings": true,
+       "losses.reason": true,
+       "losses.override": true,
        "sitesmachines.structure": true,
        "playbooks.configure": true,
        "playbooks.automatic": true,
@@ -5306,7 +5450,8 @@
        "ai.relations": "view",
        "reports": "view",
        "energy": "view",
-       "value": "view"
+       "value": "view",
+       "losses": "view"
       },
       "actions": {
        "reports.run": true
@@ -5336,6 +5481,7 @@
        "reports": "full",
        "energy": "view",
        "value": "view",
+       "losses": "view",
        "users": "view",
        "alertrules.default": "full",
        "alertrules.custom": "full",
@@ -5436,6 +5582,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -5467,6 +5614,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -5494,6 +5643,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -5525,6 +5675,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -5557,7 +5709,8 @@
      "ai.relations": "view",
      "reports": "view",
      "energy": "view",
-     "value": "view"
+     "value": "view",
+     "losses": "view"
     },
     "actions": {
      "reports.run": true
@@ -5583,6 +5736,7 @@
      "reports": "view",
      "energy": "view",
      "value": "view",
+     "losses": "view",
      "users": "hidden",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -5622,6 +5776,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -5653,6 +5808,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -5683,6 +5840,7 @@
      "reports": "hidden",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "hidden",
      "users": "hidden",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -5732,6 +5890,7 @@
      "reports": "view",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "hidden",
      "users": "hidden",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -5781,6 +5940,7 @@
      "reports": "hidden",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "hidden",
      "users": "hidden",
      "crew": "hidden",
      "sitesmachines": "view",
@@ -5826,6 +5986,7 @@
      "reports": "hidden",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "hidden",
      "users": "hidden",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -5869,6 +6030,7 @@
      "reports": "hidden",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "hidden",
      "users": "hidden",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -5912,6 +6074,7 @@
      "reports": "hidden",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "hidden",
      "users": "view",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -5972,6 +6135,7 @@
      "reports": "view",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "hidden",
      "users": "full",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -6041,6 +6205,7 @@
      "reports": "full",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "hidden",
      "users": "view",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -6093,6 +6258,7 @@
      "reports": "full",
      "energy": "view",
      "value": "view",
+     "losses": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -6124,6 +6290,7 @@
      "reports": "full",
      "energy": "view",
      "value": "view",
+     "losses": "view",
      "users": "view",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -6177,7 +6344,8 @@
      "ai.relations": "view",
      "reports": "view",
      "energy": "view",
-     "value": "view"
+     "value": "view",
+     "losses": "view"
     },
     "actions": {
      "reports.run": true
@@ -6250,7 +6418,9 @@
     "notify_templates": "hidden",
     "playbooks": "view",
     "machine_control": "hidden",
-    "crew": "hidden"
+    "crew": "hidden",
+    "losses": "view",
+    "machine_stops": "view"
    }
   },
   {
@@ -6277,6 +6447,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -6308,6 +6479,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -6354,7 +6527,9 @@
     "notify_templates": "full",
     "playbooks": "full",
     "machine_control": "full",
-    "crew": "full"
+    "crew": "full",
+    "losses": "full",
+    "machine_stops": "full"
    }
   },
   {
@@ -6404,6 +6579,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -6435,6 +6611,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -6466,6 +6644,7 @@
      "reports": "full",
      "energy": "view",
      "value": "view",
+     "losses": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -6507,7 +6686,8 @@
      "ai.relations": "view",
      "reports": "view",
      "energy": "view",
-     "value": "view"
+     "value": "view",
+     "losses": "view"
     },
     "actions": {
      "reports.run": true
@@ -6536,7 +6716,8 @@
      "ai.relations": "view",
      "reports": "view",
      "energy": "view",
-     "value": "view"
+     "value": "view",
+     "losses": "view"
     },
     "actions": {
      "reports.run": true
@@ -6573,6 +6754,7 @@
      "reports": "full",
      "energy": "view",
      "value": "view",
+     "losses": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -6607,7 +6789,8 @@
      "ai.relations": "view",
      "reports": "view",
      "energy": "view",
-     "value": "view"
+     "value": "view",
+     "losses": "view"
     },
     "actions": {
      "reports.run": true
@@ -6643,7 +6826,8 @@
      "ai.relations": "view",
      "reports": "view",
      "energy": "view",
-     "value": "view"
+     "value": "view",
+     "losses": "view"
     },
     "actions": {
      "reports.run": true
@@ -6817,6 +7001,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -6848,6 +7033,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -7473,6 +7660,7 @@
      "reports": "full",
      "energy": "view",
      "value": "view",
+     "losses": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -7574,6 +7762,7 @@
      "reports": "view",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -7605,6 +7794,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -7644,6 +7835,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -7675,6 +7867,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -7714,6 +7908,7 @@
       "reports": "full",
       "energy": "full",
       "value": "full",
+      "losses": "full",
       "users": "full",
       "crew": "full",
       "sitesmachines": "full",
@@ -7745,6 +7940,8 @@
       "reports.edit": true,
       "reports.schedule": true,
       "reports.settings": true,
+      "losses.reason": true,
+      "losses.override": true,
       "sitesmachines.structure": true,
       "playbooks.configure": true,
       "playbooks.automatic": true,
@@ -7785,7 +7982,8 @@
      "ai.relations": "view",
      "reports": "view",
      "energy": "view",
-     "value": "view"
+     "value": "view",
+     "losses": "view"
     },
     "actions": {
      "reports.run": true
@@ -7957,7 +8155,8 @@
      "ai.relations": "view",
      "reports": "view",
      "energy": "view",
-     "value": "view"
+     "value": "view",
+     "losses": "view"
     },
     "actions": {
      "reports.run": true
@@ -8193,6 +8392,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -8224,6 +8424,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -8259,6 +8461,7 @@
      "reports": "full",
      "energy": "view",
      "value": "view",
+     "losses": "view",
      "users": "view",
      "alertrules.default": "full",
      "alertrules.custom": "full",
@@ -8337,6 +8540,7 @@
     "playbooks",
     "energy",
     "value",
+    "losses",
     "crew",
     "sitesmachines",
     "machinecontrol",
@@ -8369,6 +8573,7 @@
      "reports": "hidden",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "hidden",
      "users": "hidden",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -8408,6 +8613,7 @@
    "expect": [
     "playbooks",
     "value",
+    "losses",
     "crew",
     "sitesmachines",
     "machinecontrol",
@@ -8459,6 +8665,7 @@
      "reports": "full",
      "energy": "full",
      "value": "full",
+     "losses": "full",
      "users": "full",
      "crew": "full",
      "sitesmachines": "full",
@@ -8490,6 +8697,8 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
+     "losses.reason": true,
+     "losses.override": true,
      "sitesmachines.structure": true,
      "playbooks.configure": true,
      "playbooks.automatic": true,
@@ -8529,6 +8738,7 @@
      "reports": "full",
      "energy": "view",
      "value": "view",
+     "losses": "full",
      "users": "view",
      "crew": "full",
      "sitesmachines": "view",
@@ -8557,7 +8767,9 @@
      "reports.edit": true,
      "reports.schedule": true,
      "reports.settings": true,
-     "alertrules.export": true
+     "alertrules.export": true,
+     "losses.reason": true,
+     "losses.override": true
     }
    }
   },
@@ -8582,6 +8794,7 @@
      "reports": "hidden",
      "energy": "hidden",
      "value": "hidden",
+     "losses": "view",
      "users": "hidden",
      "crew": "hidden",
      "sitesmachines": "hidden",
@@ -8596,7 +8809,8 @@
     },
     "actions": {
      "alarms.acknowledge": true,
-     "playbooks.run": true
+     "playbooks.run": true,
+     "losses.reason": true
     },
     "manageRoles": false
    }

@@ -129,6 +129,9 @@ export const CATALOGUE: CatalogueRow[] = [
   },
   { key: 'energy', label: 'Energy & Carbon', section: 'INSIGHTS', parent: null, states: ['energy'], levels: HVF, actions: [] },
   { key: 'value', label: 'Value tracker', section: 'INSIGHTS', parent: null, states: ['value'], levels: HVF, actions: [] },
+  // App U-109: Losses & OEE (Analyze > Losses, the machine's Stops page); giving a stop's reason and changing one
+  // someone else gave are actions (both implied at Full)
+  { key: 'losses', label: 'Losses', section: 'INSIGHTS', parent: null, states: ['losses', 'machine_stops'], levels: HVF, actions: [A('losses.reason', 'Give stop reasons'), A('losses.override', 'Change a stop reason someone else gave')] },
   { key: 'users', label: 'Users & roles', section: 'ADMIN', parent: null, states: ['user_management'], levels: HVF, actions: [] },
   // App U-089: Settings > Crew (who works which shift in which crew role)
   { key: 'crew', label: 'Crew', section: 'ADMIN', parent: null, states: ['crew'], levels: HVF, actions: [] },
@@ -233,12 +236,14 @@ export function TEMPLATES(): Role[] {
   sup.config = 'view';
   sup.machinecontrol = 'view'; // App U-082
   sup.crew = 'full'; // App U-089: the supervisor plans who works which shift
+  sup.losses = 'full'; // App U-109: gives and changes stop reasons
   for (const k of ['sites', 'machines', 'alarms', 'andon', 'dashboards', 'analyzer']) op[k] = 'view';
   op.playbooks = 'view'; // App U-082
+  op.losses = 'view'; // App U-109: Operator = Losses View + give stop reasons
   const supActions: Record<string, true> = { 'dashboards.build': true, 'dashboards.applyMany': true, 'playbooks.run': true, 'playbooks.write': true, 'playbooks.approve': true, 'playbooks.pause': true };
   return [
     role(null, 'Supervisor', 'Runs the floor: alarms, Andon, reports and alarm rules.', sup, supActions, false, []),
-    role(null, 'Operator', 'Watches the machines and acknowledges alarms.', op, { 'alarms.acknowledge': true, 'playbooks.run': true }, false, []),
+    role(null, 'Operator', 'Watches the machines and acknowledges alarms.', op, { 'alarms.acknowledge': true, 'playbooks.run': true, 'losses.reason': true }, false, []),
   ].map((r) => {
     r.builtIn = false;
     r.locked = false;
