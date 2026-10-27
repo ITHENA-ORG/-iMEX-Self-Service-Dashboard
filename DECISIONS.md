@@ -1183,3 +1183,11 @@ security only, no new feature.
 - **Server:** widget push + `deploy-node.mjs --target=server --go-ahead=... --go` in the SAME session (the new widgets'
   v2 request is refused by the old chain and vice versa), and only after the role guard is installed there (the chain
   STOPs without the registry).
+
+### D-075 Fonts from the platform when the app loader is present (App UI U-116, 19 Oct 2026)
+- loadFont asks window.imxLibs (App UI loader) for the font file in the tenant's resource library; Google Fonts only without the loader or a copy. The Builder's own library has no other external address. Works without internet. Next: D-076.
+
+### D-076 The Builder's colour, range and date controls are the app's (App UI U-114, 23 Oct 2026)
+- The Builder already called the kit's selects() on its root (D-074). With the kit of U-114 that call also takes over `<input type=color>` (the browser's colour window is replaced by
+  the app's colour list under the swatch), date inputs and lists, and the kit CSS gives the range sliders and check boxes the app's look: no Builder code changed. The generated kit CSS
+  (widgets/src/render/kit-css.ts) is refreshed by the App UI's scripts/export-kit.mjs. The native-control guard found no other control in any Builder state (dashboard list, editor, rule editors, themes, New dashboard).

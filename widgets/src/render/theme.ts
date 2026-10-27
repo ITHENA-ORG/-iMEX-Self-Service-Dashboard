@@ -197,20 +197,42 @@ const GOOGLE_FONTS: Record<string, string> = {
   'JetBrains Mono': 'JetBrains+Mono:wght@400;600',
 };
 
+// D-075: font name -> the iMEX app's font id (App UI vendor/manifest.json, U-116)
+const APP_FONT_IDS: Record<string, string> = {
+  Inter: 'inter', Poppins: 'poppins', Montserrat: 'montserrat', 'Source Serif 4': 'source-serif-4', 'JetBrains Mono': 'jetbrains-mono',
+};
+
 /**
- * Loads a Google font once (Roboto ships with ThingsBoard).
- * Side effect: appends <link rel="stylesheet" href="https://fonts.googleapis.com/css2?..."> to <head>,
- * keyed by an element id so repeated calls do nothing. Unknown names and non-browser runs are ignored.
+ * Loads a font once (Roboto ships with ThingsBoard).
+ * D-075: on an iMEX app page the app's library loader (window.imxLibs, App UI U-116) brings the font from the
+ * platform's resource library, so it works without internet. Otherwise (or when the platform has no copy):
+ * appends <link rel="stylesheet" href="https://fonts.googleapis.com/css2?..."> to <head>.
+ * Keyed by an element id so repeated calls do nothing. Unknown names and non-browser runs are ignored.
  */
 export function loadFont(name?: string | null) {
   if (!name || !GOOGLE_FONTS[name] || typeof document === 'undefined') return;
   const id = `dbb-font-${name.replace(/\W/g, '')}`;
   if (document.getElementById(id)) return;
-  const l = document.createElement('link');
-  l.id = id;
-  l.rel = 'stylesheet';
-  l.href = `https://fonts.googleapis.com/css2?family=${GOOGLE_FONTS[name]}&display=swap`;
-  document.head.appendChild(l);
+  const google = () => {
+    const old = document.getElementById(id);
+    if (old && old.tagName === 'LINK') return;
+    if (old) old.remove();
+    const l = document.createElement('link');
+    l.id = id;
+    l.rel = 'stylesheet';
+    l.href = `https://fonts.googleapis.com/css2?family=${GOOGLE_FONTS[name]}&display=swap`;
+    document.head.appendChild(l);
+  };
+  const libs = typeof window !== 'undefined' ? (window as any).imxLibs : null;
+  const fid = APP_FONT_IDS[name];
+  if (libs && libs.table && libs.table.fonts && fid && libs.table.fonts[fid]) {
+    const mark = document.createElement('meta');
+    mark.id = id;
+    document.head.appendChild(mark);
+    Promise.resolve(libs.font(null, fid)).catch(google);
+    return;
+  }
+  google();
 }
 
 /** Default font of the app (user decision 28 Sep 2026: Inter, the standard on the other iMEX pages). */
