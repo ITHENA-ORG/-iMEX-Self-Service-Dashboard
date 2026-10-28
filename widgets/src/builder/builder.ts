@@ -262,9 +262,9 @@ export function openBuilder(o: BuilderOptions) {
 }
 let openNow: Builder | null = null;
 /** D-059: the refusal when the licence does not include the Builder. */
-export const BUILDER_UNLICENSED = 'Building dashboards is not included in this licence.';
+export const BUILDER_UNLICENSED = 'Building dashboards is not included in this license.';
 /** D-059: shown in the chat when the licence no longer includes the assistant. */
-const CHAT_UNLICENSED = 'The chat assistant is not included in this licence.';
+const CHAT_UNLICENSED = 'The chat assistant is not included in this license.';
 /** D-059: how long a monthly AI quota read is reused for the chat note (each turn reads it again). */
 const QUOTA_REUSE_MS = 60e3;
 

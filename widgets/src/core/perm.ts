@@ -155,7 +155,7 @@ export const CATALOGUE: CatalogueRow[] = [
   { key: 'alertrules.templates', label: 'Notification templates', section: 'ADMIN', parent: 'Alarm rules', states: ['notify_templates'], levels: HVF, actions: [] },
   { key: 'aisettings', label: 'AI settings', section: 'ADMIN', parent: null, states: ['aiml_settings'], levels: HVF, actions: [A('ai.jobs', 'Run AI jobs')] },
   { key: 'config', label: 'Configuration', section: 'ADMIN', parent: null, states: ['configuration'], levels: HVF, actions: [] },
-  { key: 'licence', label: 'Licence', section: 'ADMIN', parent: null, states: ['licence'], levels: HVF, actions: [] },
+  { key: 'licence', label: 'License', section: 'ADMIN', parent: null, states: ['licence'], levels: HVF, actions: [] },
 ];
 const ROW: Record<string, CatalogueRow> = {};
 const STATE: Record<string, CatalogueRow> = {};
