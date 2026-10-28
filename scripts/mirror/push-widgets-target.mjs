@@ -43,6 +43,8 @@ const BASES = {
   // into the UI repo by hand, so that run is the base
   // sites page: 16 Oct 08:00 ai@imex.com added the ticket-cell width CSS; folded into the UI repo (U-066), so that save is the base
   imex_sites_page: '2026-10-16T08:00:15',
+  // andon: 28 Oct a developer fixed the template dropdown (keeps the chosen template) on top of our 08:21 push
+  imex_andon: '2026-10-28T08:21:18',
   imex_side_menu: '2026-10-12T21:18:11', imex_page_header: '2026-10-09T13:10:59', imex_v5_alert_history_page: '2026-10-09T10:38:55',
 };
 const TEXT = ['controllerScript', 'templateHtml', 'templateCss'];
