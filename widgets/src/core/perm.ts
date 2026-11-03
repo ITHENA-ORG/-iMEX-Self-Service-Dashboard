@@ -113,6 +113,9 @@ export const CATALOGUE: CatalogueRow[] = [
       A('playbooks.resume', 'Resume machine writes'),
     ],
   },
+  // App U-120: Stop reasons (ACT, after Playbooks); giving / changing a stop's reason moved here from the Losses row (ids
+  // unchanged). A stored role saved before takes its level from the Losses row (SPLIT below)
+  { key: 'stopreasons', label: 'Stop reasons', section: 'ACT', parent: null, states: ['stop_reasons'], levels: HVF, actions: [A('losses.reason', 'Give stop reasons'), A('losses.override', 'Change a stop reason someone else gave')] },
   { key: 'analyzer', label: 'Analyzer', section: 'INSIGHTS', parent: null, states: ['analytics'], levels: HVF, actions: [A('analyzer.export', 'Export')] },
   { key: 'ai.forecast', label: 'Forecast', section: 'INSIGHTS', parent: 'AI Insights', states: ['aiml_forecast'], levels: HV, actions: [] },
   { key: 'ai.anomalies', label: 'Anomalies', section: 'INSIGHTS', parent: 'AI Insights', states: ['aiml_anomalies'], levels: HV, actions: [] },
@@ -129,9 +132,9 @@ export const CATALOGUE: CatalogueRow[] = [
   },
   { key: 'energy', label: 'Energy & Carbon', section: 'INSIGHTS', parent: null, states: ['energy'], levels: HVF, actions: [] },
   { key: 'value', label: 'Value tracker', section: 'INSIGHTS', parent: null, states: ['value'], levels: HVF, actions: [] },
-  // App U-109: Losses & OEE (Analyze > Losses, the machine's Stops page); giving a stop's reason and changing one
-  // someone else gave are actions (both implied at Full)
-  { key: 'losses', label: 'Losses', section: 'INSIGHTS', parent: null, states: ['losses', 'machine_stops'], levels: HVF, actions: [A('losses.reason', 'Give stop reasons'), A('losses.override', 'Change a stop reason someone else gave')] },
+  // App U-109: Losses (Analyze > Losses, the machine's Stops page; the module was labelled "Losses & OEE" until CC-021).
+  // App U-120: its two actions are on the Stop reasons row now
+  { key: 'losses', label: 'Losses', section: 'INSIGHTS', parent: null, states: ['losses', 'machine_stops'], levels: HVF, actions: [] },
   { key: 'users', label: 'Users & roles', section: 'ADMIN', parent: null, states: ['user_management'], levels: HVF, actions: [] },
   // App U-089: Settings > Crew (who works which shift in which crew role)
   { key: 'crew', label: 'Crew', section: 'ADMIN', parent: null, states: ['crew'], levels: HVF, actions: [] },
@@ -173,6 +176,28 @@ for (const r of CATALOGUE) {
 export const BASE_KEYS = ['sites', 'machines', 'alarms', 'andon', 'dashboards', 'analyzer', 'ai.forecast', 'ai.anomalies', 'ai.maintenance', 'ai.relations', 'reports', 'users', 'alertrules.default', 'alertrules.custom', 'aisettings', 'config'];
 const BASE: Record<string, true> = {};
 for (const k of BASE_KEYS) BASE[k] = true;
+// App U-120: a row split off an older one: a stored role with no level for it takes one from the older row (and its
+// ticks); null = nothing to take (the row then counts as new: hidden, flagged by newKeys)
+const SPLIT: Record<string, (perms: Record<string, any>, ticks: Record<string, any>) => Level | null> = {
+  stopreasons: (perms, ticks) => {
+    const l = perms.losses;
+    if (l === 'full') return 'full';
+    if (l === 'view' && ticks && (ticks['losses.reason'] === true || ticks['losses.override'] === true)) return 'view';
+    return null;
+  },
+};
+function withSplit<T extends Record<string, any>>(perms: T, ticks: Record<string, any> | undefined): T {
+  let out = perms;
+  for (const k of Object.keys(SPLIT)) {
+    if (has(perms, k) && has(RANK, perms[k])) continue;
+    const d = SPLIT[k](perms, ticks || {});
+    if (d) {
+      if (out === perms) out = { ...perms };
+      (out as Record<string, any>)[k] = d;
+    }
+  }
+  return out;
+}
 export const RESERVED = ['admin', 'customer admin', 'administrator', 'user', 'viewer'];
 const LEGACY_ADMIN = ['admin', 'customer admin', 'administrator'];
 const ROLE_ID = /^[A-Za-z0-9_-]{1,40}$/;
@@ -213,7 +238,8 @@ function adminRole(scope?: Grant[]): Role {
 }
 function viewerRole(): Role {
   const perms: Record<string, Level> = {};
-  for (const r of CATALOGUE) if (r.section !== 'ADMIN') perms[r.key] = 'view';
+  // App U-120: the Viewer gives no stop reasons (Stop reasons stays hidden)
+  for (const r of CATALOGUE) if (r.section !== 'ADMIN' && r.key !== 'stopreasons') perms[r.key] = 'view';
   return role('viewer', 'Viewer', 'Read only.', perms, { 'reports.run': true }, false, []);
 }
 /** [Admin, Viewer]; adminScope = the Admin's default access (the store keeps its own). */
@@ -236,10 +262,12 @@ export function TEMPLATES(): Role[] {
   sup.config = 'view';
   sup.machinecontrol = 'view'; // App U-082
   sup.crew = 'full'; // App U-089: the supervisor plans who works which shift
-  sup.losses = 'full'; // App U-109: gives and changes stop reasons
+  sup.losses = 'full'; // App U-109
+  sup.stopreasons = 'full'; // App U-120: gives and changes stop reasons
   for (const k of ['sites', 'machines', 'alarms', 'andon', 'dashboards', 'analyzer']) op[k] = 'view';
   op.playbooks = 'view'; // App U-082
-  op.losses = 'view'; // App U-109: Operator = Losses View + give stop reasons
+  op.losses = 'view'; // App U-109: Operator = Losses View
+  op.stopreasons = 'view'; // App U-120: + Stop reasons View with Give stop reasons
   const supActions: Record<string, true> = { 'dashboards.build': true, 'dashboards.applyMany': true, 'playbooks.run': true, 'playbooks.write': true, 'playbooks.approve': true, 'playbooks.pause': true };
   return [
     role(null, 'Supervisor', 'Runs the floor: alarms, Andon, reports and alarm rules.', sup, supActions, false, []),
@@ -269,22 +297,23 @@ function cleanRole(r: any, w: string[]): Role | null {
       if (has(ACTION, a)) actions[a] = true;
       else warn(w, 'action.unknown');
     }
+  const split = withSplit(perms, actions); // App U-120
   return {
     id: r.id,
     name: typeof r.name === 'string' ? r.name : r.id,
     builtIn: r.id === 'admin' || r.id === 'viewer',
     locked: r.id === 'admin',
     desc: typeof r.desc === 'string' ? r.desc : '',
-    perms,
+    perms: split,
     actions,
     manageRoles: r.manageRoles === true,
     defaultScope: scopeOf(r.defaultScope, w),
   };
 }
 /** The catalogue rows a stored role has no level for and that are newer than the role system (S14); [] for a built-in role. */
-export function newKeys(r: { id?: string | null; builtIn?: boolean; perms?: unknown } | null | undefined): string[] {
+export function newKeys(r: { id?: string | null; builtIn?: boolean; perms?: unknown; actions?: unknown } | null | undefined): string[] {
   if (!r || (r.builtIn === true && (r.id === 'admin' || r.id === 'viewer'))) return [];
-  const perms: Record<string, unknown> = isObj(r.perms) ? r.perms : {};
+  const perms: Record<string, unknown> = withSplit(isObj(r.perms) ? r.perms : {}, isObj(r.actions) ? r.actions : {}); // App U-120
   return CATALOGUE.filter((row) => !BASE[row.key] && !(has(perms, row.key) && has(RANK, perms[row.key] as string))).map((row) => row.key);
 }
 const builtinStore = (w: string[]): Store => ({ v: 1, rev: 0, roles: BUILTINS(), source: 'builtins', warnings: w });
@@ -370,8 +399,8 @@ export function effective(r: Role | 'unrestricted' | { unrestricted?: boolean } 
     return { unrestricted: true, pages, actions, manageRoles: true };
   }
   const rr: any = r;
-  const perms = rr && isObj(rr.perms) ? rr.perms : {};
   const ticks = rr && isObj(rr.actions) ? rr.actions : {};
+  const perms = withSplit(rr && isObj(rr.perms) ? rr.perms : {}, ticks); // App U-120
   for (const row of CATALOGUE) {
     let lvl: Level = has(perms, row.key) && has(RANK, perms[row.key]) ? perms[row.key] : 'hidden';
     if (row.levels.indexOf(lvl) < 0) lvl = maxLevel(row);
