@@ -16,6 +16,9 @@ import { esc } from '../render/theme';
 const collapsed = new Set<string>();
 // Check mark and dot are real elements, not ::before/::after, so pages that hide pseudo-elements don't break them.
 const TICK = '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5"/></svg>';
+// the app's "calculated" mark (App UI _shared/machine.js calcMark): the same icon
+const CALC = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 20c1.6 0 2.3-1.4 2.7-3.6l1.6-8.8C14.7 5.4 15.5 4 17.5 4"/><path d="M8.5 10.5h7"/></svg>';
+const calcMark = (i: PickItem) => (i.calc ? ` <span class="calc" role="img" aria-label="Calculated value" title="${esc(i.calc)}">${CALC}</span>` : '');
 const CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
 /**
@@ -62,6 +65,9 @@ export interface PickItem {
   why?: string;
   /** Small grey tag after the label (e.g. "text" for a property that can't be charted). */
   tag?: string;
+  /** D-077: a calculated value (App UI U-128): the app's "calculated" icon after the label, this text as its tooltip
+   * ("Calculated: Motor power = Motor Power × 1.341"); "calculated" also finds it in the search. */
+  calc?: string;
 }
 
 export interface PickOptions {
@@ -114,21 +120,21 @@ export function picker(host: HTMLElement, o: PickOptions) {
       ? `<span class="ph">${esc(o.placeholder)}</span>`
       : o.multi
         ? `<span class="chips">${chosen.map((i) => `<span class="chip" title="${esc(i.label)}">${esc(i.label)}<span class="x" role="button" aria-label="Remove ${esc(i.label)}" data-rm="${esc(i.value)}">✕</span></span>`).join('')}</span>`
-        : `<span class="one">${esc(chosen[0].label)}${chosen[0].sub ? ` <span class="sub">${esc(chosen[0].sub)}</span>` : ''}</span>`;
+        : `<span class="one">${esc(chosen[0].label)}${calcMark(chosen[0])}${chosen[0].sub ? ` <span class="sub">${esc(chosen[0].sub)}</span>` : ''}</span>`;
     return `<div class="dbb-pk-trig${open ? ' open' : ''}" role="combobox" tabindex="0" aria-expanded="${open}" aria-haspopup="listbox">${inner}<span class="car">${CHEV}</span></div>`;
   };
   const listHtml = () => {
     // Every word must appear in the label or the secondary text ("pune 1" finds "Pune Compressor 1").
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     const rows = o.items.filter((i) => {
-      const hay = `${i.label} ${i.sub ?? ''}`.toLowerCase();
+      const hay = `${i.label} ${i.sub ?? ''}${i.calc ? ' calculated' : ''}`.toLowerCase();
       return words.every((w) => hay.includes(w));
     });
     return rows.length
       ? rows
           .map((i) => {
             const s = rowState(i);
-            return `<div class="dbb-pk-row${s.on ? ' on' : ''}${s.dis ? ' dis' : ''}" role="option" aria-selected="${s.on}" aria-disabled="${s.dis}" tabindex="-1" data-v="${esc(i.value)}" ${s.why ? `title="${esc(s.why)}"` : ''}>${o.multi ? `<span class="box">${TICK}</span>` : '<span class="dot"><span></span></span>'}<span class="l">${esc(i.label)}${i.tag ? ` <span class="tag">${esc(i.tag)}</span>` : ''}</span>${i.sub ? `<span class="sub">${esc(i.sub)}</span>` : ''}</div>`;
+            return `<div class="dbb-pk-row${s.on ? ' on' : ''}${s.dis ? ' dis' : ''}" role="option" aria-selected="${s.on}" aria-disabled="${s.dis}" tabindex="-1" data-v="${esc(i.value)}" ${s.why ? `title="${esc(s.why)}"` : ''}>${o.multi ? `<span class="box">${TICK}</span>` : '<span class="dot"><span></span></span>'}<span class="l">${esc(i.label)}${calcMark(i)}${i.tag ? ` <span class="tag">${esc(i.tag)}</span>` : ''}</span>${i.sub ? `<span class="sub">${esc(i.sub)}</span>` : ''}</div>`;
           })
           .join('')
       : `<div class="dbb-pk-none">No ${esc(o.noun[1])} match “${esc(query)}”.</div>`;

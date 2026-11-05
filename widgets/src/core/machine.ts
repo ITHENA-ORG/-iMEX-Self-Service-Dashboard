@@ -40,7 +40,8 @@ for (const g of AUTO_WORDS) for (const w of g[0]) AUTO.set(w, g);
 export interface Outcome { state: State; label: string; tone: Tone | '' }
 export interface Rule extends Outcome { from?: number | null; to?: number | null; text?: string }
 export interface StatusCfg { key: string; mode: Mode; rules: Rule[]; otherwise: Outcome; noStatus: Outcome; fallback: { key: string; above: number } | null }
-export interface ValueCfg { key: string; label: string; unit: string; decimals: number | null; hidden: boolean }
+/** `calc`: a calculated value's formula in names (App UI U-128; D-077), for the "calculated" mark. */
+export interface ValueCfg { key: string; label: string; unit: string; decimals: number | null; hidden: boolean; calc?: string }
 export interface TypeCfg { offlineMinutes: number | null; status: StatusCfg; values: ValueCfg[]; icon?: string; accent?: string }
 /** The neutral icons and accent colours a type can have (chosen on the app's editor; the Builder maps them to its own set). */
 export const ICON_IDS = ['machine', 'gauge', 'drop', 'wind', 'cloud', 'bolt', 'box', 'cog'];
@@ -125,7 +126,9 @@ function cleanValues(list: unknown): ValueCfg[] {
     if (!k || seen.has(k)) continue;
     seen.add(k);
     const d = num(v.decimals);
-    out.push({ key: k.slice(0, 120), label: str(v.label).trim().slice(0, 80), unit: str(v.unit).trim().slice(0, 20), decimals: d === null ? null : Math.max(0, Math.min(6, Math.round(d))), hidden: v.hidden === true });
+    const row: ValueCfg = { key: k.slice(0, 120), label: str(v.label).trim().slice(0, 80), unit: str(v.unit).trim().slice(0, 20), decimals: d === null ? null : Math.max(0, Math.min(6, Math.round(d))), hidden: v.hidden === true };
+    if (typeof v.calc === 'string' && v.calc.trim()) row.calc = v.calc.trim().slice(0, 300); // U-128 (D-077)
+    out.push(row);
   }
   return out;
 }
@@ -280,6 +283,7 @@ export function value(model: unknown, type: string, key: string, fb?: { label?: 
     decimals: own && own.decimals !== null && own.decimals !== undefined ? own.decimals : fbDec === null ? null : Math.max(0, Math.min(6, Math.round(fbDec))),
     hidden: !!own?.hidden,
     order,
+    calc: own?.calc ?? '',
     source: own && (own.label || own.unit || own.decimals !== null || own.hidden) ? 'model' : fbLabel || fbUnit || fbDec !== null ? 'page' : 'key',
   };
 }
@@ -295,7 +299,9 @@ export function overlay(model: unknown, type: string, list: KeyMeta[]): KeyMeta[
     .filter((k) => !value(model, type, k.key).hidden)
     .map((k) => {
       const v = value(model, type, k.key, { label: k.displayName, unit: k.unit, decimals: k.decimals });
-      return { ...k, displayName: v.label, unit: v.unit, decimals: v.decimals ?? k.decimals };
+      const out: KeyMeta = { ...k, displayName: v.label, unit: v.unit, decimals: v.decimals ?? k.decimals };
+      if (v.calc) out.calc = v.calc; // D-077: the "calculated" mark in the value lists
+      return out;
     });
   return out.sort((a, b) => (rank.has(a.key) ? rank.get(a.key)! : 1e6) - (rank.has(b.key) ? rank.get(b.key)! : 1e6));
 }

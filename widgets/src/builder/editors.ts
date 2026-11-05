@@ -349,7 +349,7 @@ export function ruleEditor(host: HTMLElement, o: RuleEditorOptions) {
           : `<input data-f="value" value="${esc(r.value ?? '')}" placeholder="text"/>`;
     return `<div class="dbb-rule" data-i="${i}">
       <div class="dbb-rule-main">
-        ${multi ? `<select data-f="key" title="Property"><option value="">Any property</option>${o.metas.map((m) => `<option value="${esc(m.key)}" ${r.key === m.key ? 'selected' : ''}>${esc(m.displayName)}</option>`).join('')}</select>` : ''}
+        ${multi ? `<select data-f="key" title="Property"><option value="">Any property</option>${o.metas.map((m) => `<option value="${esc(m.key)}" ${r.key === m.key ? 'selected' : ''}>${esc(m.displayName)}${m.calc ? ' (calculated)' : ''}</option>`).join('')}</select>` : ''}
         <select data-f="op" title="Condition">${ops.map((x) => `<option value="${x}" ${x === op ? 'selected' : ''}>${esc(RULE_OP_LABELS[x])}</option>`).join('')}</select>
         ${valBox}
         <label class="dbb-swatch" title="Colour" style="background:${esc(r.color)}"><input type="color" data-f="color" value="${esc(/^#[0-9a-f]{6}$/i.test(r.color) ? r.color : '#2a78d6')}"/></label>

@@ -1621,7 +1621,7 @@ class Builder {
         name: 'keys',
         items: metas.map((m) => {
           const c = this.fits(w.type, m, w);
-          return { value: m.key, label: m.displayName, sub: m.unit || undefined, disabled: !c.ok, why: c.reason, tag: c.ok ? undefined : this.kindWord(m) };
+          return { value: m.key, label: m.displayName, sub: m.unit || undefined, disabled: !c.ok, why: c.reason, tag: c.ok ? undefined : this.kindWord(m), calc: m.calc ? `Calculated: ${m.displayName} = ${m.calc}` : undefined };
         }),
         selected: w.keys.filter((k) => metas.some((m) => m.key === k)),
         multi: multiKey,
@@ -1708,7 +1708,7 @@ class Builder {
         { key: 'location', label: 'Location' },
         { key: 'time', label: 'Current time' },
         { key: 'date', label: "Today's date" },
-        ...profs.flatMap((p) => (this.ctx.profileKeys[p] ?? []).map((k) => ({ key: k.key, label: `${k.displayName}${k.unit ? ` (${k.unit})` : ''}` }))),
+        ...profs.flatMap((p) => (this.ctx.profileKeys[p] ?? []).map((k) => ({ key: k.key, label: `${k.displayName}${k.unit ? ` (${k.unit})` : ''}${k.calc ? ' (calculated)' : ''}` }))),
       ];
       richEditor(rte, {
         html: w.settings.html ?? miniToHtml(w.settings.markdown ?? ''),

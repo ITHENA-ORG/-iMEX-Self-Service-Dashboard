@@ -61,6 +61,7 @@ import * as access from './access';
 import * as perm from './perm';
 import type { KeyMeta } from './types';
 import * as machine from './machine';
+import { NOT_A_VALUE, OEE_VALUES } from './oee-values';
 
 /** One entity of the user's visible hierarchy (asset = location/site/line, device = machine). */
 export interface Node {
@@ -467,7 +468,7 @@ export async function loadUserContext(opts: LoadOptions = {}): Promise<UserConte
   ctx.catalogue = sa.dbb_profile_keys && typeof sa.dbb_profile_keys === 'object' ? sa.dbb_profile_keys : {};
   // a copy per type: liveKeys adds to these lists, the catalogue stays as stored
   // D-064: with the machine model laid over it (the app's Settings > Sites & machines wins over the catalogue)
-  ctx.profileKeys = Object.fromEntries(Object.entries(ctx.catalogue).map(([p, ks]) => [p, machine.overlay(mm, p, Array.isArray(ks) ? [...ks] : [])]));
+  ctx.profileKeys = Object.fromEntries(Object.entries(ctx.catalogue).map(([p, ks]) => [p, machine.overlay(mm, p, Array.isArray(ks) ? [...ks] : []).map(noDoubleUnit)]));
   ctx.deployedVersion = String(sa.dbb_lib_version ?? '');
   if (ctx.assign) {
     ctx.assign.customer = sa.dbb_assign_customer ?? {};
@@ -728,8 +729,9 @@ export function clearRelCache(userId?: string) {
 export const LIVE_KEYS_MAX_DEVICES = 20;
 /** How long the listed keys of a type are kept in sessionStorage. */
 export const LIVE_KEYS_CACHE_MS = 5 * 60 * 1000;
-/** Keys that are not properties: AI Insights outputs and the pre-aggregated copies of a value. */
-export const NOT_A_PROPERTY = /^aiml_|_(2min|5min|30min|2hrs|6hrs|1day)$/;
+/** Keys that are not properties: AI Insights outputs, the pre-aggregated copies of a value, and (D-077, App UI U-137) the
+ * OEE chain's shift record and shift name and the stop-reason store (core/oee-values.ts NOT_A_VALUE). */
+export const NOT_A_PROPERTY = new RegExp(`^aiml_|_(2min|5min|30min|2hrs|6hrs|1day)$|${NOT_A_VALUE.source}`);
 
 /** Readable name for a key without a catalogue entry: "dischargePressure" / "discharge_pressure" -> "Discharge Pressure" / "Discharge pressure". */
 export function readableKey(key: string): string {
@@ -758,8 +760,8 @@ function splitLabel(text: string): { label: string; unit: string } {
 /**
  * Properties of one machine type: the catalogue entries first (as stored, also keys no machine sends yet, so
  * saved widgets keep theirs), then every other live key except NOT_A_PROPERTY. Those get the name and unit of
- * the machines' `telemetryKeys` list when it has them (in that list's order), else a readable name and the unit
- * of a snake_case suffix (guessKey); decimals 1,
+ * the machines' `telemetryKeys` list when it has them (in that list's order), else (D-077) the name, unit and decimals
+ * of a value the OEE chain saves (core/oee-values.ts), else a readable name (guessKey); decimals 1,
  * range 0-100 like `keyMeta` gives unknown keys. Pure.
  * @param named key -> name/unit from the machines' `telemetryKeys` attribute (insertion order = list order).
  */
@@ -773,10 +775,21 @@ export function mergeKeys(catalogue: KeyMeta[], live: string[], named: Map<strin
     ...catalogue,
     ...extra.map((key) => {
       const n = named.get(key);
+      const o = OEE_VALUES[key];
       const g = guessKey(key);
-      return { key, displayName: n?.label || g.name, unit: n?.unit || g.unit, decimals: 1, min: 0, max: 100 };
+      const meta: KeyMeta = { key, displayName: n?.label || o?.name || g.name, unit: n ? n.unit : o ? o.unit : g.unit, decimals: o ? o.decimals : 1, min: 0, max: 100 };
+      return meta;
     }),
   ];
+}
+
+/**
+ * D-077: a name that already ends in its unit ("Motor power (hp)", unit hp) loses it, so the places that add the unit
+ * ("Name (unit)" lists, the unit beside the name) do not show it twice. Pure.
+ */
+export function noDoubleUnit(k: KeyMeta): KeyMeta {
+  const { label, unit } = machine.splitLabel(k.displayName);
+  return unit && k.unit && unit.toLowerCase() === k.unit.trim().toLowerCase() ? { ...k, displayName: label } : k;
 }
 
 /** sessionStorage entry of one type's live keys. */
@@ -863,7 +876,7 @@ async function loadLive(ctx: UserContext, profiles: string[]) {
   }
   for (const [p, e] of fresh) {
     const named = new Map(e.named.map(([k, label, unit]) => [k, { label, unit }]));
-    ctx.profileKeys[p] = machine.overlay(machine.model(), p, mergeKeys(ctx.catalogue?.[p] ?? ctx.profileKeys[p] ?? [], e.keys, named));
+    ctx.profileKeys[p] = machine.overlay(machine.model(), p, mergeKeys(ctx.catalogue?.[p] ?? ctx.profileKeys[p] ?? [], e.keys, named)).map(noDoubleUnit);
   }
 }
 

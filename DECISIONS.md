@@ -1191,3 +1191,27 @@ security only, no new feature.
 - The Builder already called the kit's selects() on its root (D-074). With the kit of U-114 that call also takes over `<input type=color>` (the browser's colour window is replaced by
   the app's colour list under the swatch), date inputs and lists, and the kit CSS gives the range sliders and check boxes the app's look: no Builder code changed. The generated kit CSS
   (widgets/src/render/kit-css.ts) is refreshed by the App UI's scripts/export-kit.mjs. The native-control guard found no other control in any Builder state (dashboard list, editor, rule editors, themes, New dashboard).
+
+### D-077 Calculated and OEE values in the value lists (round 18 S4, 5 Nov 2026; App UI U-128, U-127, U-137; Reports D-127)
+- `core/machine.ts` keeps `calc` (U-128) and `overlay()` passes it as `KeyMeta.calc` (`core/types.ts`). The property picker
+  (`builder/controls.ts`) shows the app's "calculated" icon after the name with the formula as its tooltip ("Calculated: Motor
+  power = Motor Power x 1.341"); typing "calculated" finds those values; style in `builder/styles.ts` on `--accent` (light and
+  dark). Text lists (colour-rule property select in `editors.ts`, rich-text placeholders in `builder.ts`) say "(calculated)".
+- OEE values (U-127) nobody named get names, units, decimals and their kind (`number` / `counter` / `count`) from
+  `core/oee-values.ts` (22 chain keys; the same table as Reports `catalogue.OEE_VALUES` and App UI `_shared/machine.js`).
+  `NOT_A_VALUE` = `Shift_Record`, `Current_Shift`, `imexStopReason`: not properties (`scope.mergeKeys` / `NOT_A_PROPERTY`).
+  `scope.noDoubleUnit` drops a unit the name already ends in ("Motor power (hp)" + hp -> "Motor power").
+- `widgets/test/machine-vectors.json` byte-identical with App UI; `calc-oee-values.test.ts` runs the new vector sections.
+- Verified: vitest 448 (29 files), typecheck clean, e2e 80/80 (S4 run), browser check light / dark; built and deployed to LOCAL
+  (round-18 close-out, `deploy-node.mjs --go`, app dashboard skipped).
+
+### D-078 The chat follows the app's AI privacy setting (round 18 S5, 5 Nov 2026; AI Insights A-070, App UI U-138)
+- `core/privacy.ts`: the TypeScript port of the shared rule (`widgets/test/privacy-vectors.json` byte-identical with App UI),
+  plus `readSwitches()` (the side menu's copy of `imexLlm`, else one attribute read; unreadable = names hidden).
+- `core/chat.ts`: `privacyEntities()`; `buildRequest(…, names)` replaces names before anything becomes text: the labels and
+  names of machines and locations in the catalogue, the draft's titles, the conversation, the request and the correction.
+  `chatTurn(…, opts.privacy)` reads the switches itself unless given. The answer (reply, questions, options, widget titles,
+  dashboard names, tool input) is restored before it is checked and applied. Device ids and value keys are unchanged; the chat
+  sends no readings, so "Send measured values" has nothing to remove. No rule-chain change.
+- Verified: `privacy.test.ts` 38 (captured fake-transport bodies with no real names), vitest 448, typecheck clean.
+- Server: `npm run build:widgets`, then push the three widget types (`scripts/mirror/push-widgets-target.mjs`). Next: D-079.

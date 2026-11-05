@@ -4087,5 +4087,201 @@
     "Motor_Current"
    ]
   }
+ ],
+ "oeeValues": {
+  "OEE": {
+   "label": "OEE",
+   "unit": "%",
+   "decimals": 1,
+   "kind": "number"
+  },
+  "OEE_A": {
+   "label": "Availability",
+   "unit": "%",
+   "decimals": 1,
+   "kind": "number"
+  },
+  "OEE_P": {
+   "label": "Performance",
+   "unit": "%",
+   "decimals": 1,
+   "kind": "number"
+  },
+  "OEE_Q": {
+   "label": "Quality",
+   "unit": "%",
+   "decimals": 1,
+   "kind": "number"
+  },
+  "Shift_Good": {
+   "label": "Good units this shift",
+   "unit": "units",
+   "decimals": 0,
+   "kind": "counter"
+  },
+  "Shift_Reject": {
+   "label": "Rejected units this shift",
+   "unit": "units",
+   "decimals": 0,
+   "kind": "counter"
+  },
+  "Shift_Rework": {
+   "label": "Rework units this shift",
+   "unit": "units",
+   "decimals": 0,
+   "kind": "counter"
+  },
+  "Shift_Units": {
+   "label": "Units this shift",
+   "unit": "units",
+   "decimals": 0,
+   "kind": "counter"
+  },
+  "Shift_Run_Min": {
+   "label": "Run time this shift",
+   "unit": "min",
+   "decimals": 1,
+   "kind": "counter"
+  },
+  "Shift_Stop_Min": {
+   "label": "Stop time this shift",
+   "unit": "min",
+   "decimals": 1,
+   "kind": "counter"
+  },
+  "Shift_Short_Stop_Min": {
+   "label": "Short stop time this shift",
+   "unit": "min",
+   "decimals": 1,
+   "kind": "counter"
+  },
+  "Shift_Planned_Min": {
+   "label": "Planned time so far this shift",
+   "unit": "min",
+   "decimals": 1,
+   "kind": "counter"
+  },
+  "Shift_Stops": {
+   "label": "Stops this shift",
+   "unit": "",
+   "decimals": 0,
+   "kind": "counter"
+  },
+  "Shift_Short_Stops": {
+   "label": "Short stops this shift",
+   "unit": "",
+   "decimals": 0,
+   "kind": "counter"
+  },
+  "Shift_Energy_kWh": {
+   "label": "Energy this shift",
+   "unit": "kWh",
+   "decimals": 1,
+   "kind": "counter"
+  },
+  "Energy_Per_1000_Good": {
+   "label": "Energy per 1,000 good units",
+   "unit": "kWh",
+   "decimals": 2,
+   "kind": "number"
+  },
+  "Shift_OEE": {
+   "label": "Shift OEE",
+   "unit": "%",
+   "decimals": 1,
+   "kind": "number"
+  },
+  "Shift_A": {
+   "label": "Shift availability",
+   "unit": "%",
+   "decimals": 1,
+   "kind": "number"
+  },
+  "Shift_P": {
+   "label": "Shift performance",
+   "unit": "%",
+   "decimals": 1,
+   "kind": "number"
+  },
+  "Shift_Q": {
+   "label": "Shift quality",
+   "unit": "%",
+   "decimals": 1,
+   "kind": "number"
+  },
+  "Shift_Good_Total": {
+   "label": "Good units per shift",
+   "unit": "units",
+   "decimals": 0,
+   "kind": "count"
+  },
+  "Shift_Reject_Total": {
+   "label": "Rejected units per shift",
+   "unit": "units",
+   "decimals": 0,
+   "kind": "count"
+  }
+ },
+ "notAValue": [
+  {
+   "key": "Shift_Record",
+   "expect": true
+  },
+  {
+   "key": "Current_Shift",
+   "expect": true
+  },
+  {
+   "key": "imexStopReason",
+   "expect": true
+  },
+  {
+   "key": "Shift_Good",
+   "expect": false
+  },
+  {
+   "key": "OEE",
+   "expect": false
+  },
+  {
+   "key": "shift_record",
+   "expect": false
+  },
+  {
+   "key": "",
+   "expect": false
+  }
+ ],
+ "noDoubleUnit": [
+  {
+   "label": "Motor power (hp)",
+   "unit": "hp",
+   "expect": "Motor power"
+  },
+  {
+   "label": "Motor power (HP)",
+   "unit": " hp ",
+   "expect": "Motor power"
+  },
+  {
+   "label": "Flow (normal)",
+   "unit": "m³/h",
+   "expect": "Flow (normal)"
+  },
+  {
+   "label": "Motor power (hp)",
+   "unit": "",
+   "expect": "Motor power (hp)"
+  },
+  {
+   "label": "Pressure",
+   "unit": "bar",
+   "expect": "Pressure"
+  },
+  {
+   "label": "Energy (kWh) total (kWh)",
+   "unit": "kWh",
+   "expect": "Energy (kWh) total"
+  }
  ]
 }

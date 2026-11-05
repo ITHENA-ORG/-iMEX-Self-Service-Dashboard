@@ -129,6 +129,7 @@ export const BUILDER_CSS = `
 .dbb-pk-row{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;cursor:pointer;line-height:1.3;outline:none}
 .dbb-pk-row:hover,.dbb-pk-row:focus{background:#f3f6fb}
 .dbb-pk-row .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dbb-pk-row .calc,.dbb-pk-trig .calc{display:inline-flex;vertical-align:-2px;margin-left:3px;color:var(--accent)}
 .dbb-pk-row .tag{font-size:10.5px;color:var(--ink-3);background:#f1f1ef;border-radius:4px;padding:0 5px;margin-left:4px}
 .dbb-pk-row.dis{opacity:.45;cursor:not-allowed}
 .dbb-pk-row.dis:hover{background:none}

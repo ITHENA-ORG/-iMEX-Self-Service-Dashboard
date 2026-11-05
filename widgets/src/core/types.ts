@@ -20,4 +20,6 @@ export interface KeyMeta {
   type?: 'number' | 'boolean' | 'string';
   /** Labels for boolean / coded values, e.g. { "1": "Running", "0": "Stopped" }. */
   states?: Record<string, string>;
+  /** D-077: a calculated value's formula in names (App UI U-128, from the machine model): marked "calculated". */
+  calc?: string;
 }

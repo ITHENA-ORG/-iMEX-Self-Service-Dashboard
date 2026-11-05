@@ -26,6 +26,12 @@
 // (setApplyTarget only proposes a target for the Save dialog); rich text from the model is sanitised.
 // The 30-turns-per-hour limit is the builder's (browser-side); the chain has its own per-user limit (D-074).
 //
+// AI PRIVACY (AI Insights A-070, the application's one setting: imexLlm.privacy, Settings › Connections & AI): with
+// "hide names" on (the default) the labels and names of the machines and locations in the catalogue, the draft's titles,
+// the conversation and the request leave as "Machine A", "Site A", "Location A" (core/privacy.ts, the shared rule); the
+// answer (reply, question, options, titles, names) comes back with the real names before it is checked and applied. The
+// catalogue aliases D1/N1 and the value keys are unchanged. The chat sends no measured values.
+//
 // SECURITY (D-074, round 11 audit H5): the chain checks the writer's role in the role registry (Build dashboards), counts
 // the user's requests per hour, and owns the system prompt and the tool (chat-prompt.ts); the browser sends only the
 // conversation and the context. The catalogue only contains the user's scope, but scope itself is UI-enforced (D-012).
@@ -43,6 +49,7 @@ import { sanitizeHtml } from '../render/rich';
 import { firstFit } from '../render/grid';
 import { watchAttribute } from './tb-socket';
 import { alertsLicensed, widgetLicensed } from './licence';
+import { make as makeNames, readSwitches, settings as privacySettings, type Entity, type Names } from './privacy';
 
 // ---------- catalog + aliases ----------
 
@@ -103,6 +110,19 @@ export function buildCatalog(ctx: UserContext): Catalog {
     0,
   );
   return { devAlias, nodeAlias, byId, text, profiles };
+}
+
+/**
+ * A-070: the names a chat request may contain, for AI privacy (core/privacy.ts): the machines in catalogue order (D1..,
+ * so a machine keeps its alias over the whole conversation; the label is what the builder shows and what comes back, the
+ * name is replaced too), then the locations (a 'Site' asset = site, other assets = location).
+ */
+export function privacyEntities(ctx: UserContext, _cat?: Catalog): Entity[] {
+  const nodes = [...ctx.nodes.values()];
+  return [
+    ...nodes.filter((x) => x.entityType === 'DEVICE').map((x) => ({ kind: 'machine', name: x.name, label: x.label })),
+    ...nodes.filter((x) => x.entityType === 'ASSET').map((x) => ({ kind: x.profile === 'Site' ? 'site' : 'location', name: x.name, label: x.label })),
+  ];
 }
 
 // ---------- operations (what the LLM may return) ----------
@@ -672,13 +692,15 @@ export interface ChatRequestBody {
  * aliased draft and the user's message; `correction` appends the validation problems of the previous attempt.
  * @param currentDeviceId machine the builder is open for (sent as its alias), or null.
  */
-export function buildRequest(ctx: UserContext, cat: Catalog, draft: Dashboard, history: Turn[], message: string, currentDeviceId: string | null, correction?: string): ChatRequestBody {
+export function buildRequest(ctx: UserContext, cat: Catalog, draft: Dashboard, history: Turn[], message: string, currentDeviceId: string | null, correction?: string, names?: Names): ChatRequestBody {
+  // A-070: names replaced before anything is turned into text (a name with a quote in it is matched as it is)
+  const out = <T,>(x: T): T => (names ? names.out(x) : x);
   const alias = currentDeviceId ? cat.byId.get(currentDeviceId) ?? null : null;
-  const msgs: Turn[] = history.slice(-10).map((t) => ({ role: t.role, content: String(t.content) }));
-  let user = `DRAFT (JSON data): ${JSON.stringify(draftForPrompt(draft, cat))}\n\nUSER REQUEST: ${message}`;
-  if (correction) user += `\n\nYour previous answer was invalid:\n${correction}\nReturn a corrected answer.`;
+  const msgs: Turn[] = history.slice(-10).map((t) => ({ role: t.role, content: out(String(t.content)) }));
+  let user = `DRAFT (JSON data): ${JSON.stringify(out(draftForPrompt(draft, cat)))}\n\nUSER REQUEST: ${out(message)}`;
+  if (correction) user += `\n\nYour previous answer was invalid:\n${out(correction)}\nReturn a corrected answer.`;
   msgs.push({ role: 'user', content: user });
-  return { v: 2, catalog: cat.text, machine: alias, messages: msgs };
+  return { v: 2, catalog: names ? JSON.stringify(out(JSON.parse(cat.text))) : cat.text, machine: alias, messages: msgs };
 }
 
 /**
@@ -906,10 +928,13 @@ export async function chatTurn(
   history: Turn[],
   message: string,
   currentDeviceId: string | null,
+  opts: { privacy?: unknown } = {},
 ): Promise<ChatResult & { attempts: number; usage?: any }> {
   // the model sees every key the machines send, not only the catalogued ones (9 Oct 2026); cached after the first turn
   await scope.liveKeys(ctx);
   const cat = buildCatalog(ctx);
+  // A-070: the application's AI privacy setting (opts.privacy = the stored imexLlm, else read now)
+  const names = makeNames(privacyEntities(ctx, cat), privacySettings('privacy' in opts ? opts.privacy : await readSwitches()));
   // a device dashboard opened for a machine: give the model the machine type up front
   const base = !draft.profile && currentDeviceId ? { ...draft, profile: ctx.nodes.get(currentDeviceId)?.profile ?? null } : draft;
   const ignore = existingProblems(ctx, base);
@@ -917,7 +942,9 @@ export async function chatTurn(
   let correction: string | undefined;
   let lastProblems: string[] = [];
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const { toolInput, usage } = await transport.send(buildRequest(ctx, cat, base, history, message, currentDeviceId, correction));
+    const sent = await transport.send(buildRequest(ctx, cat, base, history, message, currentDeviceId, correction, names));
+    const toolInput = names.back(sent.toolInput);   // A-070: the real names in the reply, questions, titles
+    const usage = sent.usage;
     try {
       const out = normaliseToolInput(toolInput);
       if (out.clarification) return { draft, reply: out.reply, clarification: out.clarification, changed: none, warnings: [], attempts: attempt, usage, intent: 'clarify' };

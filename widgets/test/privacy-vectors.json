@@ -1,0 +1,175 @@
+{
+  "about": "AI privacy, one rule for every part of iMEX that sends plant data to an AI model (AI Insights A-041 / A-070; App UI window.imxPrivacy in the side menu; AI Insights + Reports service/app/privacy.py; Dashboard Builder core/privacy.ts). Written by hand; the master copy is App UI tests/privacy-vectors.json, copied byte for byte to AI Insights service/tests/, Reports service/tests/ and the Builder widgets/test/. raw = the stored imexLlm (null = not stored, \"UNREADABLE\" = the read failed); legacy = AI Insights' old ai.privacy.",
+  "settings": [
+    { "case": "nothing stored, no legacy: both on", "raw": null, "legacy": null, "expect": { "anonymise": true, "send_values": true } },
+    { "case": "switches without privacy: both on", "raw": { "v": 1, "enabled": false, "features": {} }, "legacy": null, "expect": { "anonymise": true, "send_values": true } },
+    { "case": "anonymise exactly false", "raw": { "v": 1, "enabled": true, "privacy": { "anonymise": false } }, "legacy": null, "expect": { "anonymise": false, "send_values": true } },
+    { "case": "send_values exactly false", "raw": { "privacy": { "send_values": false } }, "legacy": null, "expect": { "anonymise": true, "send_values": false } },
+    { "case": "only exactly false switches off", "raw": { "privacy": { "anonymise": "no", "send_values": 0 } }, "legacy": null, "expect": { "anonymise": true, "send_values": true } },
+    { "case": "stored as JSON text", "raw": "{\"enabled\":false,\"privacy\":{\"anonymise\":false,\"send_values\":false}}", "legacy": null, "expect": { "anonymise": false, "send_values": false } },
+    { "case": "text that is not JSON: names replaced, no values", "raw": "not json", "legacy": null, "expect": { "anonymise": true, "send_values": false } },
+    { "case": "not an object: names replaced, no values", "raw": [1, 2], "legacy": null, "expect": { "anonymise": true, "send_values": false } },
+    { "case": "a number: names replaced, no values", "raw": 7, "legacy": null, "expect": { "anonymise": true, "send_values": false } },
+    { "case": "the read failed: names replaced, no values", "raw": "UNREADABLE", "legacy": { "anonymise": false, "send_values": true }, "expect": { "anonymise": true, "send_values": false } },
+    { "case": "nothing stored: the legacy setting", "raw": null, "legacy": { "anonymise": true, "send_values": false }, "expect": { "anonymise": true, "send_values": false } },
+    { "case": "switches without privacy: the legacy setting", "raw": { "v": 1, "enabled": true }, "legacy": { "anonymise": false }, "expect": { "anonymise": false, "send_values": true } },
+    { "case": "privacy stored: the legacy setting is ignored", "raw": { "privacy": {} }, "legacy": { "anonymise": false, "send_values": false }, "expect": { "anonymise": true, "send_values": true } },
+    { "case": "privacy not an object: the legacy setting", "raw": { "privacy": true }, "legacy": { "send_values": false }, "expect": { "anonymise": true, "send_values": false } }
+  ],
+  "aliases": [
+    {
+      "case": "per kind, in the order given; the label is the name shown",
+      "entities": [
+        { "kind": "machine", "name": "Compressor 1" }, { "kind": "site", "name": "Bangalore" }, { "kind": "machine", "name": "CMP-0002", "label": "Compressor 2" },
+        { "kind": "customer", "name": "Ithena Technology" }, { "kind": "location", "name": "Hall 3" }, { "kind": "person", "name": "Ravi Kumar" }, { "kind": "other", "name": "Line 9" }
+      ],
+      "expect": [
+        { "alias": "Machine A", "name": "Compressor 1" }, { "alias": "Site A", "name": "Bangalore" }, { "alias": "Machine B", "name": "Compressor 2" },
+        { "alias": "Customer A", "name": "Ithena Technology" }, { "alias": "Location A", "name": "Hall 3" }, { "alias": "Person A", "name": "Ravi Kumar" }, { "alias": "Item A", "name": "Line 9" }
+      ]
+    },
+    {
+      "case": "the same machine twice (any case, spaces around) is one alias; empty entries are skipped",
+      "entities": [ { "kind": "machine", "name": "Press 7" }, { "kind": "machine", "name": "  press 7 " }, { "kind": "machine", "name": "" }, { "kind": "machine", "name": "Press 8" } ],
+      "expect": [ { "alias": "Machine A", "name": "Press 7" }, { "alias": "Machine B", "name": "Press 8" } ]
+    },
+    {
+      "case": "an alias that is a real name is skipped",
+      "entities": [ { "kind": "machine", "name": "Press 7" }, { "kind": "machine", "name": "Machine A" }, { "kind": "site", "name": "site b" }, { "kind": "site", "name": "North" } ],
+      "expect": [ { "alias": "Machine B", "name": "Press 7" }, { "alias": "Machine C", "name": "Machine A" }, { "alias": "Site A", "name": "site b" }, { "alias": "Site C", "name": "North" } ]
+    },
+    {
+      "case": "after Z: AA, AB",
+      "entities": [
+        { "kind": "machine", "name": "M01" }, { "kind": "machine", "name": "M02" }, { "kind": "machine", "name": "M03" }, { "kind": "machine", "name": "M04" }, { "kind": "machine", "name": "M05" },
+        { "kind": "machine", "name": "M06" }, { "kind": "machine", "name": "M07" }, { "kind": "machine", "name": "M08" }, { "kind": "machine", "name": "M09" }, { "kind": "machine", "name": "M10" },
+        { "kind": "machine", "name": "M11" }, { "kind": "machine", "name": "M12" }, { "kind": "machine", "name": "M13" }, { "kind": "machine", "name": "M14" }, { "kind": "machine", "name": "M15" },
+        { "kind": "machine", "name": "M16" }, { "kind": "machine", "name": "M17" }, { "kind": "machine", "name": "M18" }, { "kind": "machine", "name": "M19" }, { "kind": "machine", "name": "M20" },
+        { "kind": "machine", "name": "M21" }, { "kind": "machine", "name": "M22" }, { "kind": "machine", "name": "M23" }, { "kind": "machine", "name": "M24" }, { "kind": "machine", "name": "M25" },
+        { "kind": "machine", "name": "M26" }, { "kind": "machine", "name": "M27" }, { "kind": "machine", "name": "M28" }
+      ],
+      "expect": [
+        { "alias": "Machine A", "name": "M01" }, { "alias": "Machine B", "name": "M02" }, { "alias": "Machine C", "name": "M03" }, { "alias": "Machine D", "name": "M04" }, { "alias": "Machine E", "name": "M05" },
+        { "alias": "Machine F", "name": "M06" }, { "alias": "Machine G", "name": "M07" }, { "alias": "Machine H", "name": "M08" }, { "alias": "Machine I", "name": "M09" }, { "alias": "Machine J", "name": "M10" },
+        { "alias": "Machine K", "name": "M11" }, { "alias": "Machine L", "name": "M12" }, { "alias": "Machine M", "name": "M13" }, { "alias": "Machine N", "name": "M14" }, { "alias": "Machine O", "name": "M15" },
+        { "alias": "Machine P", "name": "M16" }, { "alias": "Machine Q", "name": "M17" }, { "alias": "Machine R", "name": "M18" }, { "alias": "Machine S", "name": "M19" }, { "alias": "Machine T", "name": "M20" },
+        { "alias": "Machine U", "name": "M21" }, { "alias": "Machine V", "name": "M22" }, { "alias": "Machine W", "name": "M23" }, { "alias": "Machine X", "name": "M24" }, { "alias": "Machine Y", "name": "M25" },
+        { "alias": "Machine Z", "name": "M26" }, { "alias": "Machine AA", "name": "M27" }, { "alias": "Machine AB", "name": "M28" }
+      ]
+    }
+  ],
+  "texts": [
+    {
+      "case": "names out, real names back; Compressor 10 is not Compressor 1",
+      "entities": [ { "kind": "machine", "name": "Compressor 1" }, { "kind": "machine", "name": "Compressor 10" }, { "kind": "site", "name": "Bangalore" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "Compressor 1 and Compressor 10 at Bangalore", "expectOut": "Machine A and Machine B at Site A",
+      "back": "Machine A and Machine B at Site A", "expectBack": "Compressor 1 and Compressor 10 at Bangalore"
+    },
+    {
+      "case": "any case out, exact case back",
+      "entities": [ { "kind": "machine", "name": "Compressor 1" }, { "kind": "site", "name": "Bangalore" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "COMPRESSOR 1 in bangalore; compressor 1 again", "expectOut": "Machine A in Site A; Machine A again",
+      "back": "Restart the machine a minute later. MACHINE A stays, Machine A is back, Site Ab stays", "expectBack": "Restart the machine a minute later. MACHINE A stays, Compressor 1 is back, Site Ab stays"
+    },
+    {
+      "case": "whole words only: digits, letters and _ around a name keep it",
+      "entities": [ { "kind": "machine", "name": "Compressor 1" }, { "kind": "site", "name": "Pune" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "Compressor 12, Compressor_1, Compressor 1_x, xPune, Punей, (Compressor 1), Pune.", "expectOut": "Compressor 12, Compressor_1, Compressor 1_x, xPune, Punей, (Machine A), Site A.",
+      "back": "Machine A1, Machine A_b, Machine AB, [Machine A]", "expectBack": "Machine A1, Machine A_b, Machine AB, [Compressor 1]"
+    },
+    {
+      "case": "one pass: a replaced part is never looked at again",
+      "entities": [ { "kind": "machine", "name": "Press 7" }, { "kind": "site", "name": "Machine" }, { "kind": "location", "name": "Site" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "Press 7 in Machine, Site", "expectOut": "Machine A in Site A, Location A",
+      "back": "Machine A in Site A, Location A", "expectBack": "Press 7 in Machine, Site"
+    },
+    {
+      "case": "longest first: Line 1 Press is one name, Line 1 another",
+      "entities": [ { "kind": "location", "name": "Line 1" }, { "kind": "machine", "name": "Line 1 Press" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "Line 1 Press stopped; Line 1 runs", "expectOut": "Machine A stopped; Location A runs",
+      "back": "Machine A stopped; Location A runs", "expectBack": "Line 1 Press stopped; Line 1 runs"
+    },
+    {
+      "case": "characters with a meaning in patterns are plain text",
+      "entities": [ { "kind": "machine", "name": "Line (2) + Press*" }, { "kind": "machine", "name": "A.B|C" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "Check Line (2) + Press* and A.B|C, not AxB|C", "expectOut": "Check Machine A and Machine B, not AxB|C",
+      "back": "Machine B then Machine A", "expectBack": "A.B|C then Line (2) + Press*"
+    },
+    {
+      "case": "letters outside English",
+      "entities": [ { "kind": "site", "name": "Zürich" }, { "kind": "machine", "name": "Presse Ä1" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "ZÜRICH: Presse ä1 stopped; Zürichsee and Presse Ä12 stay", "expectOut": "Site A: Machine A stopped; Zürichsee and Presse Ä12 stay",
+      "back": "Site A: Machine A", "expectBack": "Zürich: Presse Ä1"
+    },
+    {
+      "case": "the label: both texts leave as the alias, the label comes back",
+      "entities": [ { "kind": "machine", "name": "BLW-0001", "label": "Blower 1" }, { "kind": "person", "name": "Ravi Kumar" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "BLW-0001 / Blower 1, asked by Ravi Kumar", "expectOut": "Machine A / Machine A, asked by Person A",
+      "back": "Hello Person A, Machine A is fine", "expectBack": "Hello Ravi Kumar, Blower 1 is fine"
+    },
+    {
+      "case": "a one-character name is not replaced (it would change ordinary words), but comes back",
+      "entities": [ { "kind": "machine", "name": "X" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "X marks the spot", "expectOut": "X marks the spot",
+      "back": "Machine A", "expectBack": "X"
+    },
+    {
+      "case": "anonymise off: names leave as they are, aliases still come back",
+      "entities": [ { "kind": "machine", "name": "Compressor 1" }, { "kind": "site", "name": "Bangalore" } ],
+      "settings": { "anonymise": false, "send_values": true },
+      "out": "Compressor 1 at Bangalore", "expectOut": "Compressor 1 at Bangalore",
+      "back": "Machine A at Site A", "expectBack": "Compressor 1 at Bangalore"
+    },
+    {
+      "case": "no entities: nothing changes",
+      "entities": [],
+      "settings": { "anonymise": true, "send_values": true },
+      "out": "Machine A at Site A", "expectOut": "Machine A at Site A",
+      "back": "Machine A at Site A", "expectBack": "Machine A at Site A"
+    }
+  ],
+  "objects": [
+    {
+      "case": "every string of an object, keys unchanged, numbers and flags kept; values stay while send_values is on",
+      "entities": [ { "kind": "machine", "name": "Compressor 1" }, { "kind": "site", "name": "Bangalore" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "valueKeys": [ "value", "level" ],
+      "payload": { "machine": "Compressor 1", "Compressor 1": "key stays", "site": [ "Bangalore", 3, true, null ], "signals": [ { "key": "Compressor 1 temp", "value": 81.5, "level": 2, "z": 4.1 } ] },
+      "expect": { "machine": "Machine A", "Compressor 1": "key stays", "site": [ "Site A", 3, true, null ], "signals": [ { "key": "Machine A temp", "value": 81.5, "level": 2, "z": 4.1 } ] }
+    },
+    {
+      "case": "send_values off: the value keys go, at every depth",
+      "entities": [ { "kind": "machine", "name": "Compressor 1" } ],
+      "settings": { "anonymise": true, "send_values": false },
+      "valueKeys": [ "value", "level" ],
+      "payload": { "machine": "Compressor 1", "value": 9, "signals": [ { "key": "t", "value": 81.5, "level": 2, "z": 4.1, "nested": { "level": 1, "unit": "bar" } } ] },
+      "expect": { "machine": "Machine A", "signals": [ { "key": "t", "z": 4.1, "nested": { "unit": "bar" } } ] }
+    },
+    {
+      "case": "send_values off without value keys: nothing removed",
+      "entities": [ { "kind": "machine", "name": "Compressor 1" } ],
+      "settings": { "anonymise": false, "send_values": false },
+      "valueKeys": [],
+      "payload": { "machine": "Compressor 1", "value": 9 },
+      "expect": { "machine": "Compressor 1", "value": 9 }
+    }
+  ],
+  "answers": [
+    {
+      "case": "an answer object gets the real names back everywhere",
+      "entities": [ { "kind": "machine", "name": "Compressor 1" }, { "kind": "site", "name": "Bangalore" } ],
+      "settings": { "anonymise": true, "send_values": true },
+      "answer": { "headline": "Machine A at Site A needs a filter", "steps": [ { "action": "Stop Machine A", "timing": "now" } ], "n": 2, "ok": true, "none": null },
+      "expect": { "headline": "Compressor 1 at Bangalore needs a filter", "steps": [ { "action": "Stop Compressor 1", "timing": "now" } ], "n": 2, "ok": true, "none": null }
+    }
+  ]
+}
