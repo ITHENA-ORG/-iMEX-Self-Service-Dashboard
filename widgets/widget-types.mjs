@@ -1,8 +1,7 @@
 // ThingsBoard widget-type definitions (names, sizes, settings forms). Used by build.mjs to write one
-// importable widget-type JSON per widget into widgets/dist/widget-types/. Keep in sync with deploy/deploy-browser.js.
+// importable widget-type JSON per widget into widgets/dist/widget-types/, and into glue.json for deploy/deploy-browser.js.
 //
-// The deploy script has its own copy of these three objects (it is pasted into a browser console and
-// can't import this module), so change both when adding or renaming a setting. Settings are read by
+// The deploy script reads these from glue.json; its own copy is only a fallback for an older glue.json. Settings are read by
 // the entry points as `tbCtx.settings.<name>` (see widgets/src/entries/*.ts for what each one does).
 // Keys: launcher = tenant.imex_dbb_launcher, renderer = tenant.imex_dbb_renderer, listing = tenant.imex_dbb_listing.
 

@@ -61,6 +61,8 @@ out.version = version;
 await build({ entryPoints: ['widgets/src/core/chat-prompt.ts'], bundle: true, format: 'esm', platform: 'node', target: 'node18', outfile: 'widgets/dist/chat-prompt.mjs', logLevel: 'warning' });
 const { chatContract } = await import(new URL('./dist/chat-prompt.mjs?' + Date.now(), import.meta.url).href);
 out.chat = chatContract();
+// The settings forms (widget-types.mjs) for DBB_DEPLOY, so its own copy can no longer fall behind (it did after D-050).
+out.settingsSchemas = settingsSchemas;
 writeFileSync('widgets/dist/chat-contract.json', JSON.stringify(out.chat, null, 2));
 writeFileSync('widgets/dist/glue.json', JSON.stringify(out, null, 2));
 const gz = gzipSync(Buffer.from(lib, 'utf8'), { level: 9 });

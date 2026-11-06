@@ -1215,3 +1215,14 @@ security only, no new feature.
   sends no readings, so "Send measured values" has nothing to remove. No rule-chain change.
 - Verified: `privacy.test.ts` 38 (captured fake-transport bodies with no real names), vitest 448, typecheck clean.
 - Server: `npm run build:widgets`, then push the three widget types (`scripts/mirror/push-widgets-target.mjs`). Next: D-079.
+
+### D-079 The deploy keeps the Playbook AI hook and takes the settings forms from the build (6 Nov 2026)
+- Found in the release check: LOCAL's three widget types had older settings-form wording than the repo, because
+  `deploy-browser.js` kept its own copy of `widget-types.mjs` and it was not updated after D-050 (the renderer's
+  `analyzerState` field was missing too). `build.mjs` now writes the forms into `glue.json` (`settingsSchemas`) and the deploy
+  uses them; its own copy is only a fallback for an older `glue.json`.
+- Also found: a deploy rewrote "DBB Chat relay (POC)" and dropped the Playbook AI hook (App UI `scripts/pb-ai-chain.mjs`,
+  U-126), so Playbooks › "Ask AI" stopped reaching its chain on LOCAL. The deploy now carries the hook's two nodes over
+  ("Playbook AI request?" + the "iMEX Playbook AI" input) on the False branch of "Is chat request", wired as the hook script does.
+- Verified on LOCAL: hook re-installed, `deploy-node.mjs --go`, `pb-ai-chain.mjs --check` all ok after the deploy; the three
+  widget types equal `widgets/dist/widget-types`; vitest 448. Next: D-080.

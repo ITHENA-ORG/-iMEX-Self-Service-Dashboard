@@ -651,6 +651,22 @@ window.DBB_DEPLOY = async function (opts) {
   // D-074: other store attribute changes go on to the role guard (App UI scripts/role-guard.mjs) when it is installed
   const guardChain = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Role guard')}`)).find((x) => x.name === 'iMEX Role guard');
   const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeperChain ? keeperChain.id.id : null, { guardChainId: guardChain ? guardChain.id.id : null });
+  // The Playbook AI hook (App UI scripts/pb-ai-chain.mjs, U-126) sits on "Is chat request"'s False branch: carry its two
+  // nodes over, wired the same way, so a deploy no longer drops it (it did on LOCAL before 6 Nov 2026).
+  const oldNodes = existingMeta.nodes || [];
+  const oldHook = oldNodes.find((n) => n.name === 'Playbook AI request?');
+  const oldInput = oldNodes.find((n) => n.name === 'iMEX Playbook AI' && /RuleChainInput/.test(n.type));
+  const chatFilter = nodes.findIndex((n) => n.name === 'Is chat request');
+  if (oldHook && oldInput && chatFilter >= 0) {
+    const copy = (n) => ({ type: n.type, name: n.name, configurationVersion: n.configurationVersion, configuration: n.configuration, additionalInfo: n.additionalInfo, debugSettings: n.debugSettings });
+    const hook = nodes.push(copy(oldHook)) - 1;
+    const input = nodes.push(copy(oldInput)) - 1;
+    const was = connections.filter((x) => x.fromIndex === chatFilter && x.type === 'False').map((x) => x.toIndex);
+    for (let i = connections.length - 1; i >= 0; i--) if (connections[i].fromIndex === chatFilter && connections[i].type === 'False') connections.splice(i, 1);
+    connections.push({ fromIndex: chatFilter, toIndex: hook, type: 'False' }, { fromIndex: hook, toIndex: input, type: 'True' });
+    for (const t of was) connections.push({ fromIndex: hook, toIndex: t, type: 'False' }, { fromIndex: hook, toIndex: t, type: 'Failure' });
+    say('Playbook AI hook kept');
+  }
   // Replaces all nodes and connections of the chain (passing the current version for optimistic locking).
   await api('POST', '/api/ruleChain/metadata', { ruleChainId: rc.id, version: existingMeta.version, firstNodeIndex: 0, nodes, connections, ruleChainConnections: null });
   say(`rule chain "${rcName}" written (Claude / OpenAI / Gemini, key read from ${o.llmConfigName})`);
@@ -712,8 +728,9 @@ window.DBB_DEPLOY = async function (opts) {
   const bundles = await all('/api/widgetsBundles?tenantOnly=true');
   let bundle = bundles.find((b) => b.title === o.bundleTitle);
   if (!bundle) bundle = await api('POST', '/api/widgetsBundle', { title: o.bundleTitle, alias: 'imex_dbb', description: `${MARK} iMEX Dashboard Builder POC widgets` });
-  // Copy of widgets/widget-types.mjs (this file is pasted into a console and can't import it). Keep in sync.
-  const settingsSchemas = {
+  // The settings forms come from glue.json (build.mjs copies widgets/widget-types.mjs into it). The copy below is only the
+  // fallback for an older glue.json (this file is pasted into a console and can't import the module).
+  const settingsSchemas = (window.__dbbGlue && window.__dbbGlue.settingsSchemas) || {
     launcher: {
       schema: {
         type: 'object',
