@@ -36,7 +36,14 @@ const LAST_RUN = 'mirror-data/target-last-run.json';
 //   9 Oct: side menu 13:20 (the developers' AETHER assistant) and page header 12:56-13:10 on top of the 04:12-04:13 run;
 //   the developers' v5 alert history page: created 05:27, last saved 10:38:55, the version the UI repo's copy started from
 const BASES = {
-  imex_machine_cards: '2026-10-08T07:53:04', imex_org_hierarchy: '2026-10-08T07:53:05', imex_user_management: '2026-10-08T05:11:47',
+  imex_user_management: '2026-10-08T05:11:47',
+  // 5 Nov 2026 (drift audit H1-H4): the developers' later server edits were folded into the UI repo by hand (App UI
+  // docs/DEVELOPER_EDITS.md), so their last saves are the bases (8 Oct before: machine cards 07:53:04, org hierarchy
+  // 07:53:05): analyzer Export button (5 Nov 06:34-06:35), machine cards phone tooltips + toolbar (28 Oct 10:51-11:50),
+  // mobile pages search box (28 Oct 12:05-12:13), org hierarchy tree spacing (28 Oct 05:35-06:07; U-125 in the UI repo
+  // does the same on newer code, so the push replaces it on purpose)
+  imex_analyzer: '2026-11-05T06:35:20', imex_machine_cards: '2026-10-28T11:50:26', imex_mobile_pages: '2026-10-28T12:13:06',
+  imex_org_hierarchy: '2026-10-28T06:07:17',
   // side menu and page header: their latest server saves (AETHER, the mcpUrl setting) were merged into the UI repo by hand
   // on 10 Oct, so those saves are the base; any later server edit is still detected and merged
   // side menu: 13 Oct the developers edited AETHER (07:31, 07:39) on top of the 12 Oct 21:18 run; their edits were taken
