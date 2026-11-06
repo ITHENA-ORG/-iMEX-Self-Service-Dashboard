@@ -6,8 +6,9 @@
 // "oeeValues", "notAValue", "noDoubleUnit": a byte-for-byte copy of the App UI's tests/machine-vectors.json).
 
 /** How a value adds up over time: a plain reading; a running shift figure that restarts at each shift (the largest
- * reading of a bucket); a total written once per shift (added up). */
-export type OeeKind = 'number' | 'counter' | 'count';
+ * reading of a bucket); a total written once per shift (added up); App UI U-143: a text shown as it is (the product being
+ * made), never charted. */
+export type OeeKind = 'number' | 'counter' | 'count' | 'text';
 export interface OeeValue { name: string; unit: string; decimals: number; kind: OeeKind }
 
 export const OEE_VALUES: Record<string, OeeValue> = {
@@ -33,6 +34,11 @@ export const OEE_VALUES: Record<string, OeeValue> = {
   Shift_Q: { name: 'Shift quality', unit: '%', decimals: 1, kind: 'number' },
   Shift_Good_Total: { name: 'Good units per shift', unit: 'units', decimals: 0, kind: 'count' },
   Shift_Reject_Total: { name: 'Rejected units per shift', unit: 'units', decimals: 0, kind: 'count' },
+  // App UI U-143 (production model P2)
+  Ideal_Rate_Now: { name: 'Ideal speed now', unit: 'units/h', decimals: 0, kind: 'number' },
+  Shift_Target_Units: { name: 'Target units so far this shift', unit: 'units', decimals: 0, kind: 'counter' },
+  Shift_Changeover_Min: { name: 'Changeover time this shift', unit: 'min', decimals: 1, kind: 'counter' },
+  Current_Product: { name: 'Product being made', unit: '', decimals: 0, kind: 'text' },
 };
 
 /** Stored on machines but no value to list or chart: the OEE chain's shift record (JSON) and shift name (text), and the

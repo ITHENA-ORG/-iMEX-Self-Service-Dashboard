@@ -65,7 +65,7 @@ describe('OEE values', () => {
   it('the shift record, the shift name and the stop-reason store are not values', () => {
     expect(scope.mergeKeys([], ['Shift_Record', 'Current_Shift', 'imexStopReason', 'OEE', 'aiml_x']).map((k) => k.key)).toEqual(['OEE']);
     expect(scope.NOT_A_PROPERTY.test('Shift_Records')).toBe(false);
-    expect(Object.keys(OEE_VALUES)).toHaveLength(22);
+    expect(Object.keys(OEE_VALUES)).toHaveLength(26); // App UI U-143: + Ideal_Rate_Now, Shift_Target_Units, Shift_Changeover_Min, Current_Product
   });
 });
 

@@ -4220,6 +4220,30 @@
    "unit": "units",
    "decimals": 0,
    "kind": "count"
+  },
+  "Ideal_Rate_Now": {
+   "label": "Ideal speed now",
+   "unit": "units/h",
+   "decimals": 0,
+   "kind": "number"
+  },
+  "Shift_Target_Units": {
+   "label": "Target units so far this shift",
+   "unit": "units",
+   "decimals": 0,
+   "kind": "counter"
+  },
+  "Shift_Changeover_Min": {
+   "label": "Changeover time this shift",
+   "unit": "min",
+   "decimals": 1,
+   "kind": "counter"
+  },
+  "Current_Product": {
+   "label": "Product being made",
+   "unit": "",
+   "decimals": 0,
+   "kind": "text"
   }
  },
  "notAValue": [
