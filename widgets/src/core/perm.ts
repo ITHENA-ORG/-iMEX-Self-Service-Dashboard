@@ -115,7 +115,7 @@ export const CATALOGUE: CatalogueRow[] = [
   },
   // App U-120: Stop reasons (ACT, after Playbooks); giving / changing a stop's reason moved here from the Losses row (ids
   // unchanged). A stored role saved before takes its level from the Losses row (SPLIT below)
-  { key: 'stopreasons', label: 'Stop reasons', section: 'ACT', parent: null, states: ['stop_reasons'], levels: HVF, actions: [A('losses.reason', 'Give stop reasons'), A('losses.override', 'Change a stop reason someone else gave')] },
+  { key: 'stopreasons', label: 'Stop reasons', section: 'ACT', parent: null, states: ['stop_reasons'], levels: HVF, actions: [A('losses.reason', 'Give stop reasons'), A('losses.override', 'Change a stop reason someone else gave'), A('losses.entry', 'Enter shift figures')] },
   { key: 'analyzer', label: 'Analyzer', section: 'INSIGHTS', parent: null, states: ['analytics'], levels: HVF, actions: [A('analyzer.export', 'Export')] },
   { key: 'ai.forecast', label: 'Forecast', section: 'INSIGHTS', parent: 'AI Insights', states: ['aiml_forecast'], levels: HV, actions: [] },
   { key: 'ai.anomalies', label: 'Anomalies', section: 'INSIGHTS', parent: 'AI Insights', states: ['aiml_anomalies'], levels: HV, actions: [] },
@@ -271,7 +271,7 @@ export function TEMPLATES(): Role[] {
   const supActions: Record<string, true> = { 'dashboards.build': true, 'dashboards.applyMany': true, 'playbooks.run': true, 'playbooks.write': true, 'playbooks.approve': true, 'playbooks.pause': true };
   return [
     role(null, 'Supervisor', 'Runs the floor: alarms, Andon, reports and alarm rules.', sup, supActions, false, []),
-    role(null, 'Operator', 'Watches the machines and acknowledges alarms.', op, { 'alarms.acknowledge': true, 'playbooks.run': true, 'losses.reason': true }, false, []),
+    role(null, 'Operator', 'Watches the machines and acknowledges alarms.', op, { 'alarms.acknowledge': true, 'playbooks.run': true, 'losses.reason': true, 'losses.entry': true }, false, []),
   ].map((r) => {
     r.builtIn = false;
     r.locked = false;
