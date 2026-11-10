@@ -72,7 +72,14 @@ export interface LiveOptions {
 }
 
 const HISTORY_CAP = 3000;
+/**
+ * D-080: live points kept per key. A cached read is only extended for 5 minutes (api.series, api.windowAgg), so older
+ * points are never used; a listing subscribes up to 20 keys of every machine, hundreds of MB after a working day.
+ */
+const HISTORY_MS = 20 * 60e3;
 const UNUSED_MS = 3 * 60e3;
+/** D-080: how often pushes also look for subscriptions nobody asked for lately. */
+const SWEEP_MS = 60e3;
 const BACKOFF = [2000, 5000, 15000, 30000, 60000];
 
 function toNum(v: any): number | string {
@@ -95,6 +102,7 @@ export class Live {
   private pending = new Set<string>();
   private flushQueued = false;
   private reconnectTimer: any = null;
+  private lastSweep = 0;
   private o: Required<LiveOptions>;
 
   constructor(opts: LiveOptions = {}) {
@@ -297,8 +305,10 @@ export class Live {
     this.failures++;
     this.reconnectTimer = this.o.later(() => {
       this.reconnectTimer = null;
-      if (this.state === 'down' && this.subs.size) this.open();
-      else if (this.state === 'down') this.state = 'idle';
+      if (this.state !== 'down') return;
+      this.dropIdle(); // D-080: don't reconnect for a page that has been left
+      if (this.subs.size) this.open();
+      else this.state = 'idle';
     }, ms);
   }
 
@@ -330,6 +340,11 @@ export class Live {
     }
     this.gotReply = true;
     this.failures = 0;
+    if (this.o.now() - this.lastSweep >= SWEEP_MS) {
+      this.lastSweep = this.o.now();
+      this.dropIdle();
+      if (!this.subs.size) return this.close(); // nothing on this page uses the hub any more
+    }
     const dev = this.byCmd.get(m?.subscriptionId);
     if (!dev) return;
     const s = this.subs.get(dev)!;
@@ -360,6 +375,13 @@ export class Live {
         if (!h.length || p.ts > h[h.length - 1].ts) h.push(p);
         // D-028: trim in batches (not one element per push): amortised O(1) per point
         if (h.length > HISTORY_CAP * 1.25) h.splice(0, h.length - HISTORY_CAP);
+        else if (h[0].ts < p.ts - HISTORY_MS - 60e3) {
+          // D-080: at most once a minute per key (relative to the newest point: a device's clock may be off)
+          const cut = p.ts - HISTORY_MS;
+          let n = 0;
+          while (n < h.length && h[n].ts < cut) n++;
+          h.splice(0, n);
+        }
       }
     }
     this.emit([dev]);
@@ -376,6 +398,16 @@ export class Live {
       this.pending.clear();
       if (list.length) for (const fn of this.listeners) fn(list);
     });
+  }
+
+  /**
+   * D-080: gc() without waiting for a new subscription: after the user left the page (the navbar widget stays and carries
+   * the hub) nothing asks for a new one, and every machine of the old page kept pushing until a full reload. A hidden tab
+   * keeps its subscriptions (its redraws are paused, not finished).
+   */
+  private dropIdle() {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    this.gc();
   }
 
   /** Drops subscriptions not used for 3 minutes (e.g. the previous machine after a switch). */

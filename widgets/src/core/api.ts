@@ -163,10 +163,36 @@ export const post = <T = any>(p: string, b?: unknown) => request<T>('POST', p, b
  *          simply absent from the result.
  */
 export async function getAttrs(e: EntityRef, keys?: string[], scope = 'SERVER_SCOPE'): Promise<Record<string, any>> {
-  const q = keys?.length ? `?keys=${encodeURIComponent(keys.join(','))}` : '';
-  const rows = await get<{ key: string; value: any }[]>(`/api/plugins/telemetry/${e.entityType}/${e.id}/values/attributes/${scope}${q}`);
+  const url = `/api/plugins/telemetry/${e.entityType}/${e.id}/values/attributes/${scope}`;
+  const pages = keys?.length ? keyChunks(keys).map((c) => `${url}?keys=${encodeURIComponent(c.join(','))}`) : [url];
+  const all = await Promise.all(pages.map((p) => get<{ key: string; value: any }[]>(p)));
   const out: Record<string, any> = {};
-  for (const r of rows) out[r.key] = parseMaybeJson(r.value);
+  for (const rows of all) for (const r of rows) out[r.key] = parseMaybeJson(r.value);
+  return out;
+}
+
+/**
+ * D-080: longest key list one URL carries (encoded characters). Servers and proxies refuse a request line over about
+ * 8 KB; the store's list of dashboards passes that at about 170 dashboards (per-machine copies count).
+ */
+export const MAX_KEYS_CHARS = 6000;
+
+/** Splits a key list so each part fits in one URL (MAX_KEYS_CHARS). */
+export function keyChunks(keys: string[]): string[][] {
+  const out: string[][] = [];
+  let cur: string[] = [];
+  let len = 0;
+  for (const k of keys) {
+    const n = encodeURIComponent(k).length + 3; // the separator is sent as %2C
+    if (cur.length && len + n > MAX_KEYS_CHARS) {
+      out.push(cur);
+      cur = [];
+      len = 0;
+    }
+    cur.push(k);
+    len += n;
+  }
+  if (cur.length) out.push(cur);
   return out;
 }
 
@@ -182,9 +208,14 @@ export function saveAttrs(e: EntityRef, attrs: Record<string, unknown>, scope = 
 }
 
 /** Deletes attribute keys from an entity in the given scope (default SERVER_SCOPE). */
-export function deleteAttrs(e: EntityRef, keys: string[], scope = 'SERVER_SCOPE') {
+export async function deleteAttrs(e: EntityRef, keys: string[], scope = 'SERVER_SCOPE') {
   writes++;
-  return request('DELETE', `/api/plugins/telemetry/${e.entityType}/${e.id}/${scope}?keys=${encodeURIComponent(keys.join(','))}`).finally(() => writes++);
+  try {
+    // D-080: undoing a copy-mode apply deletes three keys per machine
+    for (const c of keyChunks(keys)) await request('DELETE', `/api/plugins/telemetry/${e.entityType}/${e.id}/${scope}?keys=${encodeURIComponent(c.join(','))}`);
+  } finally {
+    writes++;
+  }
 }
 
 // D-046: counts attribute writes (at the start and at the end of each), so a short read cache can tell that
@@ -509,6 +540,8 @@ function toNum(v: any): number | string {
 // ---- pushed alarm counts (D-046, core/tb-socket.ts watchAlarmCounts) ----
 /** Machine sets larger than this read their counts over REST (one count datasource per machine otherwise). */
 const MAX_COUNT_IDS = 50;
+/** D-080: pages of 1000 active alarms that activeAlarmCounts reads at most. */
+const ALARM_COUNT_PAGES = 5;
 const countWatches = new Map<string, { w: CountWatch; used: number }>();
 const one = (entityType: string, id: string) => ({ type: 'singleEntity', singleEntity: { entityType, id } });
 
@@ -810,9 +843,9 @@ export async function latestMany(req: { deviceId: string; keys: string[] }[]): P
 }
 
 /**
- * Number of ACTIVE alarms per device (devices without alarms are absent) in ONE call
- * (POST /api/alarmsQuery/find, entityList filter; counts the first 1000 alarms). Re-read at most every 15 s
- * while the socket is live, like `alarms()`.
+ * Number of ACTIVE alarms per device (devices without alarms are absent): POST /api/alarmsQuery/find, entityList
+ * filter, normally ONE call; D-080: further pages up to ALARM_COUNT_PAGES (a plant with more than 1000 active alarms was
+ * counted short without a word). Re-read at most every 15 s while the socket is live, like `alarms()`.
  */
 export async function activeAlarmCounts(deviceIds: string[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
@@ -833,13 +866,19 @@ export async function activeAlarmCounts(deviceIds: string[]): Promise<Map<string
   let data: any;
   if (L?.isLive() && hit && Date.now() - hit.fetchedAt < 15e3) data = hit.data;
   else {
-    data = await post<any>('/api/alarmsQuery/find', {
-      entityFilter: { type: 'entityList', entityType: 'DEVICE', entityList: ids },
-      pageLink: { page: 0, pageSize: 1000, statusList: ['ACTIVE'], sortOrder: { key: { type: 'ALARM_FIELD', key: 'createdTime' }, direction: 'DESC' } },
-      alarmFields: [{ type: 'ALARM_FIELD', key: 'type' }],
-      entityFields: [],
-      latestValues: [],
-    });
+    const rows: any[] = [];
+    for (let page = 0; page < ALARM_COUNT_PAGES; page++) {
+      const r = await post<any>('/api/alarmsQuery/find', {
+        entityFilter: { type: 'entityList', entityType: 'DEVICE', entityList: ids },
+        pageLink: { page, pageSize: 1000, statusList: ['ACTIVE'], sortOrder: { key: { type: 'ALARM_FIELD', key: 'createdTime' }, direction: 'DESC' } },
+        alarmFields: [{ type: 'ALARM_FIELD', key: 'type' }],
+        entityFields: [],
+        latestValues: [],
+      });
+      rows.push(...(r?.data ?? []));
+      if (!r?.hasNext) break;
+    }
+    data = { data: rows };
     if (L) cachePut(getCache, key, { fetchedAt: Date.now(), data });
   }
   for (const a of data?.data ?? []) {

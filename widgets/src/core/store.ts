@@ -91,6 +91,29 @@ export class ConflictError extends Error {
   }
 }
 
+/** D-080: reads that run at once when one call is needed per machine (200 machines would otherwise all start together). */
+const PARALLEL_READS = 8;
+
+/** Like Promise.all(items.map(fn)) with at most `limit` running; results in order; the first error rejects and stops the rest. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  let failed = false;
+  const worker = async () => {
+    while (!failed && next < items.length) {
+      const i = next++;
+      try {
+        out[i] = await fn(items[i]);
+      } catch (e) {
+        failed = true;
+        throw e;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
 /** The customer's store asset, or throws when the customer has none (saving disabled). */
 function requireStore(ctx: UserContext): api.EntityRef {
   if (!ctx.store) throw new Error('Dashboard store is not set up for this customer.');
@@ -286,7 +309,7 @@ export async function resolveForDevice(ctx: UserContext, deviceId: string, profi
   let cands = snapshotCandidates(ctx, deviceId, profile);
   let got = await read([...new Set(cands.map((c) => c.id))]);
   if (snap.stale || String(got.dbb_assign_rev ?? '') !== snap.rev) {
-    await refreshAssign(ctx, got);
+    await refreshOnce(ctx, got);
     cands = snapshotCandidates(ctx, deviceId, profile);
     const need = [...new Set(cands.map((c) => c.id))].filter((id) => !(D(id) in got));
     if (need.length) got = { ...got, ...(await api.getAttrs(store, need.map(D))) };
@@ -339,6 +362,20 @@ export async function refreshAssign(ctx: UserContext, storeAttrs?: Record<string
   snap.at = Date.now();
   snap.stale = false;
   return snap;
+}
+
+/** D-080: reloads in progress. usage() and previewApply() resolve every machine at once, and each started its own reload (two queries per machine). */
+const refreshing = new WeakMap<scope.AssignSnapshot, Promise<scope.AssignSnapshot>>();
+
+/** refreshAssign, shared by the callers that find the snapshot old at the same moment. */
+function refreshOnce(ctx: UserContext, storeAttrs: Record<string, any>): Promise<scope.AssignSnapshot> {
+  const snap = ctx.assign!;
+  let p = refreshing.get(snap);
+  if (!p) {
+    p = refreshAssign(ctx, storeAttrs).finally(() => refreshing.delete(snap));
+    refreshing.set(snap, p);
+  }
+  return p;
 }
 
 /**
@@ -483,9 +520,9 @@ export function canApply(ctx: UserContext, t: ApplyTarget): string | null {
   return null;
 }
 
-/** Telemetry keys of a device; empty set on error. */
-async function keysOf(ctx: UserContext, deviceId: string): Promise<Set<string>> {
-  return new Set(await api.timeseriesKeys(deviceId).catch(() => []));
+/** Telemetry keys of a device; D-080: null on error (it was an empty set, so a failed read reported every key as missing). */
+async function keysOf(ctx: UserContext, deviceId: string): Promise<Set<string> | null> {
+  return api.timeseriesKeys(deviceId).then((k) => new Set(k)).catch(() => null);
 }
 
 /**
@@ -545,9 +582,14 @@ export async function previewApply(ctx: UserContext, doc: Dashboard, t: ApplyTar
   // per-device: current resolution + key availability
   const usedKeys = [...new Set(doc.widgets.filter((w) => w.binding.mode === 'current').flatMap((w) => w.keys))];
   const missing = new Map<string, string[]>();
-  await Promise.all(
-    devices.map(async (d) => {
-      const [res, keys] = await Promise.all([resolveForDevice(ctx, d.id, d.profile), keysOf(ctx, d.id)]);
+  // D-080: the key lists are one call per machine, so at most PARALLEL_READS at once, and none when no widget needs them
+  const [resolved, keyLists] = await Promise.all([
+    Promise.all(devices.map((d) => resolveForDevice(ctx, d.id, d.profile))),
+    usedKeys.length ? mapLimit(devices, PARALLEL_READS, (d) => keysOf(ctx, d.id)) : Promise.resolve(devices.map(() => null)),
+  ]);
+  devices.forEach((d, at) => {
+      const res = resolved[at];
+      const keys = keyLists[at];
       const root = plan && !planFixed.has(d.id) ? planRootOf(ctx, d.id, planRoots) : null;
       // D-065: under a managed location a machine keeps its own (device-level) dashboard, or the one of a location
       // between it and the managed one (the nearest location wins); a fixed-grant machine is assigned directly
@@ -561,9 +603,8 @@ export async function previewApply(ctx: UserContext, doc: Dashboard, t: ApplyTar
       else if ((t.type === 'node' || t.type === 'customer') && res.deviceAssignment?.dashboardId) pv.keepOwn.push({ id: d.id, label: d.label });
       else if (res.dashboard && res.dashboard.id !== doc.id && res.level !== 'personal')
         pv.replaced.push({ id: d.id, label: d.label, from: res.dashboard.name });
-      for (const k of usedKeys) if (!keys.has(k)) missing.set(k, [...(missing.get(k) ?? []), d.label]);
-    }),
-  );
+      if (keys) for (const k of usedKeys) if (!keys.has(k)) missing.set(k, [...(missing.get(k) ?? []), d.label]);
+  });
   pv.missingKeys = [...missing.entries()].map(([key, devs]) => ({ key, devices: devs }));
   // D-074: what the apply will overwrite, as it is now (apply refuses when it changed meanwhile)
   pv.seen = await seenSlots(ctx, doc, t);
@@ -631,12 +672,10 @@ async function seenSlots(ctx: UserContext, doc: Dashboard, t: ApplyTarget): Prom
   if (t.type === 'none' || t.type === 'personal' || canApply(ctx, t)) return {};
   const { writes } = planWrites(ctx, doc, t, Date.now());
   const out: Record<string, string | null> = {};
-  await Promise.all(
-    writes.map(async (w) => {
-      const r = await api.getAttrs(w.slot.e, [w.slot.key]).catch(() => null);
-      if (r) out[slotKey(w.slot)] = slotDash(r[w.slot.key] ?? null, w.slot);
-    }),
-  );
+  await mapLimit(writes, PARALLEL_READS, async (w) => {
+    const r = await api.getAttrs(w.slot.e, [w.slot.key]).catch(() => null);
+    if (r) out[slotKey(w.slot)] = slotDash(r[w.slot.key] ?? null, w.slot);
+  });
   return out;
 }
 
@@ -674,7 +713,7 @@ export async function apply(ctx: UserContext, doc: Dashboard, t: ApplyTarget, op
   }
   const { writes, covers } = planWrites(ctx, doc, t, now);
   // 1. what is there now (a read error stops here, before anything is written)
-  const cur = await Promise.all(writes.map((w) => api.getAttrs(w.slot.e, [w.slot.key]).then((r) => (r[w.slot.key] === undefined ? null : r[w.slot.key]))));
+  const cur = await mapLimit(writes, PARALLEL_READS, (w) => api.getAttrs(w.slot.e, [w.slot.key]).then((r) => (r[w.slot.key] === undefined ? null : r[w.slot.key])));
   const seen = opts.seen;
   if (seen) {
     const moved = writes.filter((w, i) => Object.prototype.hasOwnProperty.call(seen, slotKey(w.slot)) && slotDash(cur[i], w.slot) !== seen[slotKey(w.slot)]);

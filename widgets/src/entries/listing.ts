@@ -258,10 +258,12 @@ export function init(tbCtx: any) {
 
   // Cards for the children of the selected node (or the roots when nothing is selected).
   const drawCards = async () => {
+    const shownFor = selected; // D-080: a slower draw for the previous selection must not replace the new one
     const n = selected ? ctx.nodes.get(selected) : null;
     const children = n ? n.children.map((c) => ctx.nodes.get(c)!).filter(Boolean) : ctx.rootIds.map((r) => ctx.nodes.get(r)!).filter(Boolean);
     // all machines behind the cards in 2 calls (D-022)
     const ms = await machineStats(ctx, [...new Set(children.flatMap((c) => scope.devicesUnder(ctx, c.id)))]);
+    if (shownFor !== selected) return;
     const cards: Card[] = children.map((c) => ({ node: c, html: c.entityType === 'DEVICE' ? deviceCard(c, ms.get(c.id)!) : nodeCard(c, ms) }));
     // standalone dashboards are listed only when the app has a state for them (settings.dashboardState not empty);
     // read on (re)load only, not on every live redraw (D-022)
@@ -278,6 +280,7 @@ export function init(tbCtx: any) {
         /* no store */
       }
     }
+    if (shownFor !== selected) return void drawCards();
     cardsEl.innerHTML = `${ctx.warnings.map((w) => `<div class="dbb-banner warn">${esc(w)}</div>`).join('')}
       <div class="dbb-h2">${esc(n ? scope.pathLabel(ctx, n.id) : 'All locations')}<small>${cards.length} item${cards.length === 1 ? '' : 's'}</small></div>
       <div class="dbb-cgrid">${cards.map((c) => c.html).join('') || '<div class="dbb-hint">Nothing here.</div>'}</div>${dashList}`;
@@ -347,6 +350,19 @@ interface MStat {
   alarms: number;
 }
 
+/** D-080: key lists of machines without a catalogue, by device id. They were read for every machine on every redraw (2 s). */
+const keyLists = new Map<string, { until: number; keys: string[] }>();
+
+/** A machine's telemetry keys, kept 5 minutes (a failed read: 30 seconds). */
+async function listedKeys(deviceId: string): Promise<string[]> {
+  const now = Date.now();
+  const hit = keyLists.get(deviceId);
+  if (hit && now < hit.until) return hit.keys;
+  const e = await api.timeseriesKeys(deviceId).then((keys) => ({ until: now + 5 * 60e3, keys })).catch(() => ({ until: now + 30e3, keys: [] as string[] }));
+  keyLists.set(deviceId, e);
+  return e.keys;
+}
+
 /**
  * Status of many machines in 2 calls (D-022): latest values of each machine type's catalogue keys (up to 20)
  * plus the type's status keys (api.latestMany: WebSocket live cache, else one Entity Data Query), and active alarm
@@ -359,7 +375,7 @@ async function machineStats(ctx: UserContext, devs: Node[]): Promise<Map<string,
   const req = await Promise.all(
     devs.map(async (d) => {
       let keys = (ctx.profileKeys[d.profile] ?? []).map((k) => k.key).slice(0, 20);
-      if (!keys.length) keys = (await api.timeseriesKeys(d.id).catch(() => [] as string[])).slice(0, 20);
+      if (!keys.length) keys = (await listedKeys(d.id)).slice(0, 20);
       for (const k of machine.statusKeys(mm, machine.kindOf(d.profile, d.label))) if (!keys.includes(k)) keys.push(k);
       return { deviceId: d.id, keys };
     }),

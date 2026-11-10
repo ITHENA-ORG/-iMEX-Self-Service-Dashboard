@@ -878,6 +878,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     const series: Parameters<typeof lineChart>[1] = [];
     let slot = 0;
     for (const d of devices) {
+      if (series.length >= MAX_SERIES) break; // D-080: no read (and no subscription) for lines that are not drawn
       const data = await api.series(d.id, w.keys, startTs, endTs, agg, 500, { fixedStart });
       for (const k of w.keys) {
         if (series.length >= MAX_SERIES) break;

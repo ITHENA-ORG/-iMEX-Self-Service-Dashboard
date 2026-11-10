@@ -2114,6 +2114,18 @@ class Builder {
    * @param asCopy true for "Save as" (always creates a new dashboard).
    */
   async save(asCopy: boolean): Promise<void> {
+    // D-080: a second Save while the first still checks the machines reported the user's own save as "someone else saved"
+    if (this.saving) return;
+    this.saving = true;
+    try {
+      await this.saveNow(asCopy);
+    } finally {
+      this.saving = false;
+    }
+  }
+  private saving = false;
+
+  private async saveNow(asCopy: boolean): Promise<void> {
     // D-059: the licence no longer includes the Builder (changed while it was open)
     if (!lic.builderLicensed()) return toast(this.root, BUILDER_UNLICENSED, 'warn');
     // UI-only guard (D-012, D-015, D-050).
@@ -2127,7 +2139,7 @@ class Builder {
           `${this.source && (this.source.level === 'node' || this.source.level === 'customer') ? `It is applied to ${(this.source.sourceLabel || 'a group of machines').replace(/^All/, 'all')}` : `It is used by ${u?.devices.length ?? 'several'} machines`}, and your role can't change a shared dashboard. Save your changes as your own copy instead?`,
           'Save as copy',
         );
-        if (ok) return this.save(true);
+        if (ok) return this.saveNow(true);
         return;
       }
     }
@@ -2174,7 +2186,7 @@ class Builder {
           ['copy', 'Save mine as a copy'],
         ]);
         if (choice === 'reload') this.loadDraft(e.current);
-        if (choice === 'copy') await this.save(true);
+        if (choice === 'copy') await this.saveNow(true);
       } else toast(this.root, `Save failed: ${e.message}`, 'err');
     }
   }

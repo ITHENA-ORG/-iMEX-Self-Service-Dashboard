@@ -1226,3 +1226,31 @@ security only, no new feature.
   ("Playbook AI request?" + the "iMEX Playbook AI" input) on the False branch of "Is chat request", wired as the hook script does.
 - Verified on LOCAL: hook re-installed, `deploy-node.mjs --go`, `pb-ai-chain.mjs --check` all ok after the deploy; the three
   widget types equal `widgets/dist/widget-types`; vitest 448. Next: D-080.
+
+### D-080 Code review: request storms at 200 machines, long key lists, the live hub after a page is left, 10 Nov 2026 (product owner: efficiency, gaps, architecture; feature freeze)
+A read-through of `widgets/src` and the chat relay for bugs, silent failures, unbounded reads, leaks, storage, concurrent edits, authorisation, chat cost and 200 machines. Fixes are small and change no feature.
+
+**Fixed**
+- **Long key lists.** `api.getAttrs` and `deleteAttrs` put every key in one URL. The store's list of dashboards (`dbb_d_*` + `dbb_vis_*`) passes the usual 8 KB limit at about 170 dashboards, which per-machine copies reach at 200 machines; the Dashboard list and the Open dialog then failed. Keys now go in parts of at most `MAX_KEYS_CHARS` (`keyChunks`). The same for undoing a copy-mode Apply.
+- **One reload of the assignments.** `usage()` and `previewApply()` resolve every machine at once; a stale snapshot started one reload per machine (two entity queries each). `refreshOnce` shares it.
+- **`previewApply` / Apply.** The per-machine key lists and slot reads run at most 8 at a time (`mapLimit`); no key lists when no widget needs them. A key list that cannot be read no longer reports every key as missing on that machine.
+- **Live hub after a page is left.** Unused subscriptions were only dropped when a new one was added, so the old page's machines kept pushing (the navbar widget stays and carries the hub). Pushes now look once a minute (`dropIdle`), the reconnect does too, and the socket closes when nothing is left. A hidden tab keeps its subscriptions.
+- **Live history by age.** Points older than 20 minutes (relative to the newest point) are dropped: a cached read is only extended for 5 minutes, and a 200-machine listing could hold hundreds of MB after a working day. `HISTORY_CAP` stays for fast keys.
+- **Listing.** Machines without a catalogue listed their keys on every redraw (2 s): now kept 5 minutes (a failed read 30 s). A slow draw for the previous selection no longer replaces the new one.
+- **Alarm counts.** `activeAlarmCounts` counted only the newest 1000 active alarms without saying so; it now reads up to 5 pages.
+- **Line / area charts.** No read or subscription for machines whose lines are past the 8-line cap.
+- **Audit.** An entry over 8000 characters was cut in the middle and was no longer JSON (an Apply to 200 machines). It now stays JSON (`auditEntry`, `truncated: true`, the detail as a cut text).
+- **Builder Save.** A second Save while the first still checked the machines reported the user's own save as "someone else saved". One save at a time.
+
+**Found, not changed (with why)**
+- **High, accepted (D-012):** authorisation of `dbb_*` is in the browser only; any customer user can rewrite dashboards and assignments over REST. The role guard does not list `dbb_*` yet (App UI owns the list). Close it before production.
+- **Medium:** `listDashboards` reads every full document (up to 2.5 M characters each). A small index attribute would fix it; that is a storage format change.
+- **Medium:** re-running a copy-mode Apply leaves the previous per-machine copies behind, and no total budget limits a store. Deleting them is a product decision: they stay listed and can be reopened.
+- **Medium:** two saves in the same moment can still both succeed (read, check, write; CE has no compare-and-set). A rule-chain writer would be a new component.
+- **Low:** the chat relay's hourly counter is read then written, so a parallel burst can pass it; without the keeper there is no hourly limit; a licence without `llmCallsPerMonth` has no monthly cap. The role check and the provider's spending limit stay.
+- **Low:** the catalogue limit of 60,000 characters refuses the chat with "too large" somewhere above about 500 machines (estimate from the row size, not measured).
+- **Public repo:** no key, token, password value or customer data in tracked files or `backups/` (the one key-shaped value is the self-test's dummy). The server's address and login names (`admin`-style accounts, e-mail addresses) are in tracked docs and scripts.
+
+**Tests:** `widgets/test/review-d080.test.ts` (12). `npx vitest run`: 460 pass (448 before). `tsc --noEmit` clean. Not run: E2E and the live checks (no ThingsBoard from here).
+
+**Before a deploy:** `npm run build:widgets` (the tracked `widgets/dist` is from before these changes); no relay change.
