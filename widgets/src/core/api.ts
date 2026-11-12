@@ -18,7 +18,9 @@
 //   getAttrs / saveAttrs / deleteAttrs   attributes (SERVER_SCOPE by default) of any entity
 //   latest / series               device timeseries (latest values, windowed history). Both read the
 //                                 WebSocket live cache (core/live.ts, D-021) first and use REST only until
-//                                 the subscription is ready or while the socket is down.
+//                                 the subscription is ready or while the socket is down. D-092: series() over
+//                                 4 h with an aggregation reads the built part from the data summaries service
+//                                 (core/cube.ts; widget setting cubesServiceUrl, setCubesBase) and the rest as before.
 //   getCached                     GET with a time-to-live while the socket is live (bar buckets, heatmap, alarms)
 //   windowAgg                     MIN/MAX/AVG/SUM of a window; kept current from pushed points while live (D-048)
 //   alarms                        alarm list of an entity (/api/v2/alarm); 15 s cache while live
@@ -56,6 +58,7 @@
 import { liveHub } from './live';
 import { watchAlarmCounts } from './tb-socket';
 import type { CountSpec, CountWatch } from './tb-socket';
+import * as cube from './cube';
 
 export interface EntityRef {
   id: string;
@@ -85,6 +88,10 @@ let refreshHook: RefreshHook | null = null;
  * @param ctx ThingsBoard widget `self.ctx`; ignored when it has no `http`.
  */
 export function bindWidgetContext(ctx: any) {
+  // D-092: the summary service's address comes from the widget's settings (cubesServiceUrl); a widget whose settings do
+  // not name it leaves the address as it is (default '/cubes-api'). Each widget type runs its own copy of this module.
+  const s = ctx?.settings;
+  if (s && typeof s === 'object' && 'cubesServiceUrl' in s) setCubesBase(s.cubesServiceUrl);
   if (!ctx?.http) return;
   refreshHook = () =>
     new Promise<void>((resolve) => {
@@ -317,7 +324,7 @@ export async function latestAt(deviceId: string, keys: string[], endTs: number):
 export const LIVE_WAIT_MS = 1500;
 
 /** ThingsBoard aggregation function for `series()`. */
-export type Agg = 'NONE' | 'AVG' | 'MIN' | 'MAX' | 'SUM';
+export type Agg = 'NONE' | 'AVG' | 'MIN' | 'MAX' | 'SUM' | 'COUNT';
 
 /**
  * Timeseries of a device between `startTs` and `endTs` (ms), sorted ascending by ts.
@@ -376,14 +383,108 @@ export async function series(
   const interval = pickInterval(span, maxPoints);
   // assumes roughly one sample per 10 s (the simulator rate)
   const useAgg = agg === 'NONE' && span / 10000 > maxPoints ? 'AVG' : agg;
-  const q =
-    `keys=${encodeURIComponent(keys.join(','))}&startTs=${startTs}&endTs=${endTs}&limit=${maxPoints * 4}` +
-    (useAgg === 'NONE' ? '&agg=NONE&orderBy=ASC' : `&agg=${useAgg}&interval=${interval}&orderBy=ASC`);
-  const r = await get<Record<string, { ts: number; value: string }[]>>(`/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?${q}`);
-  const out: Record<string, { ts: number; value: number }[]> = {};
-  for (const k of keys) out[k] = (r?.[k] ?? []).map((p) => ({ ts: p.ts, value: toNum(p.value) as number })).sort((a, b) => a.ts - b.ts);
+  // D-092: over 4 h with an aggregation, the part the summary service has built is read from it; anything else (and
+  // any trouble with the service) is read exactly as before.
+  const out =
+    (await fromCubes(deviceId, keys, startTs, endTs, useAgg, interval, maxPoints)) ??
+    (await fromPlatform(deviceId, keys, startTs, endTs, useAgg, interval, maxPoints));
   if (L) cachePut(seriesCache, ck, { fetchedAt: now, data: out });
   return noteSeries(out);
+}
+
+type Points = Record<string, { ts: number; value: number }[]>;
+
+/** `series()`'s read before data summaries (D-092: still the read for anything the summaries do not cover). */
+async function fromPlatform(deviceId: string, keys: string[], startTs: number, endTs: number, agg: Agg, interval: number, maxPoints: number): Promise<Points> {
+  const q =
+    `keys=${encodeURIComponent(keys.join(','))}&startTs=${startTs}&endTs=${endTs}&limit=${maxPoints * 4}` +
+    (agg === 'NONE' ? '&agg=NONE&orderBy=ASC' : `&agg=${agg}&interval=${interval}&orderBy=ASC`);
+  const r = await get<Record<string, { ts: number; value: string }[]>>(`/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?${q}`);
+  const out: Points = {};
+  for (const k of keys) out[k] = (r?.[k] ?? []).map((p) => ({ ts: p.ts, value: toNum(p.value) as number })).sort((a, b) => a.ts - b.ts);
+  return out;
+}
+
+// ---------- data summaries (data cubes, D-092; the UI repo's docs/design/DATA_CUBES.md sections 3.3 and 4) ----------
+
+/** Address of the summary service: undefined = '/cubes-api' (same origin), '' or null = none (no call). */
+let cubesBase: string | null | undefined;
+/** Sets the summary service's address (the widget setting cubesServiceUrl; tests). */
+export function setCubesBase(v: unknown) {
+  cubesBase = v === undefined ? undefined : v === null ? null : String(v);
+}
+/** The summary field that answers each aggregation. */
+const CUBE_FIELD: Partial<Record<Agg, 'avg' | 'min' | 'max' | 'sum' | 'n'>> = { AVG: 'avg', MIN: 'min', MAX: 'max', SUM: 'sum', COUNT: 'n' };
+
+/**
+ * series() through the summary service (D-092). null = read exactly as before: a window of 4 h or less, raw values,
+ * no service address, the service down / slow / refusing (cube.ts answers null and pauses it for 60 s), nothing of the
+ * window built yet, or a platform read of the rest failing.
+ *
+ * The window keeps the buckets series() reads today: `step` = the larger of the level's bucket and today's interval
+ * (pickInterval), counted from startTs as the platform counts them, so a chart never gets more points than it asked
+ * for. The built part (cube.cubeParts) is narrowed to whole window buckets; everything else is read from the platform as
+ * before, in the same buckets:
+ * - head: [startTs, the first window bucket the summaries cover in full), only while the history is not built back far
+ *   enough;
+ * - tail: [the window bucket that holds the end of the summaries, endTs), the still open part (a few minutes, at most
+ *   one window bucket more).
+ * So no window bucket mixes platform and summary data, the platform's points are exactly today's, and a summary bucket
+ * is the count-weighted merge (cube.cubeCombine) of the level's buckets that start in it, stamped with its middle as the
+ * platform stamps its buckets. Keys the service does not summarise (`skipped`: text, JSON) are read as before,
+ * alongside.
+ */
+async function fromCubes(deviceId: string, keys: string[], startTs: number, endTs: number, agg: Agg, interval: number, maxPoints: number): Promise<Points | null> {
+  const field = CUBE_FIELD[agg];
+  const level = cube.cubeLevel(startTs, endTs);
+  if (!field || !level || cubesBase === null || cubesBase === '') return null;
+  let jwt: string;
+  try {
+    jwt = token();
+  } catch {
+    return null;
+  }
+  const res = await cube.cubeSeries(cubesBase, jwt, deviceId, keys, startTs, endTs, level, field === 'n' ? ['n'] : [field, 'n']);
+  if (!res) return null;
+  const built = cube.cubeParts(startTs, endTs, level, res.coverage).find((p) => p.src === 'cube');
+  if (!built) return null;
+  const skipped = new Set(Array.isArray(res.skipped) ? res.skipped : []);
+  const use = keys.filter((k) => !skipped.has(k));
+  if (!use.length) return null;
+  const rest = keys.filter((k) => skipped.has(k));
+  const step = Math.max(cube.BUCKET_MS[level], interval);
+  // whole window buckets only: the first one that starts at or after the summaries start, up to the one holding their end
+  const from = startTs + Math.ceil((built.from - startTs) / step) * step;
+  const to = built.to >= endTs ? endTs : startTs + Math.floor((built.to - startTs) / step) * step;
+  if (to <= from) return null;
+  try {
+    const [head, tail, other] = await Promise.all([
+      from > startTs ? fromPlatform(deviceId, use, startTs, from, agg, step, maxPoints) : null,
+      to < endTs ? fromPlatform(deviceId, use, to, endTs, agg, step, maxPoints) : null,
+      rest.length ? fromPlatform(deviceId, rest, startTs, endTs, agg, interval, maxPoints) : null,
+    ]);
+    const out: Points = {};
+    for (const k of use) {
+      const groups = new Map<number, cube.CubeBucket[]>();
+      for (const b of res.series?.[k] ?? []) {
+        if (!b || typeof b.ts !== 'number' || b.ts < from || b.ts >= to) continue;
+        const gs = startTs + Math.floor((b.ts - startTs) / step) * step;
+        const a = groups.get(gs);
+        if (a) a.push(b);
+        else groups.set(gs, [b]);
+      }
+      const mid: { ts: number; value: number }[] = [];
+      for (const gs of [...groups.keys()].sort((a, b) => a - b)) {
+        const v = cube.cubeCombine(groups.get(gs)!)?.[field];
+        if (typeof v === 'number' && Number.isFinite(v)) mid.push({ ts: gs + Math.floor(step / 2), value: v });
+      }
+      out[k] = [...(head?.[k] ?? []), ...mid, ...(tail?.[k] ?? [])];
+    }
+    for (const k of rest) out[k] = other?.[k] ?? [];
+    return out;
+  } catch {
+    return null;
+  }
 }
 
 /** Notes the last point of every series on the data clock. Aggregated buckets carry their start time. */
@@ -512,6 +613,7 @@ export async function windowAgg(
 /** Clears the caches (tests). */
 export function clearCaches() {
   seriesCache.clear();
+  cube.cubeReset();
   aggCache.clear();
   getCache.clear();
   gatedCache.clear();

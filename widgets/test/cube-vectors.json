@@ -1,0 +1,2679 @@
+{
+ "version": 1,
+ "about": "Shared test vectors of the data summaries rule and client (docs/design/DATA_CUBES.md 3.3 and 4). Generated from tests/cube-vectors.src.mjs; copy byte for byte. Every section runs in every runtime (JS widgets/_shared/cube.js, Python Reports service/app/cube.py, TypeScript Builder widgets/src/core/cube.ts). level: cubeLevel(from, to). parts: cubeParts(from, to, level, coverage). interval: cubeInterval(level). combine: cubeCombine(pieces) (null = no bucket). merge: cubeMerge(lists). url: cubeUrl(base, device, keys, from, to, level, fields). client: call \"series\" = cubeSeries(base, token, device, keys, from, to, level, fields) and \"many\" = cubeSeriesMany(base, token, devices, keys, ...); answer = what the fake service gives: { status, body } (body as JSON), { status, text } (not JSON), { fail: \"timeout\" } (no answer: run with a short timeout) or { fail: \"network\" }; expect.sent = the request made (null = none; auth = the X-Authorization header; body = the POST body as JSON) and expect.result = what the call returns. Run every client case with no pause (reset first). pause: steps in order after a reset, with the clock at \"at\" ms; base = args base of the client section unless the step gives one; sent = a request was made.",
+ "times": {
+  "T": 1793557800000,
+  "note": "T = 2 Nov 2026 00:00 in India (UTC+5:30)"
+ },
+ "level": [
+  {
+   "name": "1 hour: raw",
+   "from": 1793557800000,
+   "to": 1793561400000,
+   "expect": null
+  },
+  {
+   "name": "exactly 4 h: raw (the bound belongs to raw)",
+   "from": 1793557800000,
+   "to": 1793572200000,
+   "expect": null
+  },
+  {
+   "name": "4 h and 1 ms: 5-minute summaries",
+   "from": 1793557800000,
+   "to": 1793572200001,
+   "expect": "5m"
+  },
+  {
+   "name": "1 day: 5-minute summaries",
+   "from": 1793557800000,
+   "to": 1793644200000,
+   "expect": "5m"
+  },
+  {
+   "name": "exactly 2 days: 5-minute summaries",
+   "from": 1793557800000,
+   "to": 1793730600000,
+   "expect": "5m"
+  },
+  {
+   "name": "2 days and 1 ms: hours",
+   "from": 1793557800000,
+   "to": 1793730600001,
+   "expect": "1h"
+  },
+  {
+   "name": "30 days: hours",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "expect": "1h"
+  },
+  {
+   "name": "exactly 92 days: hours",
+   "from": 1793557800000,
+   "to": 1801506600000,
+   "expect": "1h"
+  },
+  {
+   "name": "92 days and 1 ms: days",
+   "from": 1793557800000,
+   "to": 1801506600001,
+   "expect": "1d"
+  },
+  {
+   "name": "one year: days",
+   "from": 1762021800000,
+   "to": 1793557800000,
+   "expect": "1d"
+  },
+  {
+   "name": "empty period: raw",
+   "from": 1793557800000,
+   "to": 1793557800000,
+   "expect": null
+  },
+  {
+   "name": "reversed period: raw",
+   "from": 1794421800000,
+   "to": 1793557800000,
+   "expect": null
+  },
+  {
+   "name": "no end: raw",
+   "from": 1793557800000,
+   "to": null,
+   "expect": null
+  },
+  {
+   "name": "no start: raw",
+   "from": null,
+   "to": 1793557800000,
+   "expect": null
+  }
+ ],
+ "parts": [
+  {
+   "name": "coverage null: all from the platform",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": null,
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "coverage over the whole period: all from the summaries",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1792693800000,
+    "to": 1797013800000
+   },
+   "expect": [
+    {
+     "src": "cube",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "coverage exactly the period",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1793557800000,
+    "to": 1796149800000
+   },
+   "expect": [
+    {
+     "src": "cube",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "summaries start later: the platform first",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1793989800000,
+    "to": 1796236200000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1793989800000
+    },
+    {
+     "src": "cube",
+     "from": 1793989800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "summaries end earlier: the open tail from the platform",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1793471400000,
+    "to": 1796063400000
+   },
+   "expect": [
+    {
+     "src": "cube",
+     "from": 1793557800000,
+     "to": 1796063400000
+    },
+    {
+     "src": "platform",
+     "from": 1796063400000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "summaries start later and end earlier: three parts",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1793989800000,
+    "to": 1796063400000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1793989800000
+    },
+    {
+     "src": "cube",
+     "from": 1793989800000,
+     "to": 1796063400000
+    },
+    {
+     "src": "platform",
+     "from": 1796063400000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "coverage before the period: all from the platform",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1791829800000,
+    "to": 1792693800000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "coverage after the period: all from the platform",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1796236200000,
+    "to": 1797013800000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "coverage ends exactly where the period starts: empty summary part left out",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1792693800000,
+    "to": 1793557800000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "coverage starts exactly where the period ends: empty summary part left out",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1796149800000,
+    "to": 1797013800000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "coverage starts exactly at the period start: no empty platform part",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1793557800000,
+    "to": 1796142600000
+   },
+   "expect": [
+    {
+     "src": "cube",
+     "from": 1793557800000,
+     "to": 1796142600000
+    },
+    {
+     "src": "platform",
+     "from": 1796142600000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "empty coverage (from = to): all from the platform",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1793644200000,
+    "to": 1793644200000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "coverage without a start: all from the platform",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "coverage": {
+    "from": null,
+    "to": 1796149800000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "raw level (null): all from the platform whatever the coverage",
+   "from": 1793557800000,
+   "to": 1793572200000,
+   "level": null,
+   "coverage": {
+    "from": 1793471400000,
+    "to": 1793644200000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1793572200000
+    }
+   ]
+  },
+  {
+   "name": "unknown level: all from the platform",
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "15m",
+   "coverage": {
+    "from": 1793471400000,
+    "to": 1796236200000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1793557800000,
+     "to": 1796149800000
+    }
+   ]
+  },
+  {
+   "name": "2 days on 5-minute summaries built up to 10 minutes ago",
+   "from": 1793557800000,
+   "to": 1793730600000,
+   "level": "5m",
+   "coverage": {
+    "from": 1785781800000,
+    "to": 1793730000000
+   },
+   "expect": [
+    {
+     "src": "cube",
+     "from": 1793557800000,
+     "to": 1793730000000
+    },
+    {
+     "src": "platform",
+     "from": 1793730000000,
+     "to": 1793730600000
+    }
+   ]
+  },
+  {
+   "name": "one year on days, built for the last 90 days only",
+   "from": 1762021800000,
+   "to": 1793557800000,
+   "level": "1d",
+   "coverage": {
+    "from": 1785781800000,
+    "to": 1793557800000
+   },
+   "expect": [
+    {
+     "src": "platform",
+     "from": 1762021800000,
+     "to": 1785781800000
+    },
+    {
+     "src": "cube",
+     "from": 1785781800000,
+     "to": 1793557800000
+    }
+   ]
+  },
+  {
+   "name": "empty period: no parts",
+   "from": 1793557800000,
+   "to": 1793557800000,
+   "level": "1h",
+   "coverage": null,
+   "expect": []
+  },
+  {
+   "name": "reversed period: no parts",
+   "from": 1796149800000,
+   "to": 1793557800000,
+   "level": "1h",
+   "coverage": {
+    "from": 1793557800000,
+    "to": 1796149800000
+   },
+   "expect": []
+  }
+ ],
+ "interval": [
+  {
+   "level": "5m",
+   "expect": {
+    "interval": 300000,
+    "intervalType": "MILLISECONDS"
+   }
+  },
+  {
+   "level": "1h",
+   "expect": {
+    "interval": 3600000,
+    "intervalType": "MILLISECONDS"
+   }
+  },
+  {
+   "level": "1d",
+   "expect": {
+    "interval": 86400000,
+    "intervalType": "MILLISECONDS"
+   }
+  },
+  {
+   "level": null,
+   "expect": null
+  },
+  {
+   "level": "15m",
+   "expect": null
+  }
+ ],
+ "combine": [
+  {
+   "name": "count-weighted: (10 + 42) / (2 + 6) = 6.5, not the plain average 6",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "sum": 10,
+     "avg": 5,
+     "min": 4,
+     "max": 6
+    },
+    {
+     "ts": 1793557800000,
+     "n": 6,
+     "sum": 42,
+     "avg": 7,
+     "min": 1,
+     "max": 9
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 8,
+    "sum": 52,
+    "avg": 6.5,
+    "min": 1,
+    "max": 9
+   }
+  },
+  {
+   "name": "sum from avg x n when a piece has no sum",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "avg": 5
+    },
+    {
+     "ts": 1793557800000,
+     "n": 6,
+     "avg": 7
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 8,
+    "sum": 52,
+    "avg": 6.5
+   }
+  },
+  {
+   "name": "a piece without n weighs 1 and the result has no n and no sum",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "avg": 4,
+     "min": 4,
+     "max": 4
+    },
+    {
+     "ts": 1793557800000,
+     "n": 3,
+     "avg": 8,
+     "min": 6,
+     "max": 10
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "avg": 7,
+    "min": 4,
+    "max": 10
+   }
+  },
+  {
+   "name": "a piece with n = 0 is left out",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 0,
+     "avg": 0,
+     "min": 0,
+     "max": 0
+    },
+    {
+     "ts": 1793557800000,
+     "n": 4,
+     "sum": 10,
+     "avg": 2.5,
+     "min": 1,
+     "max": 4
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 4,
+    "sum": 10,
+    "avg": 2.5,
+    "min": 1,
+    "max": 4
+   }
+  },
+  {
+   "name": "every piece n = 0: no bucket",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 0
+    },
+    {
+     "ts": 1793557800000,
+     "n": 0
+    }
+   ],
+   "expect": null
+  },
+  {
+   "name": "no pieces: no bucket",
+   "pieces": [],
+   "expect": null
+  },
+  {
+   "name": "a field missing from one piece is missing from the result",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 1,
+     "avg": 2,
+     "min": 2,
+     "max": 2
+    },
+    {
+     "ts": 1793557800000,
+     "n": 1,
+     "avg": 4,
+     "min": 4
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 2,
+    "sum": 6,
+    "avg": 3,
+    "min": 2
+   }
+  },
+  {
+   "name": "counter: increases add, first of the earliest piece, last of the latest",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 3,
+     "first": 100,
+     "firstTs": 1793557810000,
+     "last": 130,
+     "lastTs": 1793557900000,
+     "inc": 40
+    },
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "first": 5,
+     "firstTs": 1793557960000,
+     "last": 25,
+     "lastTs": 1793558080000,
+     "inc": 25
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 5,
+    "first": 100,
+    "firstTs": 1793557810000,
+    "last": 25,
+    "lastTs": 1793558080000,
+    "inc": 65
+   }
+  },
+  {
+   "name": "counter: pieces given late piece first still take first / last by time",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "first": 5,
+     "firstTs": 1793557960000,
+     "last": 25,
+     "lastTs": 1793558080000,
+     "inc": 25
+    },
+    {
+     "ts": 1793557800000,
+     "n": 3,
+     "first": 100,
+     "firstTs": 1793557810000,
+     "last": 130,
+     "lastTs": 1793557900000,
+     "inc": 40
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 5,
+    "first": 100,
+    "firstTs": 1793557810000,
+    "last": 25,
+    "lastTs": 1793558080000,
+    "inc": 65
+   }
+  },
+  {
+   "name": "states: the ms per state add up",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 10,
+     "st": {
+      "0": 100000,
+      "1": 50000
+     }
+    },
+    {
+     "ts": 1793557800000,
+     "n": 5,
+     "st": {
+      "1": 120000,
+      "2": 30000
+     }
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 15,
+    "st": {
+     "0": 100000,
+     "1": 170000,
+     "2": 30000
+    }
+   }
+  },
+  {
+   "name": "the result takes the first piece's ts",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 1,
+     "avg": 1
+    },
+    {
+     "ts": 1793558100000,
+     "n": 1,
+     "avg": 3
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 2,
+    "sum": 4,
+    "avg": 2
+   }
+  }
+ ],
+ "merge": [
+  {
+   "name": "platform head then summaries: one list in time order",
+   "lists": [
+    [
+     {
+      "ts": 1793557800000,
+      "n": 12,
+      "avg": 1,
+      "min": 0,
+      "max": 2
+     },
+     {
+      "ts": 1793561400000,
+      "n": 12,
+      "avg": 2,
+      "min": 1,
+      "max": 3
+     }
+    ],
+    [
+     {
+      "ts": 1793565000000,
+      "n": 12,
+      "avg": 3,
+      "min": 2,
+      "max": 4
+     },
+     {
+      "ts": 1793568600000,
+      "n": 12,
+      "avg": 4,
+      "min": 3,
+      "max": 5
+     }
+    ]
+   ],
+   "expect": [
+    {
+     "ts": 1793557800000,
+     "n": 12,
+     "avg": 1,
+     "min": 0,
+     "max": 2
+    },
+    {
+     "ts": 1793561400000,
+     "n": 12,
+     "avg": 2,
+     "min": 1,
+     "max": 3
+    },
+    {
+     "ts": 1793565000000,
+     "n": 12,
+     "avg": 3,
+     "min": 2,
+     "max": 4
+    },
+    {
+     "ts": 1793568600000,
+     "n": 12,
+     "avg": 4,
+     "min": 3,
+     "max": 5
+    }
+   ]
+  },
+  {
+   "name": "lists in any order: sorted by ts",
+   "lists": [
+    [
+     {
+      "ts": 1793565000000,
+      "n": 12,
+      "avg": 3,
+      "min": 2,
+      "max": 4
+     }
+    ],
+    [
+     {
+      "ts": 1793557800000,
+      "n": 12,
+      "avg": 1,
+      "min": 0,
+      "max": 2
+     },
+     {
+      "ts": 1793561400000,
+      "n": 12,
+      "avg": 2,
+      "min": 1,
+      "max": 3
+     }
+    ]
+   ],
+   "expect": [
+    {
+     "ts": 1793557800000,
+     "n": 12,
+     "avg": 1,
+     "min": 0,
+     "max": 2
+    },
+    {
+     "ts": 1793561400000,
+     "n": 12,
+     "avg": 2,
+     "min": 1,
+     "max": 3
+    },
+    {
+     "ts": 1793565000000,
+     "n": 12,
+     "avg": 3,
+     "min": 2,
+     "max": 4
+    }
+   ]
+  },
+  {
+   "name": "the same bucket from two parts: combined, weighted by count (sum / n)",
+   "lists": [
+    [
+     {
+      "ts": 1793557800000,
+      "n": 10,
+      "avg": 1,
+      "min": 0,
+      "max": 2
+     },
+     {
+      "ts": 1793561400000,
+      "n": 3,
+      "sum": 6,
+      "avg": 2,
+      "min": 1,
+      "max": 3
+     }
+    ],
+    [
+     {
+      "ts": 1793561400000,
+      "n": 9,
+      "sum": 54,
+      "avg": 6,
+      "min": 5,
+      "max": 7
+     },
+     {
+      "ts": 1793565000000,
+      "n": 12,
+      "avg": 3,
+      "min": 2,
+      "max": 4
+     }
+    ]
+   ],
+   "expect": [
+    {
+     "ts": 1793557800000,
+     "n": 10,
+     "avg": 1,
+     "min": 0,
+     "max": 2
+    },
+    {
+     "ts": 1793561400000,
+     "n": 12,
+     "sum": 60,
+     "avg": 5,
+     "min": 1,
+     "max": 7
+    },
+    {
+     "ts": 1793565000000,
+     "n": 12,
+     "avg": 3,
+     "min": 2,
+     "max": 4
+    }
+   ]
+  },
+  {
+   "name": "buckets with n = 0 left out",
+   "lists": [
+    [
+     {
+      "ts": 1793557800000,
+      "n": 0,
+      "avg": 0,
+      "min": 0,
+      "max": 0
+     },
+     {
+      "ts": 1793561400000,
+      "n": 12,
+      "avg": 2,
+      "min": 1,
+      "max": 3
+     }
+    ],
+    [
+     {
+      "ts": 1793565000000,
+      "n": 0,
+      "avg": 0,
+      "min": 0,
+      "max": 0
+     }
+    ]
+   ],
+   "expect": [
+    {
+     "ts": 1793561400000,
+     "n": 12,
+     "avg": 2,
+     "min": 1,
+     "max": 3
+    }
+   ]
+  },
+  {
+   "name": "a platform bucket read without a count is kept as it is",
+   "lists": [
+    [
+     {
+      "ts": 1793557800000,
+      "avg": 1.5,
+      "min": 1,
+      "max": 2
+     }
+    ],
+    [
+     {
+      "ts": 1793561400000,
+      "n": 12,
+      "avg": 2,
+      "min": 1,
+      "max": 3
+     }
+    ]
+   ],
+   "expect": [
+    {
+     "ts": 1793557800000,
+     "avg": 1.5,
+     "min": 1,
+     "max": 2
+    },
+    {
+     "ts": 1793561400000,
+     "n": 12,
+     "avg": 2,
+     "min": 1,
+     "max": 3
+    }
+   ]
+  },
+  {
+   "name": "three pieces of one bucket",
+   "lists": [
+    [
+     {
+      "ts": 1793557800000,
+      "n": 1,
+      "sum": 3
+     }
+    ],
+    [
+     {
+      "ts": 1793557800000,
+      "n": 2,
+      "sum": 3
+     }
+    ],
+    [
+     {
+      "ts": 1793557800000,
+      "n": 1,
+      "sum": 6
+     }
+    ]
+   ],
+   "expect": [
+    {
+     "ts": 1793557800000,
+     "n": 4,
+     "sum": 12,
+     "avg": 3
+    }
+   ]
+  },
+  {
+   "name": "a bucket without a time is left out",
+   "lists": [
+    [
+     {
+      "n": 3,
+      "avg": 1
+     },
+     {
+      "ts": 1793557800000,
+      "n": 2,
+      "avg": 1,
+      "min": 1,
+      "max": 1
+     }
+    ]
+   ],
+   "expect": [
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "avg": 1,
+     "min": 1,
+     "max": 1
+    }
+   ]
+  },
+  {
+   "name": "nothing: empty list",
+   "lists": [
+    [],
+    []
+   ],
+   "expect": []
+  },
+  {
+   "name": "no lists: empty list",
+   "lists": [],
+   "expect": []
+  }
+ ],
+ "url": [
+  {
+   "name": "local service, two keys, default fields",
+   "base": "http://localhost:8092",
+   "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+   "keys": [
+    "pressure",
+    "flow"
+   ],
+   "from": 1793557800000,
+   "to": 1793730600000,
+   "level": "5m",
+   "fields": null,
+   "expect": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure,flow&from=1793557800000&to=1793730600000&level=5m"
+  },
+  {
+   "name": "same-origin path with a trailing slash, fields listed",
+   "base": "/cubes-api/",
+   "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+   "keys": [
+    "energy"
+   ],
+   "from": 1793557800000,
+   "to": 1796149800000,
+   "level": "1h",
+   "fields": [
+    "inc",
+    "n",
+    "first",
+    "last"
+   ],
+   "expect": "/cubes-api/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=energy&from=1793557800000&to=1796149800000&level=1h&fields=inc,n,first,last"
+  },
+  {
+   "name": "keys as text, repeated and blank keys dropped, unknown fields dropped",
+   "base": "/cubes-api",
+   "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+   "keys": "pressure, flow,,pressure",
+   "from": 1793557800000,
+   "to": 1802197800000,
+   "level": "1d",
+   "fields": "avg,bogus,max",
+   "expect": "/cubes-api/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure,flow&from=1793557800000&to=1802197800000&level=1d&fields=avg,max"
+  },
+  {
+   "name": "keys with a space, an accent and a slash are encoded; times cut to whole ms",
+   "base": "/cubes-api",
+   "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+   "keys": [
+    "Machine Status",
+    "Température",
+    "a/b"
+   ],
+   "from": 1793557800000.7,
+   "to": 1793644200000.2,
+   "level": "5m",
+   "fields": [],
+   "expect": "/cubes-api/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=Machine%20Status,Temp%C3%A9rature,a%2Fb&from=1793557800000&to=1793644200000&level=5m"
+  }
+ ],
+ "clientArgs": {
+  "base": "http://localhost:8092",
+  "token": "tok",
+  "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+  "keys": [
+   "pressure"
+  ],
+  "from": 1793557800000,
+  "to": 1793817000000,
+  "level": "1h",
+  "fields": null
+ },
+ "client": [
+  {
+   "name": "a summary: returned as it is",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   }
+  },
+  {
+   "name": "nothing built yet (coverage null): returned (the reader reads it all from the platform)",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": null,
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {},
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": null,
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {},
+     "skipped": []
+    }
+   }
+  },
+  {
+   "name": "raw level: no call",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793572200000,
+    "level": null,
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": null,
+    "result": null
+   }
+  },
+  {
+   "name": "no address: no call",
+   "call": "series",
+   "args": {
+    "base": "",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": null,
+    "result": null
+   }
+  },
+  {
+   "name": "no key: no call",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": null,
+    "result": null
+   }
+  },
+  {
+   "name": "no machine: no call",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": null,
+    "result": null
+   }
+  },
+  {
+   "name": "reversed period: no call",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793817000000,
+    "to": 1793557800000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": null,
+    "result": null
+   }
+  },
+  {
+   "name": "signed out (401): null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 401
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "a machine the user does not see (403): null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 403,
+    "body": {
+     "error": "access"
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "too many buckets (400): null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 400,
+    "body": {
+     "error": "too_many",
+     "message": "x"
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "starting (503): null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 503
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "no such address (404, the proxy has no route): null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 404
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "an answer that is not JSON (a proxy page): null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "text": "<html>Bad gateway</html>"
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "another contract version: null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 2,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "another level than asked: null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1d",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "a coverage that ends before it starts: null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1793557800000,
+      "to": 1793471400000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "no series: null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": null,
+     "skipped": []
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "no answer within the time limit: null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "fail": "timeout"
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "service not reachable: null",
+   "call": "series",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null
+   },
+   "answer": {
+    "fail": "network"
+   },
+   "expect": {
+    "sent": {
+     "method": "GET",
+     "url": "http://localhost:8092/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure&from=1793557800000&to=1793817000000&level=1h",
+     "auth": "Bearer tok"
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "many machines in one call",
+   "call": "many",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": [
+     "avg",
+     "n"
+    ],
+    "devices": [
+     "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "11474a40-c0be-11f1-add5-5db4ab3ed597"
+    ]
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "level": "1h",
+     "results": {
+      "11474a40-c0be-11f1-add5-5db4ab3ed597": {
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": []
+       },
+       "skipped": []
+      }
+     }
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "POST",
+     "url": "http://localhost:8092/api/v1/series",
+     "auth": "Bearer tok",
+     "body": {
+      "devices": [
+       "11474a40-c0be-11f1-add5-5db4ab3ed597"
+      ],
+      "keys": [
+       "pressure"
+      ],
+      "from": 1793557800000,
+      "to": 1793817000000,
+      "level": "1h",
+      "fields": [
+       "avg",
+       "n"
+      ]
+     }
+    },
+    "result": {
+     "v": 1,
+     "level": "1h",
+     "results": {
+      "11474a40-c0be-11f1-add5-5db4ab3ed597": {
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": []
+       },
+       "skipped": []
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "many machines: one result that is not a summary makes it null",
+   "call": "many",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null,
+    "devices": [
+     "11474a40-c0be-11f1-add5-5db4ab3ed597"
+    ]
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "level": "1h",
+     "results": {
+      "11474a40-c0be-11f1-add5-5db4ab3ed597": {
+       "level": "1h",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       }
+      }
+     }
+    }
+   },
+   "expect": {
+    "sent": {
+     "method": "POST",
+     "url": "http://localhost:8092/api/v1/series",
+     "auth": "Bearer tok",
+     "body": {
+      "devices": [
+       "11474a40-c0be-11f1-add5-5db4ab3ed597"
+      ],
+      "keys": [
+       "pressure"
+      ],
+      "from": 1793557800000,
+      "to": 1793817000000,
+      "level": "1h"
+     }
+    },
+    "result": null
+   }
+  },
+  {
+   "name": "many machines: none given, no call",
+   "call": "many",
+   "args": {
+    "base": "http://localhost:8092",
+    "token": "tok",
+    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+    "keys": [
+     "pressure"
+    ],
+    "from": 1793557800000,
+    "to": 1793817000000,
+    "level": "1h",
+    "fields": null,
+    "devices": []
+   },
+   "answer": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "level": "1h",
+     "results": {
+      "11474a40-c0be-11f1-add5-5db4ab3ed597": {
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": []
+       },
+       "skipped": []
+      }
+     }
+    }
+   },
+   "expect": {
+    "sent": null,
+    "result": null
+   }
+  }
+ ],
+ "pause": [
+  {
+   "name": "a timeout pauses the calls for 60 s",
+   "steps": [
+    {
+     "at": 0,
+     "answer": {
+      "fail": "timeout"
+     },
+     "expect": {
+      "sent": true,
+      "result": null
+     }
+    },
+    {
+     "at": 1000,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null
+     }
+    },
+    {
+     "at": 59999,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null
+     }
+    },
+    {
+     "at": 60000,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "a 5xx and a network error pause; a good answer later works",
+   "steps": [
+    {
+     "at": 0,
+     "answer": {
+      "status": 502
+     },
+     "expect": {
+      "sent": true,
+      "result": null
+     }
+    },
+    {
+     "at": 30000,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null
+     }
+    },
+    {
+     "at": 60000,
+     "answer": {
+      "fail": "network"
+     },
+     "expect": {
+      "sent": true,
+      "result": null
+     }
+    },
+    {
+     "at": 100000,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null
+     }
+    },
+    {
+     "at": 120000,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "an answer that is not a summary pauses",
+   "steps": [
+    {
+     "at": 0,
+     "answer": {
+      "status": 200,
+      "text": "not json"
+     },
+     "expect": {
+      "sent": true,
+      "result": null
+     }
+    },
+    {
+     "at": 10,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null
+     }
+    }
+   ]
+  },
+  {
+   "name": "401, 403 and 400 do not pause",
+   "steps": [
+    {
+     "at": 0,
+     "answer": {
+      "status": 401
+     },
+     "expect": {
+      "sent": true,
+      "result": null
+     }
+    },
+    {
+     "at": 10,
+     "answer": {
+      "status": 403,
+      "body": {
+       "error": "access"
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": null
+     }
+    },
+    {
+     "at": 20,
+     "answer": {
+      "status": 400,
+      "body": {
+       "error": "args",
+       "message": "x"
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": null
+     }
+    },
+    {
+     "at": 30,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "a pause holds for one address only",
+   "steps": [
+    {
+     "at": 0,
+     "answer": {
+      "fail": "timeout"
+     },
+     "expect": {
+      "sent": true,
+      "result": null
+     }
+    },
+    {
+     "at": 10,
+     "base": "http://cubes:8092",
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     }
+    },
+    {
+     "at": 20,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null
+     }
+    }
+   ]
+  }
+ ]
+}
