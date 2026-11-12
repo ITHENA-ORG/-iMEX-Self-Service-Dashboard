@@ -138,4 +138,13 @@ describe('perm core details', () => {
     expect(P.canState(viewer, 'user_management')).toBe('hidden');
     expect(P.rowOf('dashboards.build')!.key).toBe('dashboards');
   });
+  it('App U-172: "See the stop reason breakdown" is a Stop reasons right (label as in the App UI), ticked for the Operator template', () => {
+    const row = P.rowOf('losses.reasonsChart');
+    expect(row && row.key).toBe('stopreasons');
+    expect(row!.actions.find((a) => a.id === 'losses.reasonsChart')!.label).toBe('See the stop reason breakdown');
+    expect(P.ACTIONS.indexOf('losses.reasonsChart')).toBe(P.ACTIONS.indexOf('losses.entry') + 1);
+    const op = P.TEMPLATES().find((r) => r.name === 'Operator')!;
+    expect(P.can(eff(op), 'losses.reasonsChart')).toBe(true);
+    expect(P.can(eff(op), 'losses.override')).toBe(false);
+  });
 });
