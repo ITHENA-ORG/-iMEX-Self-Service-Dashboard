@@ -1,10 +1,11 @@
-// D-092: core/api.ts series() reads the built part of a long window from the data summaries service (data cubes) and the
+// D-083: core/api.ts series() reads the built part of a long window from the data summaries service (data cubes) and the
 // rest from the platform as before; any trouble with the service = exactly the old read. The summaries here are made
 // by a fake service from the same raw readings the fake platform aggregates, so "summaries + rest" must equal the
 // platform's own aggregation of the whole window (count-weighted averages, sums, counts, min / max).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { FakeTB } from './fake-tb';
 import * as api from '../src/core/api';
+import * as cube from '../src/core/cube';
 
 const H = 3600e3;
 const D = 86400e3;
@@ -15,7 +16,7 @@ const END = Date.UTC(2026, 10, 12, 6, 30);
 
 let tb: FakeTB;
 let cubeLog: string[];
-let cubeAnswer: (u: URL) => { status: number; body?: any } | 'network';
+let cubeAnswer: (u: URL) => { status: number; body?: any } | 'network' | Promise<{ status: number; body?: any } | 'network'>;
 const mem = new Map<string, string>();
 
 /** Raw readings: every 10 min (+7 s, off every grid), with gaps and a denser stretch so counts differ per bucket. */
@@ -81,7 +82,7 @@ beforeEach(() => {
     if (u.pathname.endsWith('/api/v1/series')) {
       cubeLog.push(`${u.origin === 'http://tb' ? '' : u.origin}${u.pathname}${u.search}`);
       expect(init.headers?.['X-Authorization']).toBe('Bearer x');
-      const a = cubeAnswer(u);
+      const a = await cubeAnswer(u);
       if (a === 'network') throw new TypeError('Failed to fetch');
       return { status: a.status, json: async () => a.body, text: async () => JSON.stringify(a.body) } as any;
     }
@@ -91,11 +92,20 @@ beforeEach(() => {
   vi.setSystemTime(END);
   api.setCubesBase(undefined);
   api.clearCaches();
+  // D-084: the D-083 flow (summaries first) is the one for a service known good; the race when it is not known is
+  // checked on its own below
+  cube.cubeReset();
+  known('/cubes-api');
 });
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+/** The service at `base` answered a summary just now (on this page or an earlier one): known good. */
+function known(base: string) {
+  (globalThis as any).__imxCubeState = { ...((globalThis as any).__imxCubeState ?? {}), [base]: { t: Date.now(), ok: true } };
+}
 
 /** The old read of the same window: no service address. */
 async function oldRead(keys: string[], from: number, to: number, agg: api.Agg, maxPoints: number) {
@@ -271,5 +281,105 @@ describe('series() and data summaries: cache + live append (D-021) unchanged', (
     expect(cubeLog.length + platformReads().length).toBe(calls);
     expect(b.temp.slice(0, a.temp.length)).toEqual(a.temp);
     expect(b.temp.slice(a.temp.length)).toEqual(pushed);
+  });
+});
+
+describe('series() and data summaries: a stopped or missing service costs nothing (D-084)', () => {
+  /** A service that has not answered yet: its answer is given with release(). */
+  function held() {
+    let release!: (a: { status: number; body?: any } | 'network') => void;
+    const p = new Promise<{ status: number; body?: any } | 'network'>((r) => { release = r; });
+    return { answer: () => p, release };
+  }
+
+  it('not known yet, the service silent: the chart is drawn from the old read without waiting for it', async () => {
+    cube.cubeReset();
+    const h = held();
+    cubeAnswer = h.answer;
+    const r = await api.series(DEV, ['temp'], END - 7 * D, END, 'AVG', 500);
+    expect(cubeLog.length).toBe(1);
+    const old = await oldRead(['temp'], END - 7 * D, END, 'AVG', 500);
+    expect(r).toEqual(old.r);
+    expect(platformReads()).toEqual([...old.urls, ...old.urls]);
+    h.release('network');
+    await new Promise((res) => setTimeout(res, 0));
+    expect(cube.cubeState(undefined)).toBe('paused');
+  });
+
+  it('after one failure no widget copy and no later page asks the service for 60 s; the old read alone', async () => {
+    cube.cubeReset();
+    cubeAnswer = () => 'network';
+    await api.series(DEV, ['temp'], END - 7 * D, END, 'AVG', 500);
+    expect(cubeLog.length).toBe(1);
+    // another widget on the page: its own copy of the library (each widget type bundles one)
+    vi.resetModules();
+    const api2 = (await import('../src/core/api')) as typeof api;
+    const before = platformReads().length;
+    await api2.series(DEV, ['flow'], END - 7 * D, END, 'AVG', 500);
+    expect(cubeLog.length).toBe(1);
+    expect(platformReads().length).toBe(before + 1);
+    // a later page (reload): the page's map is gone, the browser's storage keeps the pause
+    (globalThis as any).__imxCubeState = {};
+    vi.resetModules();
+    const api3 = (await import('../src/core/api')) as typeof api;
+    await api3.series(DEV, ['temp'], END - 2 * D, END, 'MAX', 500);
+    expect(cubeLog.length).toBe(1);
+    expect([...mem.keys()].some((k) => k.startsWith('imxCube.state:'))).toBe(true);
+    // 60 s later the service is asked again (both at once, it is not known)
+    vi.setSystemTime(END + 61e3);
+    cubeAnswer = fakeCubes({ from: END - 20 * D, to: END - H });
+    await api3.series(DEV, ['temp'], END - 7 * D + 61e3, END + 61e3, 'AVG', 500);
+    expect(cubeLog.length).toBe(2);
+    expect(cube.cubeState(undefined)).toBe('good');
+  });
+
+  it('not known yet, the service answers first: the summaries are drawn (the old read was started too)', async () => {
+    cube.cubeReset();
+    const cov = { from: END - 20 * D, to: END - H };
+    cubeAnswer = fakeCubes(cov);
+    // the old read of the whole window is the slow one here (the summaries + the small tail read come first)
+    const plain = tb.fetch;
+    tb.fetch = async (u: string, i?: any) => {
+      if (u.includes(`startTs=${END - 7 * D}&`)) await new Promise((res) => setTimeout(res, 40));
+      return plain(u, i);
+    };
+    const r = await api.series(DEV, ['temp'], END - 7 * D, END, 'AVG', 500);
+    expect(r.temp.length).toBe(168);
+    expect(r.temp[0].ts).toBe(END - 7 * D + H / 2);
+    expect(cube.cubeState(undefined)).toBe('good');
+    // known good now: the next chart reads as D-083 (the service, then only the open tail from the platform)
+    const before = platformReads().length;
+    await api.series(DEV, ['flow'], END - 7 * D, END, 'AVG', 500);
+    expect(platformReads().length).toBe(before + 1);
+    expect(platformReads()[before]).toContain(`startTs=${cov.to}&endTs=${END}`);
+  });
+
+  it('a value with no summary in the built part (the service does not know it yet) is read as before', async () => {
+    const make = fakeCubes({ from: END - 20 * D, to: END - H });
+    cubeAnswer = (u) => {
+      const a: any = make(u);
+      a.body.series.flow = [];
+      a.body.kinds.flow = 'measurement';
+      return a;
+    };
+    const r = await api.series(DEV, ['temp', 'flow'], END - 7 * D, END, 'AVG', 500);
+    const old = await oldRead(['flow'], END - 7 * D, END, 'AVG', 500);
+    expect(r.flow).toEqual(old.r.flow);
+    expect(r.flow.length).toBeGreaterThan(0);
+    expect(r.temp.length).toBe(168);
+  });
+
+  it('no value has a summary: the whole window is read as before', async () => {
+    const make = fakeCubes({ from: END - 20 * D, to: END - H });
+    cubeAnswer = (u) => {
+      const a: any = make(u);
+      a.body.series = { temp: [] };
+      return a;
+    };
+    const before = platformReads().length;
+    const r = await api.series(DEV, ['temp'], END - 7 * D, END, 'AVG', 500);
+    const old = await oldRead(['temp'], END - 7 * D, END, 'AVG', 500);
+    expect(platformReads().slice(before, before + old.urls.length)).toEqual(old.urls);
+    expect(r).toEqual(old.r);
   });
 });

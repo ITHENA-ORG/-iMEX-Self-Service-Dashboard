@@ -1,6 +1,6 @@
 {
  "version": 1,
- "about": "Shared test vectors of the data summaries rule and client (docs/design/DATA_CUBES.md 3.3 and 4). Generated from tests/cube-vectors.src.mjs; copy byte for byte. Every section runs in every runtime (JS widgets/_shared/cube.js, Python Reports service/app/cube.py, TypeScript Builder widgets/src/core/cube.ts). level: cubeLevel(from, to). parts: cubeParts(from, to, level, coverage). interval: cubeInterval(level). combine: cubeCombine(pieces) (null = no bucket). merge: cubeMerge(lists). url: cubeUrl(base, device, keys, from, to, level, fields). client: call \"series\" = cubeSeries(base, token, device, keys, from, to, level, fields) and \"many\" = cubeSeriesMany(base, token, devices, keys, ...); answer = what the fake service gives: { status, body } (body as JSON), { status, text } (not JSON), { fail: \"timeout\" } (no answer: run with a short timeout) or { fail: \"network\" }; expect.sent = the request made (null = none; auth = the X-Authorization header; body = the POST body as JSON) and expect.result = what the call returns. Run every client case with no pause (reset first). pause: steps in order after a reset, with the clock at \"at\" ms; base = args base of the client section unless the step gives one; sent = a request was made.",
+ "about": "Shared test vectors of the data summaries rule and client (docs/design/DATA_CUBES.md 3.3 and 4). Generated from tests/cube-vectors.src.mjs; copy byte for byte. Sections level .. pause run in every runtime (JS widgets/_shared/cube.js, Python Reports service/app/cube.py, TypeScript Builder widgets/src/core/cube.ts); state and race run in the browser copies only (JS, TypeScript: Reports is one process, its pause is already shared). level: cubeLevel(from, to). parts: cubeParts(from, to, level, coverage). interval: cubeInterval(level). combine: cubeCombine(pieces) (null = no bucket). merge: cubeMerge(lists). url: cubeUrl(base, device, keys, from, to, level, fields). client: call \"series\" = cubeSeries(base, token, device, keys, from, to, level, fields) and \"many\" = cubeSeriesMany(base, token, devices, keys, ...); answer = what the fake service gives: { status, body } (body as JSON), { status, text } (not JSON), { fail: \"timeout\" } (no answer: run with a short timeout) or { fail: \"network\" }; expect.sent = the request made (null = none; auth = the X-Authorization header; body = the POST body as JSON) and expect.result = what the call returns. Run every client case with no pause (reset first). pause: steps in order after a reset, with the clock at \"at\" ms; base = args base of the client section unless the step gives one; sent = a request was made. state: the state shared by the library copies on a page and by later pages (cubeState(base) after each step: off | paused | good | unknown); per sequence storage yes (one storage for all pages) | none | broken (every use throws), preset = what the storage holds at the start, base = the address (default clientArgs base); a step: page (a new number = a new page: its own shared map, the same storage), copy (a / b = two separate library copies on that page), at = the clock, answer (none = no call, only the state read). race: cubeRace(base, askCube, readPlatform, { graceMs }): before = an answer just before the race (sets the state; null = unknown), cube / platform = after how many ms each answers and with what (value null = no summaries, throws = askCube throws, fail = the platform read fails); expect asked / read = whether each was called, readFirst = readPlatform called before askCube answered, result = { src, value } or \"error\" (the race rejects), before = answered in less than this many ms.",
  "times": {
   "T": 1793557800000,
   "note": "T = 2 Nov 2026 00:00 in India (UTC+5:30)"
@@ -2674,6 +2674,1407 @@
      }
     }
    ]
+  }
+ ],
+ "state": [
+  {
+   "name": "a summary makes the address good for 5 minutes, then unknown again",
+   "storage": "yes",
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "expect": {
+      "state": "unknown"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      },
+      "state": "good"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 299999,
+     "expect": {
+      "state": "good"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 300000,
+     "expect": {
+      "state": "unknown"
+     }
+    }
+   ]
+  },
+  {
+   "name": "trouble after a good answer pauses; after 60 s it is unknown, not good",
+   "storage": "yes",
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      },
+      "state": "good"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 1000,
+     "answer": {
+      "fail": "network"
+     },
+     "expect": {
+      "sent": true,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 60999,
+     "expect": {
+      "state": "paused"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 61000,
+     "expect": {
+      "state": "unknown"
+     }
+    }
+   ]
+  },
+  {
+   "name": "a pause reaches the next pages through the storage",
+   "storage": "yes",
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "answer": {
+      "fail": "timeout"
+     },
+     "expect": {
+      "sent": true,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 2,
+     "copy": "a",
+     "at": 1000,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 3,
+     "copy": "a",
+     "at": 59999,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 4,
+     "copy": "a",
+     "at": 60000,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      },
+      "state": "good"
+     }
+    },
+    {
+     "page": 5,
+     "copy": "a",
+     "at": 60001,
+     "expect": {
+      "state": "good"
+     }
+    }
+   ]
+  },
+  {
+   "name": "every library copy on a page shares the pause (no storage: the next page knows nothing)",
+   "storage": "none",
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "answer": {
+      "status": 502
+     },
+     "expect": {
+      "sent": true,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "b",
+     "at": 10,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 2,
+     "copy": "a",
+     "at": 20,
+     "expect": {
+      "state": "unknown"
+     }
+    },
+    {
+     "page": 2,
+     "copy": "b",
+     "at": 30,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      },
+      "state": "good"
+     }
+    },
+    {
+     "page": 2,
+     "copy": "a",
+     "at": 40,
+     "expect": {
+      "state": "good"
+     }
+    }
+   ]
+  },
+  {
+   "name": "a storage that throws: the page alone keeps the state, nothing breaks",
+   "storage": "broken",
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "answer": {
+      "status": 404
+     },
+     "expect": {
+      "sent": true,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "b",
+     "at": 10,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 2,
+     "copy": "a",
+     "at": 20,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      },
+      "state": "good"
+     }
+    }
+   ]
+  },
+  {
+   "name": "the newer outcome counts: a good answer on a later page ends the pause an earlier page still holds",
+   "storage": "yes",
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "answer": {
+      "fail": "timeout"
+     },
+     "expect": {
+      "sent": true,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 2,
+     "copy": "a",
+     "at": 61000,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      },
+      "state": "good"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 61001,
+     "expect": {
+      "state": "good"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "b",
+     "at": 62000,
+     "answer": {
+      "status": 500
+     },
+     "expect": {
+      "sent": true,
+      "result": null,
+      "state": "paused"
+     }
+    },
+    {
+     "page": 2,
+     "copy": "a",
+     "at": 62001,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null,
+      "state": "paused"
+     }
+    }
+   ]
+  },
+  {
+   "name": "400, 401 and 403 leave the state as it was",
+   "storage": "yes",
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      },
+      "state": "good"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 10,
+     "answer": {
+      "status": 401
+     },
+     "expect": {
+      "sent": true,
+      "result": null,
+      "state": "good"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 20,
+     "answer": {
+      "status": 400,
+      "body": {
+       "error": "args",
+       "message": "x"
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": null,
+      "state": "good"
+     }
+    },
+    {
+     "page": 2,
+     "copy": "a",
+     "at": 30,
+     "answer": {
+      "status": 403,
+      "body": {
+       "error": "access"
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": null,
+      "state": "good"
+     }
+    }
+   ]
+  },
+  {
+   "name": "a stored value that is not a state is ignored",
+   "storage": "yes",
+   "preset": {
+    "imxCube.state:http://localhost:8092": "not json"
+   },
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "expect": {
+      "state": "unknown"
+     }
+    },
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 10,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      },
+      "state": "good"
+     }
+    }
+   ]
+  },
+  {
+   "name": "a state from a later time (another clock) is ignored",
+   "storage": "yes",
+   "preset": {
+    "imxCube.state:http://localhost:8092": "{\"t\":5000,\"ok\":false}"
+   },
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 1000,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": true,
+      "result": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      },
+      "state": "good"
+     }
+    }
+   ]
+  },
+  {
+   "name": "no address: off, no call",
+   "storage": "yes",
+   "base": "",
+   "steps": [
+    {
+     "page": 1,
+     "copy": "a",
+     "at": 0,
+     "answer": {
+      "status": 200,
+      "body": {
+       "v": 1,
+       "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+       "level": "1h",
+       "zone": "Asia/Kolkata",
+       "coverage": {
+        "from": 1785781800000,
+        "to": 1793644200000
+       },
+       "kinds": {
+        "pressure": "measurement"
+       },
+       "series": {
+        "pressure": [
+         {
+          "ts": 1793557800000,
+          "n": 12,
+          "avg": 6.5,
+          "min": 6,
+          "max": 7
+         }
+        ]
+       },
+       "skipped": []
+      }
+     },
+     "expect": {
+      "sent": false,
+      "result": null,
+      "state": "off"
+     }
+    }
+   ]
+  }
+ ],
+ "race": [
+  {
+   "name": "unknown: both at once, the summaries first win",
+   "before": null,
+   "graceMs": 40,
+   "cube": {
+    "after": 10,
+    "value": "C"
+   },
+   "platform": {
+    "after": 120,
+    "value": "P"
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": true,
+    "result": {
+     "src": "cube",
+     "value": "C"
+    }
+   }
+  },
+  {
+   "name": "unknown: the platform first, the summaries within the grace still win",
+   "before": null,
+   "graceMs": 80,
+   "cube": {
+    "after": 40,
+    "value": "C"
+   },
+   "platform": {
+    "after": 10,
+    "value": "P"
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": true,
+    "result": {
+     "src": "cube",
+     "value": "C"
+    }
+   }
+  },
+  {
+   "name": "unknown: the platform first, the summaries too late: the platform (drawn once)",
+   "before": null,
+   "graceMs": 20,
+   "cube": {
+    "after": 150,
+    "value": "C"
+   },
+   "platform": {
+    "after": 10,
+    "value": "P"
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": true,
+    "result": {
+     "src": "platform",
+     "value": "P"
+    }
+   }
+  },
+  {
+   "name": "unknown, no grace given (the default, none): the platform first is drawn at once, summaries 30 ms later dropped",
+   "before": null,
+   "cube": {
+    "after": 40,
+    "value": "C"
+   },
+   "platform": {
+    "after": 10,
+    "value": "P"
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": true,
+    "result": {
+     "src": "platform",
+     "value": "P"
+    }
+   }
+  },
+  {
+   "name": "unknown: no summaries (null) before the platform: the platform, without the grace",
+   "before": null,
+   "graceMs": 1000,
+   "cube": {
+    "after": 10,
+    "value": null
+   },
+   "platform": {
+    "after": 40,
+    "value": "P"
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": true,
+    "result": {
+     "src": "platform",
+     "value": "P"
+    }
+   }
+  },
+  {
+   "name": "unknown: the summaries fail (a throw): the platform",
+   "before": null,
+   "graceMs": 40,
+   "cube": {
+    "after": 10,
+    "throws": true
+   },
+   "platform": {
+    "after": 30,
+    "value": "P"
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": true,
+    "result": {
+     "src": "platform",
+     "value": "P"
+    }
+   }
+  },
+  {
+   "name": "unknown: the platform fails, the summaries answer: the summaries",
+   "before": null,
+   "graceMs": 20,
+   "cube": {
+    "after": 60,
+    "value": "C"
+   },
+   "platform": {
+    "after": 10,
+    "fail": true
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": true,
+    "result": {
+     "src": "cube",
+     "value": "C"
+    }
+   }
+  },
+  {
+   "name": "unknown: the platform fails, no summaries: the error",
+   "before": null,
+   "graceMs": 20,
+   "cube": {
+    "after": 40,
+    "value": null
+   },
+   "platform": {
+    "after": 10,
+    "fail": true
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": true,
+    "result": "error"
+   }
+  },
+  {
+   "name": "good (a summary just now): the summaries alone, the platform not read",
+   "before": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "graceMs": 40,
+   "cube": {
+    "after": 10,
+    "value": "C"
+   },
+   "platform": {
+    "after": 10,
+    "value": "P"
+   },
+   "expect": {
+    "asked": true,
+    "read": false,
+    "readFirst": false,
+    "result": {
+     "src": "cube",
+     "value": "C"
+    }
+   }
+  },
+  {
+   "name": "good: no summaries (null): then the platform, as before",
+   "before": {
+    "status": 200,
+    "body": {
+     "v": 1,
+     "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
+     "level": "1h",
+     "zone": "Asia/Kolkata",
+     "coverage": {
+      "from": 1785781800000,
+      "to": 1793644200000
+     },
+     "kinds": {
+      "pressure": "measurement"
+     },
+     "series": {
+      "pressure": [
+       {
+        "ts": 1793557800000,
+        "n": 12,
+        "avg": 6.5,
+        "min": 6,
+        "max": 7
+       }
+      ]
+     },
+     "skipped": []
+    }
+   },
+   "graceMs": 40,
+   "cube": {
+    "after": 10,
+    "value": null
+   },
+   "platform": {
+    "after": 10,
+    "value": "P"
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": false,
+    "result": {
+     "src": "platform",
+     "value": "P"
+    }
+   }
+  },
+  {
+   "name": "paused (trouble just now): the platform alone, the summaries not asked",
+   "before": {
+    "fail": "network"
+   },
+   "graceMs": 40,
+   "cube": {
+    "after": 10,
+    "value": "C"
+   },
+   "platform": {
+    "after": 10,
+    "value": "P"
+   },
+   "expect": {
+    "asked": false,
+    "read": true,
+    "readFirst": false,
+    "result": {
+     "src": "platform",
+     "value": "P"
+    }
+   }
+  },
+  {
+   "name": "off (no address): the platform alone",
+   "before": null,
+   "base": "",
+   "graceMs": 40,
+   "cube": {
+    "after": 10,
+    "value": "C"
+   },
+   "platform": {
+    "after": 10,
+    "value": "P"
+   },
+   "expect": {
+    "asked": false,
+    "read": true,
+    "readFirst": false,
+    "result": {
+     "src": "platform",
+     "value": "P"
+    }
+   }
+  },
+  {
+   "name": "unknown and the summaries never come in time: answered with the platform, not after the summaries",
+   "before": null,
+   "graceMs": 20,
+   "cube": {
+    "after": 600,
+    "value": "C"
+   },
+   "platform": {
+    "after": 10,
+    "value": "P"
+   },
+   "expect": {
+    "asked": true,
+    "read": true,
+    "readFirst": true,
+    "result": {
+     "src": "platform",
+     "value": "P"
+    },
+    "before": 300
+   }
   }
  ]
 }

@@ -12,12 +12,13 @@
 //   windows   now   = the period ends now (on LOCAL the newest day holds little data: the simulators send little)
 //             fixed = the period ends at end= (default 8 Nov 2026 00:00 India time, in the dense data of LOCAL; its data
 //                     does not change between runs, so before / after compare the same work)
-//   cubes=<url> D-092: the charts read from this data summaries service (e.g. http://localhost:8092): the app dashboard
+//   cubes=<url> D-083: the charts read from this data summaries service (e.g. http://localhost:8092): the app dashboard
 //             as the page receives it gets the builder widgets' setting cubesServiceUrl=<url> (nothing is saved), so the
 //             browser calls the service directly (CORS). cubesvia=proxy instead serves the page's /cubes-api/ path from
 //             <url> through the test browser, as nginx does on an installation (adds the browser tool's own delay).
 //             Without cubes= /cubes-api/ is the platform's own page (no service: each widget library makes one refused
-//             call, then the charts read as before)
+//             call, then the charts read as before). cubes=off: the setting blank (summaries switched off: no call at all),
+//             the line a stopped service is compared with (D-084)
 //   --baseline writes the "builder" part of <UI repo>/backups/pre-datacubes-20261110/longrange-baseline.json (+ .txt);
 //             otherwise out= (default <temp>/longrange-builder.json), compared with the baseline when it exists
 //
@@ -63,7 +64,7 @@ const MACHINES = ['Blower 2', 'Blower 3', 'Blower 4'];
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const isApi = (u) => { try { const p = new URL(u).pathname; return (p.startsWith('/api/') && !p.startsWith('/api/ws')) || p.startsWith('/cubes-api/'); } catch { return false; } };
-if (CUBES && arg('cubesvia', 'setting') === 'proxy') await page.route('**/cubes-api/**', async (route) => {
+if (CUBES && CUBES !== 'off' && arg('cubesvia', 'setting') === 'proxy') await page.route('**/cubes-api/**', async (route) => {
   const u = new URL(route.request().url());
   try { await route.fulfill({ response: await route.fetch({ url: CUBES + u.pathname.replace(/^\/cubes-api/, '') + u.search }) }); } catch { await route.abort(); }
 });
@@ -71,7 +72,7 @@ else if (CUBES) await page.route(/\/api\/dashboard\/[0-9a-f-]{36}(\?|$)/, async 
   try {
     const res = await route.fetch();
     const d = await res.json();
-    for (const w of Object.values(d?.configuration?.widgets || {})) if (/imex_dbb_/.test(w.typeFullFqn || '')) (w.config.settings ||= {}).cubesServiceUrl = CUBES;
+    for (const w of Object.values(d?.configuration?.widgets || {})) if (/imex_dbb_/.test(w.typeFullFqn || '')) (w.config.settings ||= {}).cubesServiceUrl = CUBES === 'off' ? '' : CUBES;
     await route.fulfill({ response: res, json: d });
   } catch { await route.continue(); }
 });

@@ -1,6 +1,6 @@
 // Data summaries rule and client (core/cube.ts): runs every section of cube-vectors.json (byte-identical copy of the
 // App UI's tests/cube-vectors.json, the contract shared with the JavaScript and Python copies), plus a few unit checks.
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as X from '../src/core/cube';
 
@@ -76,6 +76,85 @@ describe('cube vectors (every runtime)', () => {
   });
 });
 
+/** A storage as the vectors name it: yes (one map for every page), none, broken (every use throws). */
+function storageOf(kind: string, preset?: Record<string, string>): X.CubeStorage | null {
+  if (kind === 'none') return null;
+  if (kind === 'broken') {
+    const boom = (): never => { throw new Error('SecurityError'); };
+    return { getItem: boom, setItem: boom, removeItem: boom, key: boom, get length(): number { return boom(); } };
+  }
+  const m = new Map(Object.entries(preset || {}));
+  return { getItem: (k) => (m.has(k) ? m.get(k)! : null), setItem: (k, v) => void m.set(k, String(v)), removeItem: (k) => void m.delete(k), key: (i) => [...m.keys()][i] ?? null, get length() { return m.size; } };
+}
+
+describe('cube vectors (browser copies: the shared state and the race)', () => {
+  it('the state shared by the copies on a page and by later pages', async () => {
+    const G = globalThis as any;
+    for (const seq of V.state) {
+      const storage = storageOf(seq.storage, seq.preset);
+      const pages = new Map<number, any>(); // page -> its shared map (globalThis.__imxCubeState while the page is "open")
+      const copies = new Map<string, typeof X>(); // "page/copy" -> a separate instance of the module
+      const base = seq.base !== undefined ? seq.base : V.clientArgs.base;
+      for (const [i, st] of (seq.steps as any[]).entries()) {
+        if (!pages.has(st.page)) pages.set(st.page, {});
+        G.__imxCubeState = pages.get(st.page);
+        const id = `${st.page}/${st.copy}`;
+        if (!copies.has(id)) {
+          vi.resetModules();
+          copies.set(id, (await import('../src/core/cube')) as typeof X);
+        }
+        const c = copies.get(id)!;
+        const opts: X.CubeOpts = { storage, now: () => st.at, timeoutMs: 30 };
+        const at = `${seq.name}, step ${i + 1}`;
+        if (st.answer) {
+          const log: Log = [];
+          const a = V.clientArgs;
+          const r = await c.cubeSeries(base, a.token, a.device, a.keys, a.from, a.to, a.level, a.fields, { ...opts, fetch: fakeFetch(st.answer, log) as any });
+          expect(log.length > 0, `${at}: sent`).toBe(st.expect.sent);
+          expect(plain(r), `${at}: result`).toEqual(st.expect.result);
+        }
+        expect(c.cubeState(base, opts), `${at}: state`).toBe(st.expect.state);
+        pages.set(st.page, G.__imxCubeState);
+      }
+    }
+    G.__imxCubeState = {};
+  });
+  it('the race between the summaries and the platform', async () => {
+    for (const c of V.race) {
+      X.cubeReset();
+      const base = c.base !== undefined ? c.base : V.clientArgs.base;
+      if (c.before) {
+        const a = V.clientArgs;
+        await X.cubeSeries(base, a.token, a.device, a.keys, a.from, a.to, a.level, a.fields, { fetch: fakeFetch(c.before, []) as any, timeoutMs: 30 });
+      }
+      let asked = false;
+      let read = false;
+      let cubeAnswered = false;
+      let readFirst = false;
+      const later = <T>(ms: number, f: () => T) => new Promise<T>((res, rej) => setTimeout(() => { try { res(f()); } catch (e) { rej(e); } }, ms));
+      const askCube = () => {
+        asked = true;
+        return later(c.cube.after, () => { cubeAnswered = true; if (c.cube.throws) throw new Error('summaries'); return c.cube.value; });
+      };
+      const readPlatform = () => {
+        read = true;
+        if (asked && !cubeAnswered) readFirst = true;
+        return later(c.platform.after, () => { if (c.platform.fail) throw new Error('platform'); return c.platform.value; });
+      };
+      const t0 = Date.now();
+      let result: any;
+      try { result = plain(await X.cubeRace(base, askCube, readPlatform, { graceMs: c.graceMs })); } catch { result = 'error'; }
+      const took = Date.now() - t0;
+      expect(result, `${c.name}: result`).toEqual(c.expect.result);
+      expect(asked, `${c.name}: asked`).toBe(c.expect.asked);
+      expect(read, `${c.name}: read`).toBe(c.expect.read);
+      expect(readFirst, `${c.name}: read at once`).toBe(c.expect.readFirst);
+      if (c.expect.before) expect(took, `${c.name}: answered after ${took} ms`).toBeLessThan(c.expect.before);
+    }
+    X.cubeReset();
+  });
+});
+
 describe('cube client (TypeScript only)', () => {
   beforeEach(() => X.cubeReset());
   it('the default address is the same-origin /cubes-api; null means no service', async () => {
@@ -107,6 +186,8 @@ describe('cube client (TypeScript only)', () => {
   it('defaults: 1.5 s, a 60-s pause, three levels', () => {
     expect(X.TIMEOUT_MS).toBe(1500);
     expect(X.PAUSE_MS).toBe(60000);
+    expect(X.GOOD_MS).toBe(300000);
+    expect(X.GRACE_MS).toBe(0);
     expect(X.DEFAULT_BASE).toBe('/cubes-api');
     expect([...X.LEVELS]).toEqual(['5m', '1h', '1d']);
   });

@@ -18,7 +18,7 @@
 //   getAttrs / saveAttrs / deleteAttrs   attributes (SERVER_SCOPE by default) of any entity
 //   latest / series               device timeseries (latest values, windowed history). Both read the
 //                                 WebSocket live cache (core/live.ts, D-021) first and use REST only until
-//                                 the subscription is ready or while the socket is down. D-092: series() over
+//                                 the subscription is ready or while the socket is down. D-083: series() over
 //                                 4 h with an aggregation reads the built part from the data summaries service
 //                                 (core/cube.ts; widget setting cubesServiceUrl, setCubesBase) and the rest as before.
 //   getCached                     GET with a time-to-live while the socket is live (bar buckets, heatmap, alarms)
@@ -88,7 +88,7 @@ let refreshHook: RefreshHook | null = null;
  * @param ctx ThingsBoard widget `self.ctx`; ignored when it has no `http`.
  */
 export function bindWidgetContext(ctx: any) {
-  // D-092: the summary service's address comes from the widget's settings (cubesServiceUrl); a widget whose settings do
+  // D-083: the summary service's address comes from the widget's settings (cubesServiceUrl); a widget whose settings do
   // not name it leaves the address as it is (default '/cubes-api'). Each widget type runs its own copy of this module.
   const s = ctx?.settings;
   if (s && typeof s === 'object' && 'cubesServiceUrl' in s) setCubesBase(s.cubesServiceUrl);
@@ -383,18 +383,22 @@ export async function series(
   const interval = pickInterval(span, maxPoints);
   // assumes roughly one sample per 10 s (the simulator rate)
   const useAgg = agg === 'NONE' && span / 10000 > maxPoints ? 'AVG' : agg;
-  // D-092: over 4 h with an aggregation, the part the summary service has built is read from it; anything else (and
-  // any trouble with the service) is read exactly as before.
-  const out =
-    (await fromCubes(deviceId, keys, startTs, endTs, useAgg, interval, maxPoints)) ??
-    (await fromPlatform(deviceId, keys, startTs, endTs, useAgg, interval, maxPoints));
+  // D-083: over 4 h with an aggregation, the part the summary service has built is read from it; anything else (and
+  // any trouble with the service) is read exactly as before. D-084: cube.cubeRace decides how: the service known good
+  // (a summary less than 5 min ago, on any page) -> the summaries first, as D-083; paused after trouble (any page, any
+  // widget) -> the old read alone; not known -> both at once and the first good answer is drawn, so a stopped or
+  // missing service never makes a chart wait.
+  const read = () => fromPlatform(deviceId, keys, startTs, endTs, useAgg, interval, maxPoints);
+  const out = cubeWanted(startTs, endTs, useAgg)
+    ? (await cube.cubeRace(cubesBase, () => fromCubes(deviceId, keys, startTs, endTs, useAgg, interval, maxPoints), read)).value
+    : await read();
   if (L) cachePut(seriesCache, ck, { fetchedAt: now, data: out });
   return noteSeries(out);
 }
 
 type Points = Record<string, { ts: number; value: number }[]>;
 
-/** `series()`'s read before data summaries (D-092: still the read for anything the summaries do not cover). */
+/** `series()`'s read before data summaries (D-083: still the read for anything the summaries do not cover). */
 async function fromPlatform(deviceId: string, keys: string[], startTs: number, endTs: number, agg: Agg, interval: number, maxPoints: number): Promise<Points> {
   const q =
     `keys=${encodeURIComponent(keys.join(','))}&startTs=${startTs}&endTs=${endTs}&limit=${maxPoints * 4}` +
@@ -405,7 +409,7 @@ async function fromPlatform(deviceId: string, keys: string[], startTs: number, e
   return out;
 }
 
-// ---------- data summaries (data cubes, D-092; the UI repo's docs/design/DATA_CUBES.md sections 3.3 and 4) ----------
+// ---------- data summaries (data cubes, D-083; the UI repo's docs/design/DATA_CUBES.md sections 3.3 and 4) ----------
 
 /** Address of the summary service: undefined = '/cubes-api' (same origin), '' or null = none (no call). */
 let cubesBase: string | null | undefined;
@@ -416,8 +420,13 @@ export function setCubesBase(v: unknown) {
 /** The summary field that answers each aggregation. */
 const CUBE_FIELD: Partial<Record<Agg, 'avg' | 'min' | 'max' | 'sum' | 'n'>> = { AVG: 'avg', MIN: 'min', MAX: 'max', SUM: 'sum', COUNT: 'n' };
 
+/** Whether series() asks the summary service at all (D-083): over 4 h, an aggregation it answers, an address set. */
+function cubeWanted(startTs: number, endTs: number, agg: Agg): boolean {
+  return !!CUBE_FIELD[agg] && !!cube.cubeLevel(startTs, endTs) && cubesBase !== null && cubesBase !== '';
+}
+
 /**
- * series() through the summary service (D-092). null = read exactly as before: a window of 4 h or less, raw values,
+ * series() through the summary service (D-083). null = read exactly as before: a window of 4 h or less, raw values,
  * no service address, the service down / slow / refusing (cube.ts answers null and pauses it for 60 s), nothing of the
  * window built yet, or a platform read of the rest failing.
  *
@@ -448,15 +457,19 @@ async function fromCubes(deviceId: string, keys: string[], startTs: number, endT
   if (!res) return null;
   const built = cube.cubeParts(startTs, endTs, level, res.coverage).find((p) => p.src === 'cube');
   if (!built) return null;
-  const skipped = new Set(Array.isArray(res.skipped) ? res.skipped : []);
-  const use = keys.filter((k) => !skipped.has(k));
-  if (!use.length) return null;
-  const rest = keys.filter((k) => skipped.has(k));
   const step = Math.max(cube.BUCKET_MS[level], interval);
   // whole window buckets only: the first one that starts at or after the summaries start, up to the one holding their end
   const from = startTs + Math.ceil((built.from - startTs) / step) * step;
   const to = built.to >= endTs ? endTs : startTs + Math.floor((built.to - startTs) / step) * step;
   if (to <= from) return null;
+  // D-084: a value without a single summary in the built part is read as before, like a skipped one (as Reports does): a
+  // value the service has not picked up yet (it answers it as a measurement with no rows) must not show as "no data";
+  // one that truly has none costs today's (empty) read
+  const rows = (k: string) => (res.series?.[k] ?? []).some((b) => !!b && typeof b.ts === 'number' && b.ts >= from && b.ts < to && !(typeof b.n === 'number' && b.n <= 0));
+  const skipped = new Set(Array.isArray(res.skipped) ? res.skipped : []);
+  const use = keys.filter((k) => !skipped.has(k) && rows(k));
+  if (!use.length) return null;
+  const rest = keys.filter((k) => !use.includes(k));
   try {
     const [head, tail, other] = await Promise.all([
       from > startTs ? fromPlatform(deviceId, use, startTs, from, agg, step, maxPoints) : null,
@@ -610,10 +623,12 @@ export async function windowAgg(
   return value;
 }
 
-/** Clears the caches (tests). */
+/**
+ * Clears the caches (tests; the builder on open, D-029). The summary service's shared state (pause / known good, D-084)
+ * is not touched: it belongs to every widget and page of the browser (tests: cube.cubeReset()).
+ */
 export function clearCaches() {
   seriesCache.clear();
-  cube.cubeReset();
   aggCache.clear();
   getCache.clear();
   gatedCache.clear();

@@ -25,7 +25,17 @@
 //   cubeSeriesMany(base, token, devices, keys, from, to, level, fields, opts)  POST <base>/api/v1/series
 //   base undefined = '/cubes-api' (same origin), '' / null = no service (no call). opts { timeoutMs (1500), fetch, now }.
 //   After a timeout, a network error, a 404, a 5xx or an answer that is not a summary, calls to that base answer null at
-//   once for 60 s; 400 / 401 / 403 do not pause. cubeReset() forgets the pauses.
+//   once for 60 s; 400 / 401 / 403 do not pause.
+// Shared state per base (D-084; App UI U-159): the last outcome { t, ok } is kept on the page (globalThis.__imxCubeState:
+//   every widget type bundles its own copy of this module, and they all share it, with the App UI's window.imxCube too)
+//   and in localStorage ('imxCube.state:' + base: every later page and tab; try/catch, the page alone without storage).
+//   The newer of the two counts. cubeReset() forgets both (tests).
+//   cubeState(base, opts) -> 'off' (no address) | 'paused' (trouble < 60 s ago) | 'good' (a summary < 5 min ago) | 'unknown'
+//   cubeRace(base, askCube, readPlatform, opts) -> { src: 'cube' | 'platform', value }:
+//     off / paused: readPlatform() alone; good: askCube() first, null -> readPlatform(); unknown: both at once, the
+//     summaries win when they come before the platform's answer (or within opts.graceMs after it; GRACE_MS = 0: a stopped
+//     service fails slowly, any grace would be paid by every such load), else the platform's (a later summary is dropped); askCube null / throwing -> the platform's; the platform failing -> the summaries when
+//     they come, else its error. opts (tests): { now, storage (null = none), graceMs }.
 
 export type CubeLevel = '5m' | '1h' | '1d';
 export interface Coverage { from: number; to: number }
@@ -60,7 +70,19 @@ export interface CubeOpts {
   timeoutMs?: number;
   fetch?: (url: string, init: RequestInit) => Promise<{ status: number; json(): Promise<unknown> }>;
   now?: () => number;
+  /** the shared state's storage (tests): null = none; default localStorage */
+  storage?: CubeStorage | null;
+  /** cubeRace: how long a finished platform read waits for the summaries (default GRACE_MS) */
+  graceMs?: number;
 }
+export interface CubeStorage {
+  getItem(k: string): string | null;
+  setItem(k: string, v: string): void;
+  removeItem?(k: string): void;
+  key?(i: number): string | null;
+  readonly length?: number;
+}
+export type CubeState = 'off' | 'paused' | 'good' | 'unknown';
 
 const H = 3600000;
 const D = 86400000;
@@ -72,6 +94,9 @@ export const BUCKET_MS: Record<CubeLevel, number> = { '5m': 300000, '1h': H, '1d
 export const DEFAULT_BASE = '/cubes-api';
 export const TIMEOUT_MS = 1500;
 export const PAUSE_MS = 60000;
+export const GOOD_MS = 300000;
+export const GRACE_MS = 0;
+const STORE = 'imxCube.state:';
 export const FIELDS = ['n', 'sum', 'avg', 'min', 'max', 'first', 'firstTs', 'last', 'lastTs', 'inc', 'st'] as const;
 
 const num = (x: unknown): x is number => typeof x === 'number' && isFinite(x);
@@ -214,10 +239,135 @@ export function cubeMerge(lists: readonly (readonly CubeBucket[] | null | undefi
 }
 
 // ------------------------------------------------------------------------------------------------ the client
-let paused: Record<string, number> = {};
+type Rec = { t: number; ok: boolean };
+const G = globalThis as unknown as { __imxCubeState?: Record<string, Rec>; localStorage?: CubeStorage };
 
-export function cubeReset(): void {
-  paused = {};
+function pageMap(): Record<string, Rec> {
+  let m = G.__imxCubeState;
+  if (!m || typeof m !== 'object') {
+    m = {};
+    G.__imxCubeState = m;
+  }
+  return m;
+}
+function storeOf(opts?: CubeOpts): CubeStorage | null {
+  if (opts && opts.storage !== undefined) return opts.storage;
+  try {
+    return G.localStorage || null;
+  } catch {
+    return null;
+  }
+}
+const okRec = (r: unknown): r is Rec => isObj(r) && num(r.t) && typeof r.ok === 'boolean';
+function recOf(b: string, opts?: CubeOpts): Rec | null {
+  let a: unknown = null;
+  let s: unknown = null;
+  try { a = pageMap()[b]; } catch { a = null; }
+  try {
+    const st = storeOf(opts);
+    const raw = st ? st.getItem(STORE + b) : null;
+    s = raw ? JSON.parse(raw) : null;
+  } catch { s = null; }
+  const pa = okRec(a) ? a : null;
+  const ps = okRec(s) ? s : null;
+  if (pa && ps) return ps.t > pa.t ? ps : pa;
+  return pa || ps;
+}
+function note(b: string, ok: boolean, opts?: CubeOpts): void {
+  const r: Rec = { t: nowOf(opts), ok };
+  try { pageMap()[b] = r; } catch { /* the page keeps nothing */ }
+  try { storeOf(opts)?.setItem(STORE + b, JSON.stringify(r)); } catch { /* storage full or blocked */ }
+}
+function stateOf(b: string, opts?: CubeOpts): CubeState {
+  if (!b) return 'off';
+  const r = recOf(b, opts);
+  if (!r) return 'unknown';
+  const age = nowOf(opts) - r.t;
+  if (age < 0) return 'unknown';
+  if (!r.ok && age < PAUSE_MS) return 'paused';
+  if (r.ok && age < GOOD_MS) return 'good';
+  return 'unknown';
+}
+
+/** The shared state of the service at `base` (see the header). */
+export function cubeState(base: string | null | undefined, opts?: CubeOpts): CubeState {
+  return stateOf(baseOf(base), opts);
+}
+
+/** Forgets the shared state: the page's and the stored one (tests). */
+export function cubeReset(opts?: CubeOpts): void {
+  try { G.__imxCubeState = {}; } catch { /* nothing kept */ }
+  try {
+    const st = storeOf(opts);
+    if (st && num(st.length) && typeof st.key === 'function' && typeof st.removeItem === 'function') {
+      const gone: string[] = [];
+      for (let i = 0; i < st.length; i++) {
+        const k = st.key(i);
+        if (typeof k === 'string' && k.startsWith(STORE)) gone.push(k);
+      }
+      for (const k of gone) st.removeItem(k);
+    }
+  } catch { /* storage blocked */ }
+}
+
+/**
+ * How a reader uses the service without ever waiting for a stopped one (see the header). `askCube` resolves the reader's
+ * whole result from the summaries (null = none); `readPlatform` today's read.
+ */
+export function cubeRace<C, P>(base: string | null | undefined, askCube: () => Promise<C | null> | C | null,
+  readPlatform: () => Promise<P> | P, opts?: CubeOpts): Promise<{ src: 'cube'; value: C } | { src: 'platform'; value: P }> {
+  type Out = { src: 'cube'; value: C } | { src: 'platform'; value: P };
+  const state = stateOf(baseOf(base), opts);
+  const ask = (): Promise<C | null> => {
+    try {
+      return Promise.resolve(askCube()).then((v) => (v === undefined || v === null ? null : v), () => null);
+    } catch {
+      return Promise.resolve(null);
+    }
+  };
+  const read = (): Promise<P> => {
+    try {
+      return Promise.resolve(readPlatform());
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  };
+  const platform = (v: P): Out => ({ src: 'platform', value: v });
+  if (state === 'off' || state === 'paused') return read().then(platform);
+  if (state === 'good') return ask().then((v) => (v !== null ? { src: 'cube' as const, value: v } : read().then(platform)));
+  const grace = opts && num(opts.graceMs) && opts.graceMs >= 0 ? opts.graceMs : GRACE_MS;
+  return new Promise<Out>((resolve, reject) => {
+    let done = false;
+    let cube: { v: C | null } | null = null;
+    let pf: { ok: true; v: P } | { ok: false; e: unknown } | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const end = (r: Out) => {
+      if (done) return;
+      done = true;
+      if (timer) clearTimeout(timer);
+      resolve(r);
+    };
+    const fail = (e: unknown) => {
+      if (done) return;
+      done = true;
+      if (timer) clearTimeout(timer);
+      reject(e);
+    };
+    const decide = () => {
+      if (done) return;
+      if (cube && cube.v !== null) return end({ src: 'cube', value: cube.v });
+      if (!pf) return;
+      if (!pf.ok) {
+        if (cube) fail(pf.e); // the platform failed: wait for the summaries
+        return;
+      }
+      const v = pf.v;
+      if (cube || grace <= 0) return end(platform(v));
+      if (!timer) timer = setTimeout(() => end(platform(v)), grace);
+    };
+    ask().then((v) => { cube = { v }; decide(); });
+    read().then((v) => { pf = { ok: true, v }; decide(); }, (e) => { pf = { ok: false, e }; decide(); });
+  });
 }
 
 function baseOf(base: string | null | undefined): string {
@@ -250,8 +400,8 @@ export function cubeUrl(base: string | null | undefined, device: string, keys: s
 }
 
 const nowOf = (opts?: CubeOpts) => (opts && typeof opts.now === 'function' ? opts.now() : Date.now());
-const isPaused = (b: string, opts?: CubeOpts) => paused[b] !== undefined && nowOf(opts) < paused[b];
-const pause = (b: string, opts?: CubeOpts) => { paused[b] = nowOf(opts) + PAUSE_MS; };
+const isPaused = (b: string, opts?: CubeOpts) => stateOf(b, opts) === 'paused';
+const pause = (b: string, opts?: CubeOpts) => note(b, false, opts);
 
 function okOne(body: unknown, level: CubeLevel): boolean {
   if (!isObj(body)) return false;
@@ -299,6 +449,7 @@ function settle<T>(r: Sent, b: string, opts: CubeOpts | undefined, ok: (x: unkno
   if (r.fail || !num(r.status) || r.status === 404 || r.status >= 500) { pause(b, opts); return null; }
   if (r.status !== 200) return null;
   if (!ok(r.body)) { pause(b, opts); return null; }
+  note(b, true, opts);
   return r.body as T;
 }
 

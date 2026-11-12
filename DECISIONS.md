@@ -1254,3 +1254,126 @@ A read-through of `widgets/src` and the chat relay for bugs, silent failures, un
 **Tests:** `widgets/test/review-d080.test.ts` (12). `npx vitest run`: 460 pass (448 before). `tsc --noEmit` clean. Not run: E2E and the live checks (no ThingsBoard from here).
 
 **Before a deploy:** `npm run build:widgets` (the tracked `widgets/dist` is from before these changes); no relay change.
+
+### D-081 Data summaries: the shared rule and the service client (12 Nov 2026; App UI U-155; coordinator renumbers)
+The TypeScript copy of the App UI's `window.imxCube` (docs/design/DATA_CUBES.md §3.3 and §4 in the App UI repo), so the
+Builder picks the same level, cuts a period into the same parts and merges buckets the same way as the Analyzer and
+Reports.
+
+- **`widgets/src/core/cube.ts`.** `cubeLevel(from, to)`, `cubeParts(from, to, level, coverage)`, `cubeInterval(level)`,
+  `cubeCombine(pieces)`, `cubeMerge(lists)`, `cubeUrl(...)`, and the client
+  `cubeSeries(base, token, device, keys, from, to, level, fields?, opts?)` and
+  `cubeSeriesMany(base, token, devices, keys, from, to, level, fields?, opts?)` (opts `{ timeoutMs, fetch, now }`). Both
+  resolve null on any failure or after 1.5 s, so `series()` reads exactly as today. `base` undefined = `/cubes-api`
+  (same origin); `''` / null = no service, no call. After a timeout, network error, 404, 5xx or an answer that is not a
+  summary, calls to that address answer null at once for 60 s; 400 / 401 / 403 do not pause. Types `CubeLevel`,
+  `CubePart`, `CubeBucket`, `CubeSeries`, `CubeMany`.
+- **Not wired in.** `core/api.ts` `series()` is unchanged; the Builder stream calls these functions and adds the widget
+  setting `cubesServiceUrl`.
+- **Vectors.** `widgets/test/cube-vectors.json`, a byte-for-byte copy of the App UI's `tests/cube-vectors.json`.
+
+Tests: `widgets/test/cube.test.ts` 13 pass. `npx vitest run`: 473 pass (31 files). `tsc --noEmit` clean.
+
+### D-082 Data summaries: the dashboard speed baseline before the change (12 Nov 2026; App UI U-156; coordinator renumbers)
+The UI repo's DATA_CUBES.md §9 asks for a Builder dashboard with 6 charts measured over 7 days (and 30) before `series()`
+reads summaries, and again afterwards with the same script.
+
+- **`scripts/measure-dashboard.mjs`** (Playwright, LOCAL only, as the app admin; `.env` `LOCAL_USER_PASSWORD` or
+  `APP_USER_PASSWORD`, nothing printed). A fixture dashboard "Speed check (test)" is written to the customer's
+  DashboardStore in the store format (`dbb_d_lrbase<hex>`, `dbb_vis_` private) with the attribute call Save makes, and
+  removed at the end (an earlier run's leftover at the start). 6 charts on Blower 2, 3, 4: 3 line (one on 3 machines),
+  1 area, 1 bar per interval, 1 heatmap. Each measurement opens the Machines page (fresh page: empty read caches), then
+  moves into the dashboard (state `dashboard_overview`, `dbbDashboardId`): drawn = all 6 cards show a chart or "No data",
+  settled = no request for 700 ms.
+- **The period** is the page's stored time window (`dbb-tw:<user>:d:<id>`, a custom period). 30 days is not offered by
+  the picker today (MAX_CUSTOM_MS 7 days); `loadView` does not cap a stored one, so the 30-day line shows what today's
+  reads do over 30 days. "to now" and "fixed" (ending 2026-11-08 00:00 India time, the dense data of LOCAL).
+- **Baseline (median of 3):** 7 days 0.7-0.8 s (10 history reads), 30 days 1.7-1.8 s (settled 3.0 s to now). The line
+  widget reads its machines one after another (3 machines = 3 reads in a row). Results in the UI repo's
+  `backups/pre-datacubes-20261110/longrange-baseline.json` / `.txt` (part `builder`); `--baseline` writes there, a later
+  run (`out=<file>`) prints the baseline beside each line.
+
+### D-083 Data summaries: charts over long periods read from the summary service (12 Nov 2026; App UI U-155; coordinator renumbers)
+`core/api.ts` `series()`, the one place the Builder's charts read history (line, area, the value tile's sparkline), now
+asks the data summaries service (internal name: data cubes; the UI repo's docs/design/DATA_CUBES.md §3.3 and §4) for
+the part of the window it has built, with `core/cube.ts` (D-081). Everything else stays as it was.
+
+- **When.** Only when the window is over 4 h (`cubeLevel`: 5-minute summaries up to 2 days, hourly up to 92 days,
+  daily beyond) and the read is aggregated (AVG / MIN / MAX / SUM / COUNT; a raw read that `series()` already turns
+  into AVG over a long window counts as AVG). 4 h or less, and raw values, read exactly as before, without a call.
+- **Today's buckets kept.** The window keeps the buckets `series()` reads today: `step` = the larger of the level's
+  bucket and `pickInterval(span, maxPoints)`, counted from the window's start, so a chart never gets more points than it
+  asked for (7 days at 500 points: hourly instead of 30 minutes; 30 days: 3 h as before). The built part is narrowed to
+  whole window buckets; the rest is read from the platform as before, in the same buckets: the head (only while the
+  history is not built back far enough, or for a window longer than the build depth) and the open tail (from the window
+  bucket that holds the end of the summaries to the end: minutes to one bucket). No window bucket mixes platform and
+  summary data, so the platform's points are exactly today's and a summary bucket is the count-weighted merge
+  (`cubeCombine`) of the level's buckets that start in it, stamped with its middle as the platform stamps its buckets.
+  This replaces the contract's "platform part in the level's buckets" (§4): reading the head in today's buckets is
+  fewer per-bucket statements, and an earlier version that read the level's buckets plus COUNT for mixed buckets
+  needed up to 5 requests per chart and queued on the browser's 6 connections.
+- **Fallback = before.** No address (setting blank), the service down, slow (1.5 s), refusing (401 / 403 / 400, e.g.
+  the 2,000-bucket limit), an answer that is not a summary, nothing of the window built (coverage null, outside the
+  window, or less than one whole window bucket), or a failing platform read of the rest: the old read of the whole
+  window. After trouble `cube.ts` does not ask that address again for 60 s.
+- **Keys not summarised** (`skipped`: text, JSON) are read the old way next to the summaries.
+- **Cache and live append (D-021) unchanged**: the result goes into the same cache under the same key; a window ending
+  now is extended with pushed points as before.
+- **Setting `cubesServiceUrl`** on the machine dashboard and the navbar / edit menu widgets (default `/cubes-api`, the
+  same-origin path nginx maps; blank = not used). Read in `bindWidgetContext` only when the widget's settings name it,
+  so a widget without the setting leaves the address alone (each widget type runs its own copy of the library).
+  Existing widget instances have no value and use the default. `setCubesBase()` for tests. `clearCaches()` also forgets
+  the 60 s pause. `Agg` gains `COUNT`.
+- **Speed check** `scripts/measure-dashboard.mjs` (D-082): `cubes=<url>` gives the page's Builder widgets the setting
+  (the dashboard as the page receives it; nothing saved), `cubesvia=proxy` serves `/cubes-api/` through the test
+  browser instead (adds the tool's own delay); summary calls are counted.
+- **e2e:** the D-061 time window test waited a fixed 600 ms for the "Not live · ended" line, which is redrawn once a
+  second; it now waits for the text (it failed about 1 run in 6 before this change too).
+
+Speed on LOCAL (12 Nov, the service's history build still running and built back only to 6 Nov 09:00, so a 30-day
+window still reads about 24 of its days from the platform; 3 interleaved rounds of 3 runs each, medians; with = the
+page's widgets given `cubesServiceUrl=http://localhost:8092`, without = no service; baseline D-082):
+
+| window | with summaries | without | baseline |
+|---|---|---|---|
+| 7 days to now | 0.5 / 0.8 / 0.6 s | 0.8 / 0.6 / 0.6 s | 0.7 s |
+| 7 days fixed (to 8 Nov) | 1.2 / 0.6 / 0.6 s | 0.8 / 0.8 / 0.8 s | 0.8 s |
+| 30 days to now | 3.5 / 2.3 / 1.5 s | 1.9 / 1.7 / 1.6 s | 1.8 s |
+| 30 days fixed | 2.3 / 2.8 / 1.5 s | 1.6 / 1.6 / 1.6 s | 1.7 s |
+
+7 days: as fast or faster, with a fifth of the chart bytes. 30 days: not shown to be "not slower" yet. While most of the
+window is not built, the summary call comes before the platform read of the head (one extra round trip, slow at page
+load when everything is busy), and the history build loads the same platform during the runs (high spread). This has to be
+measured again once the build reaches 90 days (no head for 30 days). If it is still slower then, the next step is to
+remember each machine's built range (per page, or per viewer in the browser) and start the head read together with
+the summary call.
+
+Tests: `widgets/test/series-cubes.test.ts` 23 (routing, the five aggregations equal to the platform's own aggregation of
+the whole window with a built head and tail, unaligned window, skipped keys, nine fallback cases, the 60 s pause, the
+setting, cache + live append). `npx vitest run` 496 pass (32 files); `tsc --noEmit` clean; `npm run test:e2e` passes;
+`npm run build:widgets`; deployed to LOCAL; Playbook AI hook check ok.
+
+### D-084 Data summaries: a stopped or missing service costs nothing; unknown values read as before (12 Nov 2026; App UI U-159; coordinator renumbers)
+Round-1 verify: with the summary service down every fresh page load paid +1.3 s, because each widget type bundles its own
+copy of `core/cube.ts` (its own 60 s pause) and the pause was lost on reload. A value the service does not know came back
+as a measurement with no rows and was drawn as "no data".
+
+- **`core/cube.ts`** (the TypeScript copy of the App UI's `cube.js`, same rules, same vectors): the state per service
+  address lives on the page (`globalThis.__imxCubeState`, shared by every widget's copy and by the App UI's copy) and in
+  localStorage (`imxCube.state:<address>`, every later page and tab; try/catch). `cubeState()` (`off` / `paused` /
+  `good` / `unknown`) and `cubeRace()`; see U-159 for the rules.
+- **`series()`**: when the window asks the service at all (over 4 h, an aggregation, an address), `cubeRace` decides:
+  known good -> D-083's flow (summaries first, the old read only without them); paused -> the old read alone; not known
+  -> `fromCubes` and the old read at once, the first good answer drawn (the summaries when ready before the old read).
+- **Unknown values**: a value without a single summary row in the built part is read the old way beside the summaries,
+  like a `skipped` one (as Reports does); no value with rows -> the old read of the whole window.
+- **`clearCaches()` no longer forgets the service's state** (the builder calls it on open; the pause belongs to the whole
+  browser). Tests reset it with `cube.cubeReset()`.
+- **Tests**: `cube.test.ts` runs the new vector sections `state` (separate module instances per "copy", the page's map
+  swapped per "page") and `race`; `series-cubes.test.ts` starts every D-083 case known good and adds 5 cases (silent service
+  not known: drawn from the old read without waiting; one failure stops every copy and a reloaded page for 60 s, then the
+  service is asked again; service answers first; a value without rows; no value with rows).
+- **`scripts/measure-dashboard.mjs cubes=off`**: the setting blank (no call), to compare a stopped service with.
+
+Measured: see U-159 (Builder lines there). Checks: `npx vitest run` 503 / 503, `npx tsc --noEmit` clean, `npm run test:e2e` all passed;
+built and deployed to LOCAL.

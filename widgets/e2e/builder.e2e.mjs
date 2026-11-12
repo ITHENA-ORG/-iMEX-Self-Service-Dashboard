@@ -1193,7 +1193,7 @@ test('D-061 Time window picker: presets, shifts, custom period, kept after reloa
   await t.page.waitForTimeout(600);
   p = await pill();
   ok(/^\d{1,2} [A-Z][a-z]{2}, (6:00 AM|06:00) – (2:00 PM|14:00)$/.test(p.label), `custom label: ${p.label}`);
-  // the line is redrawn once a second (renderer tick), so wait for it rather than a fixed 600 ms (D-092: was flaky)
+  // the line is redrawn once a second (renderer tick), so wait for it rather than a fixed 600 ms (D-083: was flaky)
   await t.page.waitForFunction(() => /Not live · ended/.test(document.querySelector('.dbb-upd')?.textContent ?? ''), null, { timeout: 3000 }).catch(() => {});
   ok(/Not live · ended/.test(await t.page.textContent('.dbb-upd')), 'not live for a past period');
   ok(/^\d{1,2} [A-Z][a-z]{2}, /.test((await t.page.textContent('.dbb-gbox[data-id="v1"] .dbb-value .s')) ?? ''), 'the value tile shows the reading time at the period end');
