@@ -30,6 +30,10 @@
 //   every widget type bundles its own copy of this module, and they all share it, with the App UI's window.imxCube too)
 //   and in localStorage ('imxCube.state:' + base: every later page and tab; try/catch, the page alone without storage).
 //   The newer of the two counts. cubeReset() forgets both (tests).
+//   One call at a time while the state is not known (D-085; App UI U-160): a call to a base whose state is 'unknown' while
+//   another call to it is in flight on the page (globalThis.__imxCubeFlight: every widget bundle's copy) waits for that
+//   one's outcome: trouble -> null at once (the pause), a summary -> it is sent. A fresh dashboard of 6 charts with a
+//   stopped service makes one failed call, not 6. Known good: calls go out together.
 //   cubeState(base, opts) -> 'off' (no address) | 'paused' (trouble < 60 s ago) | 'good' (a summary < 5 min ago) | 'unknown'
 //   cubeRace(base, askCube, readPlatform, opts) -> { src: 'cube' | 'platform', value }:
 //     off / paused: readPlatform() alone; good: askCube() first, null -> readPlatform(); unknown: both at once, the
@@ -240,7 +244,11 @@ export function cubeMerge(lists: readonly (readonly CubeBucket[] | null | undefi
 
 // ------------------------------------------------------------------------------------------------ the client
 type Rec = { t: number; ok: boolean };
-const G = globalThis as unknown as { __imxCubeState?: Record<string, Rec>; localStorage?: CubeStorage };
+const G = globalThis as unknown as {
+  __imxCubeState?: Record<string, Rec>;
+  __imxCubeFlight?: Record<string, Promise<unknown>>;
+  localStorage?: CubeStorage;
+};
 
 function pageMap(): Record<string, Rec> {
   let m = G.__imxCubeState;
@@ -296,7 +304,10 @@ export function cubeState(base: string | null | undefined, opts?: CubeOpts): Cub
 
 /** Forgets the shared state: the page's and the stored one (tests). */
 export function cubeReset(opts?: CubeOpts): void {
-  try { G.__imxCubeState = {}; } catch { /* nothing kept */ }
+  try {
+    G.__imxCubeState = {};
+    G.__imxCubeFlight = {};
+  } catch { /* nothing kept */ }
   try {
     const st = storeOf(opts);
     if (st && num(st.length) && typeof st.key === 'function' && typeof st.removeItem === 'function') {
@@ -308,6 +319,29 @@ export function cubeReset(opts?: CubeOpts): void {
       for (const k of gone) st.removeItem(k);
     }
   } catch { /* storage blocked */ }
+}
+
+/** One call to a base at a time while its state is not known (see the header); go() sends the call (never rejects). */
+function gated<T>(b: string, opts: CubeOpts | undefined, go: () => Promise<T | null>): Promise<T | null> {
+  if (stateOf(b, opts) !== 'unknown') return go();
+  let m: Record<string, Promise<unknown>>;
+  try {
+    m = G.__imxCubeFlight && typeof G.__imxCubeFlight === 'object' ? G.__imxCubeFlight : (G.__imxCubeFlight = {});
+  } catch {
+    return go();
+  }
+  const cur = m[b];
+  if (cur && typeof cur.then === 'function') {
+    const again = (): Promise<T | null> | null => (isPaused(b, opts) ? null : gated(b, opts, go));
+    return cur.then(again, again);
+  }
+  const done = (r: T | null): T | null => {
+    if (m[b] === p) delete m[b];
+    return r;
+  };
+  const p: Promise<T | null> = Promise.resolve().then(go).then(done, () => done(null));
+  m[b] = p;
+  return p;
 }
 
 /**
@@ -466,8 +500,11 @@ export async function cubeSeries(base: string | null | undefined, token: string 
     const b = baseOf(base);
     if (!b || !isLevel(level) || !device || !list(keys).length || !num(from) || !num(to) || to <= from) return null;
     if (isPaused(b, opts)) return null;
-    const r = await send(cubeUrl(b, device, keys, from, to, level, fields), { method: 'GET', headers: headers(token) }, opts);
-    return settle<CubeSeries>(r, b, opts, (x) => isObj(x) && x.v === 1 && okOne(x, level));
+    const url = cubeUrl(b, device, keys, from, to, level, fields);
+    return await gated(b, opts, async () => {
+      const r = await send(url, { method: 'GET', headers: headers(token) }, opts);
+      return settle<CubeSeries>(r, b, opts, (x) => isObj(x) && x.v === 1 && okOne(x, level));
+    });
   } catch {
     return null;
   }
@@ -487,9 +524,11 @@ export async function cubeSeriesMany(base: string | null | undefined, token: str
     if (fs.length) body.fields = fs;
     const h = headers(token);
     h['Content-Type'] = 'application/json';
-    const r = await send(`${b}/api/v1/series`, { method: 'POST', headers: h, body: JSON.stringify(body) }, opts);
-    return settle<CubeMany>(r, b, opts, (x) => isObj(x) && x.v === 1 && x.level === level && isObj(x.results) &&
-      Object.values(x.results).every((v) => okOne(v, level)));
+    return await gated(b, opts, async () => {
+      const r = await send(`${b}/api/v1/series`, { method: 'POST', headers: h, body: JSON.stringify(body) }, opts);
+      return settle<CubeMany>(r, b, opts, (x) => isObj(x) && x.v === 1 && x.level === level && isObj(x.results) &&
+        Object.values(x.results).every((v) => okOne(v, level)));
+    });
   } catch {
     return null;
   }

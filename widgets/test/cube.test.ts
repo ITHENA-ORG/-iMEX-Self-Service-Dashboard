@@ -199,3 +199,67 @@ describe('cube client (TypeScript only)', () => {
     expect(JSON.stringify(lists)).toBe(before);
   });
 });
+
+// D-085 (App UI U-160): while the state is not known, one call to an address at a time on the page
+describe('cube client: one call in flight while the state is not known', () => {
+  beforeEach(() => X.cubeReset({ storage: null }));
+  const slowFail = (log: string[]) => (url: string) => {
+    log.push(url);
+    return new Promise<never>((_, rej) => setTimeout(() => rej(new TypeError('Failed to fetch')), 20));
+  };
+  it('a fresh dashboard of 6 charts with a stopped service: one failed call, every chart answered at once after it', async () => {
+    const log: string[] = [];
+    const a = V.clientArgs;
+    const t0 = Date.now();
+    const got = await Promise.all([0, 1, 2, 3, 4, 5].map(() =>
+      X.cubeSeries(a.base, a.token, a.device, a.keys, a.from, a.to, a.level, null, { fetch: slowFail(log) as any, storage: null })));
+    expect(got).toEqual([null, null, null, null, null, null]);
+    expect(log.length).toBe(1);
+    expect(Date.now() - t0).toBeLessThan(500);
+    expect(X.cubeState(a.base, { storage: null })).toBe('paused');
+    X.cubeReset({ storage: null });
+    log.length = 0;
+    const many = await Promise.all([0, 1, 2].map(() =>
+      X.cubeSeriesMany(a.base, a.token, ['d1', 'd2'], a.keys, a.from, a.to, a.level, null, { fetch: slowFail(log) as any, storage: null })));
+    expect(many).toEqual([null, null, null]);
+    expect(log.length).toBe(1);
+  });
+  it('a good first answer lets the others go; known good: all at once; a 401 keeps them going', async () => {
+    const a = V.clientArgs;
+    const body = { v: 1, level: a.level, coverage: null, series: {} };
+    let open = 0, most = 0, n = 0;
+    const ok = () => {
+      n++; open++; most = Math.max(most, open);
+      return new Promise((res) => setTimeout(() => { open--; res({ status: 200, json: () => Promise.resolve(plain(body)) }); }, 15));
+    };
+    const o = { fetch: ok as any, storage: null };
+    const first = await Promise.all([0, 1, 2, 3].map(() => X.cubeSeries(a.base, a.token, a.device, a.keys, a.from, a.to, a.level, null, o)));
+    expect(first.filter(Boolean).length).toBe(4);
+    expect(n).toBe(4);
+    expect(X.cubeState(a.base, { storage: null })).toBe('good');
+    n = 0; most = 0;
+    await Promise.all([0, 1, 2, 3].map(() => X.cubeSeries(a.base, a.token, a.device, a.keys, a.from, a.to, a.level, null, o)));
+    expect(n).toBe(4);
+    expect(most).toBe(4);
+    X.cubeReset({ storage: null });
+    n = 0;
+    const deny = () => { n++; return Promise.resolve({ status: 401, json: () => Promise.resolve({}) }); };
+    const r = await Promise.all([0, 1, 2].map(() => X.cubeSeries(a.base, a.token, a.device, a.keys, a.from, a.to, a.level, null, { fetch: deny as any, storage: null })));
+    expect(r).toEqual([null, null, null]);
+    expect(n).toBe(3);
+    expect(X.cubeState(a.base, { storage: null })).toBe('unknown');
+  });
+  it('two bundles (separate module copies) on one page share the call in flight', async () => {
+    vi.resetModules();
+    const one = (await import('../src/core/cube')) as typeof X;
+    vi.resetModules();
+    const two = (await import('../src/core/cube')) as typeof X;
+    expect(one).not.toBe(two);
+    const log: string[] = [];
+    const a = V.clientArgs;
+    const got = await Promise.all([one, two, one, two].map((c) =>
+      c.cubeSeries(a.base, a.token, a.device, a.keys, a.from, a.to, a.level, null, { fetch: slowFail(log) as any, storage: null })));
+    expect(got).toEqual([null, null, null, null]);
+    expect(log.length).toBe(1);
+  });
+});

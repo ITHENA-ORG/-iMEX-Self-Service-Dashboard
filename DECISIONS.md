@@ -1377,3 +1377,53 @@ as a measurement with no rows and was drawn as "no data".
 
 Measured: see U-159 (Builder lines there). Checks: `npx vitest run` 503 / 503, `npx tsc --noEmit` clean, `npm run test:e2e` all passed;
 built and deployed to LOCAL.
+
+### D-085 Data summaries: one call in flight per service address while its state is not known (12 Nov 2026; App UI U-160; coordinator renumbers)
+Round-2 verify: with the service stopped, a fresh browser made one failed summary call per chart on the first dashboard
+load (6 for 6 charts): each widget type bundles its own `core/cube.ts`, all of them started their call in the same moment,
+before the first failure had paused the address.
+
+- **`core/cube.ts`** (the same change as the App UI's `cube.js`, U-160): while an address's state is `unknown`, the first
+  `cubeSeries` / `cubeSeriesMany` call to it is the page's call in flight (`globalThis.__imxCubeFlight[<address>]`, shared
+  by every bundle's copy and by the App UI's copy); a call made meanwhile waits for it: trouble -> null at once (the 60 s
+  pause the first call set), a summary -> it is sent, a 400 / 401 / 403 (state unchanged) -> it is sent in turn. Known
+  good: calls go out together as before; paused / off: no call as before. `cubeReset()` also forgets the calls in flight.
+  The readers are unchanged: `cubeRace` still reads the platform at once, so a waiting chart never waits for the service.
+- **No change to `api.ts`** and none to the vectors (the concurrency is browser-only and covered by tests in both copies).
+- **Tests** (`cube.test.ts`, 3 new): 6 calls on a fresh page with a failing service -> 1 request, all null within the
+  failure's time, state paused (also the POST); a good first answer lets the waiting calls go, known good -> 4 at once, a
+  401 keeps the state unknown and the next calls are still sent; two module copies (two bundles) share the call in flight.
+
+Measured on LOCAL (12 Nov, one session, `scripts/measure-dashboard.mjs runs=3`, drawn, medians; stopped = an unbound port
+that the browser refuses as slowly as the stopped container, U-159): 7 d now off 0.7 / on 0.4 / stopped 0.6 / off again
+0.7 s; 7 d fixed 0.8 / 0.4 / 0.8 / 0.8; 30 d now 1.9 / 1.3 / 1.9 / 1.8; 30 d fixed 1.8 / 1.4 / 1.8 / 1.7. Container really
+stopped (`docker stop`, restarted after, healthy), a fresh browser, 7 d fixed: 0.8 s with **1** summary call (was 6).
+Checks: `npx vitest run` 506 / 506, `npx tsc --noEmit` clean, `npm run test:e2e` all passed; built and deployed to LOCAL.
+
+### D-086 A licensed number of dashboards: `limits.maxDashboards` (12 Nov 2026; Control Centre CC-034, App UI U-163; coordinator renumbers)
+
+Akshay (12 Nov 2026): a licensed limit on the number of distinct self-service dashboards on one installation, built like
+the calculated values (CC-021). The licence carries `limits.maxDashboards` (absent = no limit; 0 = none can be created).
+
+- **What counts:** every dashboard saved on the customer's DashboardStore asset = its `dbb_d_*` attribute keys, shared and
+  private alike, and every per-machine copy ("Customise for this machine", an apply as copies). Deleting a dashboard, or
+  resetting a machine's copy, frees the slot. Linked applies and personal views create nothing and are never refused. The
+  licence keeper on the server counts the same keys for the usage report the Control Centre shows (App UI U-163).
+- **core/licence.ts:** `dashboardLimit(L)` reads `limits.maxDashboards` (`limits`, else `status.payload.limits`): a whole
+  number 0 or more, floored; absent, blank, negative, boolean or text = null (no limit). `dashboardLimitMessage(limit,
+  count, adding)`: "This installation has reached its N licensed dashboards (every saved dashboard counts, including
+  private ones and per-machine copies). Delete one or ask for a larger licence."; limit 0: "...allows no new dashboards.
+  The saved ones can still be viewed and edited; ask for a larger licence."; several copies: "has N of its M licensed
+  dashboards; K per-machine copies would go over the limit ...".
+- **core/store.ts:** `countDashboards(ctx)` (one keys read of the store), `dashboardRoom(ctx, adding)` (null when there is
+  room or no limit — then nothing is read; limit 0 reads nothing either), `DashboardLimitError` (limit, count, adding).
+  `saveDashboard` asks for room for every NEW id (an existing one never: editing, restoring, renaming go on at and over the
+  limit); `apply` asks for all its copy-mode copies at once before anything is written; `customise` goes through
+  saveDashboard. UI-side like every check here (D-012): customer users write the store directly, there is no relay op.
+- **builder/builder.ts:** the New dialog and the Save-as name prompt say the message first (toast, nothing built); the
+  assistant's `startNewDashboard` is answered "Not started: ..." in the chat without touching the draft (the hold / where
+  flow is unchanged otherwise). A refused save shows the same message as "Save failed: ...".
+- **Tests:** `widgets/test/dashboard-limit.test.ts` (7): parsing, messages, no limit reads nothing, limit 2 refuses the
+  third and frees on delete, limit 0, customise, apply as copies refused before any write. The e2e suite has no licence
+  fixture, so no e2e case. `npx vitest run`, `npx tsc --noEmit`, `npm run test:e2e`, `npm run build:widgets` run (see the
+  CHANGELOG row). NOT deployed to LOCAL (another workflow was measuring there).

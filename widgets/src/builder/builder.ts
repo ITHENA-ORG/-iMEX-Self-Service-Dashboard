@@ -2052,8 +2052,12 @@ class Builder {
       const said = res.clarification ? `${res.clarification.question || res.reply} Options: ${res.clarification.options.join(' | ')}` : res.reply || '(ok)';
       this.chatHistory.push({ role: 'user', content: text }, { role: 'assistant', content: said });
       const changedCount = res.changed.added.length + res.changed.updated.length + res.changed.removed.length;
+      // D-086: the assistant's new dashboard is refused at the licence limit (the store would refuse its save too)
+      const full = res.newDashboard && !res.clarification ? await store.dashboardRoom(this.ctx).catch(() => null) : null;
       if (res.clarification) {
         this.chatLog.push({ role: 'assistant', text: res.clarification.question || res.reply, options: res.clarification.options });
+      } else if (full) {
+        this.chatLog.push({ role: 'system', text: `Not started: ${full.message}` });
       } else if (res.newDashboard && this.dirty() && !(await confirmModal(this.root, 'Start a new dashboard?', `“${this.draft.name}” has changes that are not saved. The assistant will start a new dashboard; you can go back with Undo.`, 'Start new'))) {
         this.chatLog.push({ role: 'system', text: 'Not started: the current dashboard has unsaved changes. Save it first, or ask again and choose “Start new”.' });
       } else {
@@ -2151,6 +2155,9 @@ class Builder {
     if (!d.widgets.length) problems.push('Add at least one widget.');
     if (problems.length) return toast(this.root, problems.join(' '), 'err');
     if (asCopy) {
+      // D-086: no new dashboard at the licence limit (the store refuses the save as well; this says so before the name is asked)
+      const full = await store.dashboardRoom(this.ctx).catch(() => null);
+      if (full) return toast(this.root, full.message, 'warn');
       const name = await promptModal(this.root, 'Save as a new dashboard', 'Name', `${d.name} (copy)`);
       if (!name) return;
       Object.assign(d, { id: newId('d'), name, version: 0, ownerId: this.ctx.userId, ownerName: this.ctx.displayName, copiedFrom: null });
@@ -2384,6 +2391,9 @@ class Builder {
    * Asks before dropping unsaved changes. Creates an unsaved blank draft; nothing is written until Save.
    */
   async newDashboardDialog() {
+    // D-086: no new dashboard at the licence limit; said before the dialog so nobody builds what cannot be saved
+    const full = await store.dashboardRoom(this.ctx).catch(() => null);
+    if (full) return toast(this.root, full.message, 'warn');
     const types = [...new Set([...this.ctx.nodes.values()].filter((n) => n.entityType === 'DEVICE').map((n) => n.profile))].sort();
     const cur = this.deviceId ? this.ctx.nodes.get(this.deviceId)?.profile ?? null : null;
     const m = modal(

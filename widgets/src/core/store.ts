@@ -45,6 +45,7 @@ import { Dashboard, checkDashboard, newId } from './schema';
 import { metaLookup } from './compat';
 import type { UserContext } from './scope';
 import * as scope from './scope';
+import * as lic from './licence';
 
 /** A dashboard assigned at node or customer level: which dashboard, who assigned it (display name), when (ms). */
 export interface Assignment {
@@ -89,6 +90,39 @@ export class ConflictError extends Error {
   constructor(public current: Dashboard) {
     super(`This dashboard was changed by ${current.updatedBy} (version ${current.version}).`);
   }
+}
+
+/** D-086: thrown when a new dashboard would exceed the licence's `limits.maxDashboards` (core/licence.ts). */
+export class DashboardLimitError extends Error {
+  constructor(
+    public limit: number,
+    public count: number,
+    public adding = 1,
+  ) {
+    super(lic.dashboardLimitMessage(limit, count, adding));
+  }
+}
+
+/**
+ * D-086: how many dashboards the store holds = its `dbb_d_*` attribute keys, every saved dashboard alike (shared,
+ * private, per-machine copies). One keys read; the licence keeper on the server counts the same keys for the usage report.
+ */
+export async function countDashboards(ctx: UserContext): Promise<number> {
+  const store = requireStore(ctx);
+  const keys = await api.get<string[]>(`/api/plugins/telemetry/ASSET/${store.id}/keys/attributes/SERVER_SCOPE`);
+  return (Array.isArray(keys) ? keys : []).filter((k) => typeof k === 'string' && k.startsWith('dbb_d_')).length;
+}
+
+/**
+ * D-086: room for `adding` more dashboards under `limits.maxDashboards`: null when there is (or there is no limit: nothing
+ * is read), else the DashboardLimitError to throw or show. `saveDashboard` asks for every NEW dashboard, `apply` for all
+ * its copies at once; the dialogs ask first so the user is told before building. UI-side, like every check here (D-012).
+ */
+export async function dashboardRoom(ctx: UserContext, adding = 1): Promise<DashboardLimitError | null> {
+  const limit = lic.dashboardLimit();
+  if (limit == null) return null;
+  const count = limit === 0 ? 0 : await countDashboards(ctx);
+  return count + adding > limit ? new DashboardLimitError(limit, count, adding) : null;
 }
 
 /** D-080: reads that run at once when one call is needed per machine (200 machines would otherwise all start together). */
@@ -200,6 +234,11 @@ export async function saveDashboard(
   const existing = Dashboard.safeParse(cur[D(doc.id)]);
   if (existing.success && existing.data.version !== doc.version) throw new ConflictError(existing.data);
   if (!existing.success && doc.version !== 0) throw new Error('Dashboard no longer exists; use Save as.');
+  // D-086: a NEW dashboard needs a free slot under the licence limit; editing an existing one never does
+  if (!existing.success) {
+    const full = await dashboardRoom(ctx, 1);
+    if (full) throw full;
+  }
   const next: Dashboard = { ...parsed, version: doc.version + 1, updatedAt: Date.now(), updatedBy: ctx.displayName };
   const hist: any[] = Array.isArray(cur[H(doc.id)]) ? cur[H(doc.id)] : [];
   if (existing.success) hist.unshift({ version: existing.data.version, savedAt: existing.data.updatedAt, savedBy: existing.data.updatedBy, doc: existing.data });
@@ -712,6 +751,12 @@ export async function apply(ctx: UserContext, doc: Dashboard, t: ApplyTarget, op
     return [t.deviceId];
   }
   const { writes, covers } = planWrites(ctx, doc, t, now);
+  // D-086: every copy-mode write saves a new dashboard; all of them must fit under the licence limit before anything is written
+  const copiesNeeded = writes.filter((w) => w.copyFor).length;
+  if (copiesNeeded) {
+    const full = await dashboardRoom(ctx, copiesNeeded);
+    if (full) throw full;
+  }
   // 1. what is there now (a read error stops here, before anything is written)
   const cur = await mapLimit(writes, PARALLEL_READS, (w) => api.getAttrs(w.slot.e, [w.slot.key]).then((r) => (r[w.slot.key] === undefined ? null : r[w.slot.key])));
   const seen = opts.seen;

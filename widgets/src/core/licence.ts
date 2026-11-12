@@ -92,6 +92,33 @@ export function onLicenceChange<T extends string | boolean>(probe: () => T, cb: 
   return () => window.removeEventListener(LICENCE_EVENT, h);
 }
 
+// ---------------------------------------------------------------------------------------------- dashboard limit
+
+/**
+ * D-086 (Control Centre CC-034): `limits.maxDashboards`, how many dashboards the installation may hold. A whole number
+ * 0 or more; 0 = no new dashboard can be created (the saved ones stay viewable and editable); null = no limit (absent,
+ * blank, negative or not a number). Read like llmLimit: `limits`, else `status.payload.limits`.
+ */
+export function dashboardLimit(L: LicenceApi | null = licenceApi()): number | null {
+  if (!L) return null;
+  const lim = L.limits && typeof L.limits === 'object' ? L.limits : L.status?.payload?.limits;
+  const raw = (lim as any)?.maxDashboards;
+  if (raw == null || raw === '' || typeof raw === 'boolean') return null;
+  const v = Number(raw);
+  return Number.isFinite(v) && v >= 0 ? Math.floor(v) : null;
+}
+
+/**
+ * The refusal every create path shows (New, Save as, a per-machine copy, the assistant's new dashboard) when `adding`
+ * more dashboards would exceed `limit` with `count` saved. Every saved dashboard counts: shared, private and
+ * per-machine copies alike (core/store.ts countDashboards).
+ */
+export function dashboardLimitMessage(limit: number, count = limit, adding = 1): string {
+  if (limit <= 0) return 'This installation’s licence allows no new dashboards. The saved ones can still be viewed and edited; ask for a larger licence.';
+  if (adding > 1) return `This installation has ${count} of its ${limit} licensed dashboards; ${adding} per-machine copies would go over the limit (every saved dashboard counts, including private ones and per-machine copies). Delete some or ask for a larger licence.`;
+  return `This installation has reached its ${limit} licensed dashboards (every saved dashboard counts, including private ones and per-machine copies). Delete one or ask for a larger licence.`;
+}
+
 // ---------------------------------------------------------------------------------------------- LLM quota
 
 /** limits.llmCallsPerMonth (a positive whole number), or null = no limit (missing, 0, not a number). */
