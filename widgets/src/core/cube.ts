@@ -20,6 +20,18 @@
 //                              firstTs, last of the latest lastTs, inc adds, st adds per state; a field missing from
 //                              one piece is missing from the result). cubeMerge: one list ordered by ts, the same ts
 //                              combined in list order, n = 0 left out (a bucket without n is kept).
+//                              m2 (the spread: sum of squared deviations from the bucket mean; D-087, summaries
+//                              service C-007): Chan in list order, n = na + nb, d = avg_b - avg_a (avg, else sum / n),
+//                              m2 = m2_a + m2_b + d * d * na * nb / n; only when every piece has n, m2 and an average
+//                              (a bucket built before the service had m2 answers m2 null: then no m2).
+//   cubeSd(row)                the SAMPLE standard deviation sqrt(m2 / (n - 1)) for n >= 2 and m2 >= 0, else null.
+//                              The platform cannot compute one: a part the summaries do not cover is joined from raw
+//                              readings when it is at most 4 h (below); a larger one has none ("not available").
+//   cubeRaw(readings, ts)      one bucket { ts?, n, sum, avg, min, max, m2 } from raw readings (numbers, numeric text,
+//                              booleans as 1 / 0, or the platform's { ts, value }; labels, blanks, JSON, NaN skipped),
+//                              m2 by the corrected two-pass sum; null when no reading is a number.
+//   cubeRawBuckets(readings, edges)  raw { ts, value } readings cut at ascending edges [e0, ..., ek] -> cubeRaw of each
+//                              [e(i), e(i+1)) with a number (ts = e(i)), in time order; join them with cubeMerge.
 // Client (never rejects; null on any failure so the caller reads exactly as today):
 //   cubeSeries(base, token, device, keys, from, to, level, fields, opts)       GET <base>/api/v1/series?...
 //   cubeSeriesMany(base, token, devices, keys, from, to, level, fields, opts)  POST <base>/api/v1/series
@@ -57,6 +69,7 @@ export interface CubeBucket {
   lastTs?: number;
   inc?: number;
   st?: Record<string, number>;
+  m2?: number | null;
   [k: string]: unknown;
 }
 export interface CubeSeries {
@@ -101,7 +114,7 @@ export const PAUSE_MS = 60000;
 export const GOOD_MS = 300000;
 export const GRACE_MS = 0;
 const STORE = 'imxCube.state:';
-export const FIELDS = ['n', 'sum', 'avg', 'min', 'max', 'first', 'firstTs', 'last', 'lastTs', 'inc', 'st'] as const;
+export const FIELDS = ['n', 'sum', 'avg', 'min', 'max', 'first', 'firstTs', 'last', 'lastTs', 'inc', 'st', 'm2'] as const;
 
 const num = (x: unknown): x is number => typeof x === 'number' && isFinite(x);
 const isLevel = (x: unknown): x is CubeLevel => typeof x === 'string' && (LEVELS as readonly string[]).includes(x);
@@ -144,6 +157,12 @@ export function cubeInterval(level: unknown): { interval: number; intervalType: 
 function pieceSum(p: CubeBucket): number | null {
   if (num(p.sum)) return p.sum;
   if (num(p.avg) && num(p.n)) return p.avg * p.n;
+  return null;
+}
+
+function pieceMean(p: CubeBucket): number | null {
+  if (num(p.avg)) return p.avg;
+  if (num(p.sum) && num(p.n) && p.n > 0) return p.sum / p.n;
   return null;
 }
 
@@ -203,6 +222,20 @@ export function cubeCombine(pieces: readonly CubeBucket[] | null | undefined): C
     for (const p of ps) inc += p.inc as number;
     out.inc = inc;
   }
+  if (ps.every((p) => num(p.n) && num(p.m2) && pieceMean(p) !== null)) {
+    let cn = ps[0].n as number;
+    let cm = pieceMean(ps[0]) as number;
+    let c2 = ps[0].m2 as number;
+    for (const p of ps.slice(1)) {
+      const nb = p.n as number;
+      const nn = cn + nb;
+      const d = (pieceMean(p) as number) - cm;
+      c2 = c2 + (p.m2 as number) + d * d * cn * nb / nn;
+      cm = cm + d * nb / nn;
+      cn = nn;
+    }
+    out.m2 = c2;
+  }
   if (ps.every((p) => isObj(p.st))) {
     const st: Record<string, number> = {};
     for (const p of ps) {
@@ -239,6 +272,89 @@ export function cubeMerge(lists: readonly (readonly CubeBucket[] | null | undefi
     if (c) out.push(c);
     r = s;
   }
+  return out;
+}
+
+// ------------------------------------------------------------------------------------------------ standard deviation
+export function cubeSd(row: CubeBucket | null | undefined): number | null {
+  if (!isObj(row) || !num(row.n) || row.n < 2 || !num(row.m2) || row.m2 < 0) return null;
+  return Math.sqrt(row.m2 / (row.n - 1));
+}
+
+const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+function rawNum(v: unknown): number | null {
+  if (isObj(v)) v = v.value;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  const low = s.toLowerCase();
+  if (low === 'true') return 1;
+  if (low === 'false') return 0;
+  if (!NUM_RE.test(s)) return null;
+  const x = Number(s);
+  return isFinite(x) ? x : null;
+}
+
+export interface RawReading { ts: number; value: unknown }
+export type RawBucket = { ts?: number; n: number; sum: number; avg: number; min: number; max: number; m2: number };
+
+export function cubeRaw(readings: readonly unknown[] | null | undefined, ts?: number | null): RawBucket | null {
+  const xs: number[] = [];
+  for (const r of readings || []) {
+    const x = rawNum(r);
+    if (x !== null) xs.push(x);
+  }
+  if (!xs.length) return null;
+  const n = xs.length;
+  let sum = 0;
+  let mn = xs[0];
+  let mx = xs[0];
+  for (const x of xs) {
+    sum += x;
+    if (x < mn) mn = x;
+    if (x > mx) mx = x;
+  }
+  const mean = sum / n;
+  let s1 = 0;
+  let s2 = 0;
+  for (const x of xs) {
+    const d = x - mean;
+    s1 += d;
+    s2 += d * d;
+  }
+  const m2 = n < 2 ? 0 : s2 - (s1 * s1) / n;
+  const out = {} as RawBucket;
+  if (num(ts)) out.ts = ts;
+  out.n = n;
+  out.sum = sum;
+  out.avg = mean;
+  out.min = mn;
+  out.max = mx;
+  out.m2 = m2 > 0 ? m2 : 0;
+  return out;
+}
+
+export function cubeRawBuckets(readings: readonly RawReading[] | null | undefined, edges: readonly number[] | null | undefined): (RawBucket & { ts: number })[] {
+  if (!edges || edges.length < 2) return [];
+  for (let e = 0; e < edges.length; e++) if (!num(edges[e]) || (e > 0 && edges[e] <= edges[e - 1])) return [];
+  const groups: RawReading[][] = edges.slice(1).map(() => []);
+  for (const r of readings || []) {
+    if (!isObj(r) || !num(r.ts) || r.ts < edges[0] || r.ts >= edges[edges.length - 1]) continue;
+    let lo = 0;
+    let hi = edges.length - 1; // the bucket i with edges[i] <= ts < edges[i + 1]
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (edges[mid] <= r.ts) lo = mid;
+      else hi = mid;
+    }
+    groups[lo].push(r);
+  }
+  const out: (RawBucket & { ts: number })[] = [];
+  groups.forEach((g, k) => {
+    const b = g.length ? cubeRaw(g, edges[k]) : null;
+    if (b) out.push(b as RawBucket & { ts: number });
+  });
   return out;
 }
 

@@ -37,6 +37,48 @@ describe('cube vectors (every runtime)', () => {
   it('cubeInterval', () => {
     for (const c of V.interval) expect(plain(X.cubeInterval(c.level)), String(c.level)).toEqual(c.expect);
   });
+  // D-087: numbers within 1e-12 relative (1e-15 absolute near 0); n and ts exact; the same keys
+  function closeTo(got: any, want: any, name: string): void {
+    if (want === null || typeof want !== 'object') {
+      if (typeof want === 'number' && typeof got === 'number') {
+        expect(Math.abs(got - want) <= 1e-12 * Math.abs(want) + 1e-15, `${name}: ${got} vs ${want}`).toBe(true);
+      } else expect(got, name).toBe(want);
+      return;
+    }
+    expect(got && typeof got === 'object', `${name}: an object`).toBe(true);
+    expect(Object.keys(got).sort(), `${name}: fields`).toEqual(Object.keys(want).sort());
+    for (const k of Object.keys(want)) {
+      if (k === 'n' || k === 'ts') expect(got[k], `${name}: ${k}`).toBe(want[k]);
+      else closeTo(got[k], want[k], `${name}: ${k}`);
+    }
+  }
+  it('cubeSd', () => {
+    for (const c of V.sd) closeTo(X.cubeSd(c.row), c.expect, c.name);
+  });
+  it('cubeRaw', () => {
+    for (const c of V.raw) closeTo(plain(X.cubeRaw(c.readings, c.ts)), c.expect, c.name);
+  });
+  it('cubeRawBuckets', () => {
+    for (const c of V.rawBuckets) {
+      const got = plain(X.cubeRawBuckets(c.readings, c.edges));
+      expect(got.length, `${c.name}: buckets`).toBe(c.expect.length);
+      c.expect.forEach((w: any, i: number) => closeTo(got[i], w, `${c.name} [${i}]`));
+    }
+  });
+  it('a raw tail joined to the summaries gives the standard deviation of all the readings', () => {
+    const T0 = V.times.T;
+    const xs = Array.from({ length: 40 }, (_, i) => ({ ts: T0 + i * 7000, value: 20 + Math.sin(i) * 3 }));
+    const head = X.cubeRaw(xs.slice(0, 25), T0) as X.CubeBucket;
+    const tail = X.cubeRawBuckets(xs.slice(25), [T0, T0 + 300000]) as X.CubeBucket[];
+    const [joined] = X.cubeMerge([[head], tail]);
+    const vals = xs.map((r) => r.value);
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const sd = Math.sqrt(vals.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (vals.length - 1));
+    expect(joined.n).toBe(40);
+    expect(Math.abs((X.cubeSd(joined) as number) - sd) <= 1e-12 * sd).toBe(true);
+    const [mixed] = X.cubeMerge([[head], [{ ts: T0, n: 15, avg: 21 }]]);
+    expect(X.cubeSd(mixed)).toBeNull();
+  });
   it('cubeCombine', () => {
     for (const c of V.combine) expect(plain(X.cubeCombine(c.pieces)), c.name).toEqual(c.expect);
   });

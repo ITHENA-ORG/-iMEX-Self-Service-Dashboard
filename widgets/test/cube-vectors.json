@@ -1,6 +1,6 @@
 {
  "version": 1,
- "about": "Shared test vectors of the data summaries rule and client (docs/design/DATA_CUBES.md 3.3 and 4). Generated from tests/cube-vectors.src.mjs; copy byte for byte. Sections level .. pause run in every runtime (JS widgets/_shared/cube.js, Python Reports service/app/cube.py, TypeScript Builder widgets/src/core/cube.ts); state and race run in the browser copies only (JS, TypeScript: Reports is one process, its pause is already shared). level: cubeLevel(from, to). parts: cubeParts(from, to, level, coverage). interval: cubeInterval(level). combine: cubeCombine(pieces) (null = no bucket). merge: cubeMerge(lists). url: cubeUrl(base, device, keys, from, to, level, fields). client: call \"series\" = cubeSeries(base, token, device, keys, from, to, level, fields) and \"many\" = cubeSeriesMany(base, token, devices, keys, ...); answer = what the fake service gives: { status, body } (body as JSON), { status, text } (not JSON), { fail: \"timeout\" } (no answer: run with a short timeout) or { fail: \"network\" }; expect.sent = the request made (null = none; auth = the X-Authorization header; body = the POST body as JSON) and expect.result = what the call returns. Run every client case with no pause (reset first). pause: steps in order after a reset, with the clock at \"at\" ms; base = args base of the client section unless the step gives one; sent = a request was made. state: the state shared by the library copies on a page and by later pages (cubeState(base) after each step: off | paused | good | unknown); per sequence storage yes (one storage for all pages) | none | broken (every use throws), preset = what the storage holds at the start, base = the address (default clientArgs base); a step: page (a new number = a new page: its own shared map, the same storage), copy (a / b = two separate library copies on that page), at = the clock, answer (none = no call, only the state read). race: cubeRace(base, askCube, readPlatform, { graceMs }): before = an answer just before the race (sets the state; null = unknown), cube / platform = after how many ms each answers and with what (value null = no summaries, throws = askCube throws, fail = the platform read fails); expect asked / read = whether each was called, readFirst = readPlatform called before askCube answered, result = { src, value } or \"error\" (the race rejects), before = answered in less than this many ms.",
+ "about": "Shared test vectors of the data summaries rule and client (docs/design/DATA_CUBES.md 3.3 and 4). Generated from tests/cube-vectors.src.mjs; copy byte for byte. Sections level .. pause run in every runtime (JS widgets/_shared/cube.js, Python Reports service/app/cube.py, TypeScript Builder widgets/src/core/cube.ts); state and race run in the browser copies only (JS, TypeScript: Reports is one process, its pause is already shared). level: cubeLevel(from, to). parts: cubeParts(from, to, level, coverage). interval: cubeInterval(level). combine: cubeCombine(pieces) (null = no bucket). merge: cubeMerge(lists) (m2 = the spread, combined by Chan in list order: n = na + nb, d = avg_b - avg_a, m2 = m2_a + m2_b + d * d * na * nb / n; only when every piece has n, m2 and an average, else no m2). sd: cubeSd(row) (the sample standard deviation sqrt(m2 / (n - 1)), null for n < 2 or no m2; numbers within 1e-12 relative). raw: cubeRaw(readings, ts) (one bucket { ts?, n, sum, avg, min, max, m2 } from raw readings; null = no number; n exact, other numbers within 1e-12 relative, 1e-15 absolute). rawBuckets: cubeRawBuckets(readings, edges) (each [edges[i], edges[i+1]) as cubeRaw with ts = edges[i]; the same comparison). url: cubeUrl(base, device, keys, from, to, level, fields). client: call \"series\" = cubeSeries(base, token, device, keys, from, to, level, fields) and \"many\" = cubeSeriesMany(base, token, devices, keys, ...); answer = what the fake service gives: { status, body } (body as JSON), { status, text } (not JSON), { fail: \"timeout\" } (no answer: run with a short timeout) or { fail: \"network\" }; expect.sent = the request made (null = none; auth = the X-Authorization header; body = the POST body as JSON) and expect.result = what the call returns. Run every client case with no pause (reset first). pause: steps in order after a reset, with the clock at \"at\" ms; base = args base of the client section unless the step gives one; sent = a request was made. state: the state shared by the library copies on a page and by later pages (cubeState(base) after each step: off | paused | good | unknown); per sequence storage yes (one storage for all pages) | none | broken (every use throws), preset = what the storage holds at the start, base = the address (default clientArgs base); a step: page (a new number = a new page: its own shared map, the same storage), copy (a / b = two separate library copies on that page), at = the clock, answer (none = no call, only the state read). race: cubeRace(base, askCube, readPlatform, { graceMs }): before = an answer just before the race (sets the state; null = unknown), cube / platform = after how many ms each answers and with what (value null = no summaries, throws = askCube throws, fail = the platform read fails); expect asked / read = whether each was called, readFirst = readPlatform called before askCube answered, result = { src, value } or \"error\" (the race rejects), before = answered in less than this many ms.",
  "times": {
   "T": 1793557800000,
   "note": "T = 2 Nov 2026 00:00 in India (UTC+5:30)"
@@ -725,6 +725,174 @@
     "sum": 4,
     "avg": 2
    }
+  },
+  {
+   "name": "m2 by Chan: {0, 2} and {2, 4} -> m2 2 + 2 + (3 - 1)^2 * 2 * 2 / 4 = 8 (of 0, 2, 2, 4)",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "avg": 1,
+     "m2": 2
+    },
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "avg": 3,
+     "m2": 2
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 4,
+    "sum": 8,
+    "avg": 2,
+    "m2": 8
+   }
+  },
+  {
+   "name": "m2 by Chan over three pieces in list order: {0}, {4}, {0, 4} -> 16",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 1,
+     "avg": 0,
+     "m2": 0
+    },
+    {
+     "ts": 1793557800000,
+     "n": 1,
+     "avg": 4,
+     "m2": 0
+    },
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "avg": 2,
+     "m2": 8
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 4,
+    "sum": 8,
+    "avg": 2,
+    "m2": 16
+   }
+  },
+  {
+   "name": "m2: a piece without avg takes sum / n",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "sum": 2,
+     "m2": 2
+    },
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "sum": 6,
+     "m2": 2
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 4,
+    "sum": 8,
+    "avg": 2,
+    "m2": 8
+   }
+  },
+  {
+   "name": "m2: a bucket built before the service had m2 (m2 null): no m2 (never a wrong one)",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "avg": 1,
+     "m2": 2
+    },
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "avg": 3,
+     "m2": null
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 4,
+    "sum": 8,
+    "avg": 2
+   }
+  },
+  {
+   "name": "m2: a piece without m2 (a platform part): no m2",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "avg": 1,
+     "m2": 2
+    },
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "avg": 3,
+     "min": 2,
+     "max": 4
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 4,
+    "sum": 8,
+    "avg": 2
+   }
+  },
+  {
+   "name": "m2: a piece without n: no m2",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "avg": 3,
+     "m2": 0
+    },
+    {
+     "ts": 1793557800000,
+     "n": 1,
+     "avg": 3,
+     "m2": 0
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "avg": 3
+   }
+  },
+  {
+   "name": "m2: a piece with n = 0 adds nothing",
+   "pieces": [
+    {
+     "ts": 1793557800000,
+     "n": 0,
+     "m2": null
+    },
+    {
+     "ts": 1793557800000,
+     "n": 3,
+     "avg": 2,
+     "m2": 2
+    }
+   ],
+   "expect": {
+    "ts": 1793557800000,
+    "n": 3,
+    "sum": 6,
+    "avg": 2,
+    "m2": 2
+   }
   }
  ],
  "merge": [
@@ -1049,6 +1217,48 @@
    ]
   },
   {
+   "name": "m2: a raw tail and the summaries in the same bucket combined by Chan; a lone bucket keeps its m2 (null too)",
+   "lists": [
+    [
+     {
+      "ts": 1793557800000,
+      "n": 2,
+      "avg": 1,
+      "m2": 2
+     },
+     {
+      "ts": 1793561400000,
+      "n": 3,
+      "avg": 5,
+      "m2": null
+     }
+    ],
+    [
+     {
+      "ts": 1793557800000,
+      "n": 2,
+      "avg": 3,
+      "m2": 2
+     }
+    ]
+   ],
+   "expect": [
+    {
+     "ts": 1793557800000,
+     "n": 4,
+     "sum": 8,
+     "avg": 2,
+     "m2": 8
+    },
+    {
+     "ts": 1793561400000,
+     "n": 3,
+     "avg": 5,
+     "m2": null
+    }
+   ]
+  },
+  {
    "name": "nothing: empty list",
    "lists": [
     [],
@@ -1059,6 +1269,418 @@
   {
    "name": "no lists: empty list",
    "lists": [],
+   "expect": []
+  }
+ ],
+ "sd": [
+  {
+   "name": "n 3, m2 8: sqrt(8 / 2) = 2",
+   "row": {
+    "ts": 1793557800000,
+    "n": 3,
+    "m2": 8
+   },
+   "expect": 2
+  },
+  {
+   "name": "n 4, m2 8: sqrt(8 / 3)",
+   "row": {
+    "ts": 1793557800000,
+    "n": 4,
+    "avg": 2,
+    "m2": 8
+   },
+   "expect": 1.632993161855452
+  },
+  {
+   "name": "n 2, m2 2: sqrt(2)",
+   "row": {
+    "n": 2,
+    "m2": 2
+   },
+   "expect": 1.4142135623730951
+  },
+  {
+   "name": "every reading the same: 0",
+   "row": {
+    "n": 5,
+    "m2": 0
+   },
+   "expect": 0
+  },
+  {
+   "name": "a tiny spread: n 10, m2 82.5 / 2^20",
+   "row": {
+    "n": 10,
+    "m2": 0.00007867813110351562
+   },
+   "expect": 0.0029566897989233318
+  },
+  {
+   "name": "one reading: none (n - 1 = 0)",
+   "row": {
+    "n": 1,
+    "m2": 0
+   },
+   "expect": null
+  },
+  {
+   "name": "no readings: none",
+   "row": {
+    "n": 0,
+    "m2": null
+   },
+   "expect": null
+  },
+  {
+   "name": "built before the service had m2 (m2 null): none",
+   "row": {
+    "n": 12,
+    "avg": 4,
+    "m2": null
+   },
+   "expect": null
+  },
+  {
+   "name": "no m2 asked or a platform bucket: none",
+   "row": {
+    "n": 12,
+    "avg": 4
+   },
+   "expect": null
+  },
+  {
+   "name": "no n: none",
+   "row": {
+    "avg": 4,
+    "m2": 3
+   },
+   "expect": null
+  },
+  {
+   "name": "a negative m2 is not a spread: none",
+   "row": {
+    "n": 4,
+    "m2": -1
+   },
+   "expect": null
+  },
+  {
+   "name": "no bucket: none",
+   "row": null,
+   "expect": null
+  }
+ ],
+ "raw": [
+  {
+   "name": "numbers: n 8, mean 5, m2 32",
+   "readings": [
+    2,
+    4,
+    4,
+    4,
+    5,
+    5,
+    7,
+    9
+   ],
+   "ts": 1793557800000,
+   "expect": {
+    "ts": 1793557800000,
+    "n": 8,
+    "sum": 40,
+    "avg": 5,
+    "min": 2,
+    "max": 9,
+    "m2": 32
+   }
+  },
+  {
+   "name": "the platform's readings: numeric text, booleans as 1 / 0; a label, a blank, null, JSON and NaN skipped",
+   "readings": [
+    {
+     "ts": 1793557800001,
+     "value": "1.5"
+    },
+    {
+     "ts": 1793557800002,
+     "value": "2.5"
+    },
+    {
+     "ts": 1793557800003,
+     "value": "RUNNING"
+    },
+    {
+     "ts": 1793557800004,
+     "value": ""
+    },
+    {
+     "ts": 1793557800005,
+     "value": true
+    },
+    {
+     "ts": 1793557800006,
+     "value": "false"
+    },
+    {
+     "ts": 1793557800007,
+     "value": null
+    },
+    {
+     "ts": 1793557800008,
+     "value": "{\"a\":1}"
+    },
+    {
+     "ts": 1793557800009,
+     "value": "NaN"
+    },
+    {
+     "ts": 1793557800010,
+     "value": " 1e0 "
+    }
+   ],
+   "ts": 1793557800000,
+   "expect": {
+    "ts": 1793557800000,
+    "n": 5,
+    "sum": 6,
+    "avg": 1.2,
+    "min": 0,
+    "max": 2.5,
+    "m2": 3.3
+   }
+  },
+  {
+   "name": "one reading: m2 0; no ts given: none in the result",
+   "readings": [
+    3.5
+   ],
+   "ts": null,
+   "expect": {
+    "n": 1,
+    "sum": 3.5,
+    "avg": 3.5,
+    "min": 3.5,
+    "max": 3.5,
+    "m2": 0
+   }
+  },
+  {
+   "name": "readings around 1e6 with a tiny spread keep it (1e6 + k / 1024, k = 0..9: m2 = 82.5 / 2^20)",
+   "readings": [
+    1000000,
+    1000000.0009765625,
+    1000000.001953125,
+    1000000.0029296875,
+    1000000.00390625,
+    1000000.0048828125,
+    1000000.005859375,
+    1000000.0068359375,
+    1000000.0078125,
+    1000000.0087890625
+   ],
+   "ts": 1793557800000,
+   "expect": {
+    "ts": 1793557800000,
+    "n": 10,
+    "sum": 10000000.043945312,
+    "avg": 1000000.0043945312,
+    "min": 1000000,
+    "max": 1000000.0087890625,
+    "m2": 0.00007867813110351562
+   }
+  },
+  {
+   "name": "no number: no bucket",
+   "readings": [
+    "IDLE",
+    "",
+    {
+     "ts": 1793557800000,
+     "value": "RUNNING"
+    }
+   ],
+   "ts": 1793557800000,
+   "expect": null
+  },
+  {
+   "name": "no readings: no bucket",
+   "readings": [],
+   "ts": 1793557800000,
+   "expect": null
+  }
+ ],
+ "rawBuckets": [
+  {
+   "name": "three 5-minute buckets; readings in any order; outside, labels and empty buckets left out",
+   "readings": [
+    {
+     "ts": 1793557802000,
+     "value": 3
+    },
+    {
+     "ts": 1793557801000,
+     "value": "1"
+    },
+    {
+     "ts": 1793558100001,
+     "value": "5"
+    },
+    {
+     "ts": 1793558160000,
+     "value": "x"
+    },
+    {
+     "ts": 1793557799999,
+     "value": 100
+    },
+    {
+     "ts": 1793558700000,
+     "value": 9
+    },
+    {
+     "ts": 1793558640000,
+     "value": 7
+    },
+    {
+     "ts": 1793558460000,
+     "value": 8
+    }
+   ],
+   "edges": [
+    1793557800000,
+    1793558100000,
+    1793558400000,
+    1793558700000
+   ],
+   "expect": [
+    {
+     "ts": 1793557800000,
+     "n": 2,
+     "sum": 4,
+     "avg": 2,
+     "min": 1,
+     "max": 3,
+     "m2": 2
+    },
+    {
+     "ts": 1793558100000,
+     "n": 1,
+     "sum": 5,
+     "avg": 5,
+     "min": 5,
+     "max": 5,
+     "m2": 0
+    },
+    {
+     "ts": 1793558400000,
+     "n": 2,
+     "sum": 15,
+     "avg": 7.5,
+     "min": 7,
+     "max": 8,
+     "m2": 0.5
+    }
+   ]
+  },
+  {
+   "name": "hours of different lengths (the reader's own bucket starts); a bucket without a number left out",
+   "readings": [
+    {
+     "ts": 1793558400000,
+     "value": 4
+    },
+    {
+     "ts": 1793562000000,
+     "value": "IDLE"
+    },
+    {
+     "ts": 1793565600000,
+     "value": 6
+    },
+    {
+     "ts": 1793565660000,
+     "value": 10
+    }
+   ],
+   "edges": [
+    1793557800000,
+    1793561400000,
+    1793565000000,
+    1793570400000
+   ],
+   "expect": [
+    {
+     "ts": 1793557800000,
+     "n": 1,
+     "sum": 4,
+     "avg": 4,
+     "min": 4,
+     "max": 4,
+     "m2": 0
+    },
+    {
+     "ts": 1793565000000,
+     "n": 2,
+     "sum": 16,
+     "avg": 8,
+     "min": 6,
+     "max": 10,
+     "m2": 8
+    }
+   ]
+  },
+  {
+   "name": "readings without a time are left out",
+   "readings": [
+    1,
+    2,
+    {
+     "value": 3
+    }
+   ],
+   "edges": [
+    1793557800000,
+    1793561400000
+   ],
+   "expect": []
+  },
+  {
+   "name": "one edge: nothing",
+   "readings": [
+    {
+     "ts": 1793557800000,
+     "value": 1
+    }
+   ],
+   "edges": [
+    1793557800000
+   ],
+   "expect": []
+  },
+  {
+   "name": "edges not ascending: nothing",
+   "readings": [
+    {
+     "ts": 1793557800000,
+     "value": 1
+    }
+   ],
+   "edges": [
+    1793561400000,
+    1793557800000
+   ],
+   "expect": []
+  },
+  {
+   "name": "no edges: nothing",
+   "readings": [
+    {
+     "ts": 1793557800000,
+     "value": 1
+    }
+   ],
+   "edges": null,
    "expect": []
   }
  ],
@@ -1096,15 +1718,15 @@
    "expect": "/cubes-api/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=energy&from=1793557800000&to=1796149800000&level=1h&fields=inc,n,first,last"
   },
   {
-   "name": "keys as text, repeated and blank keys dropped, unknown fields dropped",
+   "name": "keys as text, repeated and blank keys dropped, unknown fields dropped, m2 kept (U-177)",
    "base": "/cubes-api",
    "device": "11474a40-c0be-11f1-add5-5db4ab3ed597",
    "keys": "pressure, flow,,pressure",
    "from": 1793557800000,
    "to": 1802197800000,
    "level": "1d",
-   "fields": "avg,bogus,max",
-   "expect": "/cubes-api/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure,flow&from=1793557800000&to=1802197800000&level=1d&fields=avg,max"
+   "fields": "avg,bogus,max,m2,sd",
+   "expect": "/cubes-api/api/v1/series?device=11474a40-c0be-11f1-add5-5db4ab3ed597&keys=pressure,flow&from=1793557800000&to=1802197800000&level=1d&fields=avg,max,m2"
   },
   {
    "name": "keys with a space, an accent and a slash are encoded; times cut to whole ms",

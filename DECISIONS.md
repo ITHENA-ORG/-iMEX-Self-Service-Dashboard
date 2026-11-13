@@ -1427,3 +1427,22 @@ the calculated values (CC-021). The licence carries `limits.maxDashboards` (abse
   third and frees on delete, limit 0, customise, apply as copies refused before any write. The e2e suite has no licence
   fixture, so no e2e case. `npx vitest run`, `npx tsc --noEmit`, `npm run test:e2e`, `npm run build:widgets` run (see the
   CHANGELOG row). NOT deployed to LOCAL (another workflow was measuring there).
+
+### D-087 Data summaries: the standard deviation's m2 in core/cube.ts (13 Nov 2026; App UI U-177, summaries service C-007, Reports D-137; coordinator renumbers)
+
+Akshay (13 Nov) approved adding the standard deviation to the summaries before the server release. Pinned contract (App
+UI `docs/design/DATA_CUBES.md` §2 / §3.3): per bucket `m2` = the sum of squared deviations of its numeric readings from
+the bucket mean (n = 1 -> 0), merged by Chan; standard deviation = `n >= 2 ? sqrt(m2 / (n - 1)) : null` (sample).
+
+`widgets/src/core/cube.ts` only (no widget changes; dashboards may offer it later):
+- `FIELDS` has `'m2'`; `CubeBucket.m2?: number | null`.
+- `cubeCombine` / `cubeMerge` combine `m2` by Chan in list order (`d = avg_b - avg_a`, a piece's avg else sum / n;
+  `m2 = m2_a + m2_b + d*d*na*nb/n`); only when every piece has n, m2 and an average, else no m2 in the result.
+- `cubeSd(row)`: the sample standard deviation, null for n < 2, no m2 or a negative m2.
+- `cubeRaw(readings, ts)` / `cubeRawBuckets(readings, edges)` (types `RawReading`, `RawBucket`): a bucket
+  `{ ts?, n, sum, avg, min, max, m2 }` from raw readings and the raw `{ ts, value }` readings cut at the reader's bucket
+  edges, to join a raw head / tail of at most 4 h with `cubeMerge`. A larger uncovered part has no standard deviation.
+- `widgets/test/cube-vectors.json` byte-identical to the App UI's (`node scripts/export-kit.mjs --vectors` there);
+  `widgets/test/cube.test.ts` runs the new sections `sd`, `raw`, `rawBuckets` (numbers within 1e-12 relative) and a raw
+  tail joined to a head bucket = the sample standard deviation of all 40 readings.
+- `npx vitest run`: **511 passed (32 files)** at first; re-run in the evening **518 passed (33 files)** (another stream added a file); `npx tsc --noEmit`: clean. Not deployed, not committed.
