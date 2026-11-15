@@ -8,11 +8,11 @@ const INTERNAL = /thingsboard|DBB|LLM|asset|attribute|rule chain|relay|tenant|JS
 
 describe('the shared sentences (same words as the iMEX app, AI Insights and Reports)', () => {
   it('match the agreed wording', () => {
-    expect(MSG.noAccess).toBe('You do not have access to this. Contact your administrator if you need it.');
-    expect(MSG.notLicensed).toBe('This feature is not included in your license.');
+    expect(MSG.noAccess).toBe('Your role does not allow this. If you need it, ask your administrator.');
+    expect(MSG.notLicensed).toBe('This is not included in your license. Contact your administrator.');
     expect(MSG.unavailable).toBe('This is not available right now. Please try again in a few minutes. If it keeps happening, contact your administrator.');
     expect(MSG.aiUnavailable).toBe('AI is not available right now. Contact your ITHENA administrator.');
-    expect(MSG.changed).toBe('Someone else changed this in the meantime. Reload to see the latest, then try again.');
+    expect(MSG.changed).toBe('Someone else changed this in the meantime. Reload the page and try again.');
     expect(MSG.noData).toBe('No data for this period yet.');
   });
   it('carry no internals', () => {
@@ -82,7 +82,7 @@ describe('the chat assistant (relay replies)', () => {
     const w = quiet();
     const cases: Array<[string, RegExp]> = [
       ['Chat limit reached (60 requests per hour). Try again later.', /60 requests per hour/],
-      ["The chat assistant is not included in this installation's license. Ask your administrator.", /^This feature is not included in your license\.$/],
+      ["The chat assistant is not included in this installation's license. Ask your administrator.", /^This is not included in your license. Contact your administrator.$/],
       ['Monthly AI limit reached (12 of 10) — contact your administrator', /\(12 of 10\)/],
       ['AI (LLM) use is switched off for the Dashboard builder chat. An administrator can switch it on in Configuration › General › AI (LLM) usage.', /switched off/],
       ['The chat could not read the AI switches of the application, so it stays off. Ask your administrator.', /not available right now/],

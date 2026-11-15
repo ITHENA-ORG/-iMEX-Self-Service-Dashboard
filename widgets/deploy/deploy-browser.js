@@ -399,7 +399,7 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId, more) {
     'else if (code == "ROLE_ERR") { text = "Your access could not be checked just now, so the chat stays off. Reload the page and try again. If it keeps happening, contact your administrator."; }',
     'else if (code == "ROLE") { text = "Your role does not include the chat assistant (it needs Build dashboards). Contact your administrator if you need it."; }',
     'else if (code == "RATE") { text = "You have reached the chat limit of ' + RATE + ' requests per hour. Please try again later."; }',
-    'else if (code == "NOT_LICENSED") { text = "This feature is not included in your license."; }',
+    'else if (code == "NOT_LICENSED") { text = "This is not included in your license. Contact your administrator."; }',
     'else if (code == "QUOTA") { text = "Your organisation has used this month\'s AI allowance (" + metadata.qUsed + " of " + metadata.qLimit + "). Contact your administrator."; }',
     'else if (code == "AI_OFF") { text = "The chat assistant is switched off for your organisation. Contact your administrator if you need it."; }',
     'else if (code == "AI_SW") { text = "The chat assistant is not available right now. Please try again in a few minutes. If it keeps happening, contact your administrator."; }',

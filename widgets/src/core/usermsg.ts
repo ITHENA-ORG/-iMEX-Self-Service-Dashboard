@@ -10,12 +10,12 @@ import { ApiError } from './api';
 
 /** The sentences, one per case a user can act on. Shared wording: keep in step with the other repos. */
 export const MSG = {
-  noAccess: 'You do not have access to this. Contact your administrator if you need it.',
-  notLicensed: 'This feature is not included in your license.',
+  noAccess: 'Your role does not allow this. If you need it, ask your administrator.',
+  notLicensed: 'This is not included in your license. Contact your administrator.',
   unavailable: 'This is not available right now. Please try again in a few minutes. If it keeps happening, contact your administrator.',
   aiUnavailable: 'AI is not available right now. Contact your ITHENA administrator.',
   aiBusy: 'AI is not available right now. Please try again in a few minutes. If it keeps happening, contact your ITHENA administrator.',
-  changed: 'Someone else changed this in the meantime. Reload to see the latest, then try again.',
+  changed: 'Someone else changed this in the meantime. Reload the page and try again.',
   noData: 'No data for this period yet.',
   notFound: 'This no longer exists or was removed. Reload the page.',
   offline: 'You appear to be offline. Check your connection and try again.',
