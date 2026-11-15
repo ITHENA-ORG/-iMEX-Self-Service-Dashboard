@@ -337,7 +337,7 @@ export const BUILDER_CSS = `
 .dbb-od-muted small{color:#8a919c;font-size:12px}
 .dbb-od-empty{padding:28px;text-align:center;color:#6b7380;font-size:13px}
 @media (max-width:760px){.dbb-od-row{grid-template-columns:1fr auto;row-gap:4px}.dbb-od-row>:nth-child(n+3){display:none}}
-.dbb-toasts{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);display:flex;flex-direction:column-reverse;align-items:center;gap:6px;z-index:40;width:min(560px,calc(100% - 24px))}
+.dbb-toasts{position:absolute;left:50%;bottom:10%;transform:translateX(-50%);display:flex;flex-direction:column-reverse;align-items:center;gap:6px;z-index:40;width:min(560px,calc(100% - 24px))}
 .dbb-toast{background:#1a1a19;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;line-height:1.45;max-width:100%;box-shadow:0 6px 18px rgba(0,0,0,.2);animation:dbbfade .2s ease-out}
 .dbb-toast.err{background:#8e2222}
 .dbb-toast.warn{background:#7a5200}

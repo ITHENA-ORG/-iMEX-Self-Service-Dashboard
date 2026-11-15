@@ -1508,3 +1508,6 @@ Akshay: section header, sub-section header, label and value at the same size and
 - Checked: `tsc --noEmit` clean; `vitest run` 518 passed (33 files); `test:e2e` all passed; on LOCAL without saving
   anything (the page was given this build in the browser only): Dashboards list, the Builder with a widget selected,
   light and dark, 1440 and 360 px (no sideways scroll).
+
+### D-091 The Builder's own toasts sit 10% up (15 Nov 2026; App UI U-194)
+- `.dbb-toasts` `bottom: 22%` -> `10%`, as the app's kit (Akshay: "further down, maybe 10%"). Kit CSS copy re-exported (20261115.1131).
