@@ -1446,3 +1446,10 @@ the bucket mean (n = 1 -> 0), merged by Chan; standard deviation = `n >= 2 ? sqr
   `widgets/test/cube.test.ts` runs the new sections `sd`, `raw`, `rawBuckets` (numbers within 1e-12 relative) and a raw
   tail joined to a head bucket = the sample standard deviation of all 40 readings.
 - `npx vitest run`: **511 passed (32 files)** at first; re-run in the evening **518 passed (33 files)** (another stream added a file); `npx tsc --noEmit`: clean. Not deployed, not committed.
+
+### D-088 Toasts: centred a fifth up and on screen long enough to read (15 Nov 2026; App UI U-184, Reports D-138; coordinator renumbers)
+Akshay (15 Nov): the prompts sat at the bottom right and vanished too fast. Inside the iMEX app the Builder already uses
+the app's one toast (D-045), which now sits centred about a fifth of the window up, stays at least 5 s (an error 8 s;
+about 250 ms a word longer), pauses while pointed at and has a close button. The Builder's own toast (the stand-in app,
+the test harness) follows: 22 % up, the same times, paused while pointed at, 14 px. `render/kit-css.ts` exported from
+the App UI (kit 20261115.0818); `widgets/dist` rebuilt (`npm run build:widgets`); vitest 518/518.
