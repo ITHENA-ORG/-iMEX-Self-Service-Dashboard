@@ -1477,3 +1477,10 @@ something"). "The end user need not know this ... check ALL such messages ... cu
   expired AI key reads 'AI is not available right now'"; `widgets/deploy/relay/script-selftest.mjs` +12 cases on
   LOCAL's script engine (nothing stored). Deploy: the integrator redeploys the chain (deploy-node.mjs) with the widgets.
 - Wording check against the App UI stream (wt-msg-appui `widgets/_shared/msg.js` KINDS, 15 Nov): the secondary sentences (AI down = "AI is not available right now. Please try again in a few minutes. If it keeps happening, contact your ITHENA administrator.", offline, signed out, not found, busy, out of date) are copied from it. The six common sentences follow the coordinator's list and DIFFER from that branch (role / license / conflict / no data): the integrator picks one and aligns all four repos.
+
+### D-089 Toasts: centred a fifth up and on screen long enough to read (15 Nov 2026; App UI U-185, Reports D-139; coordinator renumbers)
+Akshay (15 Nov): the prompts sat at the bottom right and vanished too fast. Inside the iMEX app the Builder already uses
+the app's one toast (D-045), which now sits centred about a fifth of the window up, stays at least 5 s (an error 8 s;
+about 250 ms a word longer), pauses while pointed at and has a close button. The Builder's own toast (the stand-in app,
+the test harness) follows: 22 % up, the same times, paused while pointed at, 14 px. `render/kit-css.ts` exported from
+the App UI (kit 20261115.0818); `widgets/dist` rebuilt (`npm run build:widgets`); vitest 518/518.

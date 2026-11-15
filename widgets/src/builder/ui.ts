@@ -85,10 +85,12 @@ export async function confirmModal(root: HTMLElement, title: string, text: strin
 }
 
 /**
- * Shows a short message. D-045: inside the iMEX app it goes to the app's one toast stack (bottom right, themed,
- * window.imxToast; kinds ok / warn / error), so the Builder never shows a second kind of toast there. Without the
- * app (the stand-in app, the test harness) it uses its own stack inside `root` (created on first use, with
- * `role="status"` so screen readers announce it). Errors stay 8 s, others 4 s.
+ * Shows a short message. D-045: inside the iMEX app it goes to the app's one toast stack (centred, a fifth of the
+ * window up, themed, window.imxToast; kinds ok / warn / error), so the Builder never shows a second kind of toast there.
+ * Without the app (the stand-in app, the test harness) it uses its own stack inside `root` (created on first use, with
+ * `role="status"` so screen readers announce it), placed and timed as the app's (D-089, fb-small 15 Nov 2026): centred,
+ * a fifth of the way up; at least 5 s (an error 8 s), about 250 ms a word longer for a longer text; paused while
+ * pointed at.
  * @param text Plain text (set via textContent, so no escaping needed).
  * @param kind 'ok' (dark), 'warn' (amber) or 'err' (red).
  */
@@ -105,7 +107,12 @@ export function toast(root: HTMLElement, text: string, kind: 'ok' | 'warn' | 'er
   t.className = `dbb-toast ${kind}`;
   t.textContent = text;
   host.appendChild(t);
-  setTimeout(() => t.remove(), kind === 'err' ? 8000 : 4000);
+  const words = String(text).split(/\s+/).filter(Boolean).length;
+  let left = Math.min(30000, Math.max(kind === 'err' ? 8000 : 5000, 2000 + words * 250)), start = Date.now(), timer = 0;
+  const arm = (ms: number) => { start = Date.now(); left = ms; timer = window.setTimeout(() => t.remove(), ms); };
+  t.addEventListener('mouseenter', () => { clearTimeout(timer); left -= Date.now() - start; });
+  t.addEventListener('mouseleave', () => arm(Math.max(2500, left)));
+  arm(left);
 }
 
 // ---------- D-032 start screen helpers ----------
