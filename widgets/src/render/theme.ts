@@ -36,6 +36,7 @@
 import type { DashboardTheme } from '../core/schema';
 import { axis as fmtAxis } from '../core/datefmt';
 import * as regional from '../core/regional';
+import { SCALE_CSS } from './scale-css'; // D-090: the app's type scale, appended to the core CSS
 
 /** Categorical series colours (light surfaces), in assignment order. Charts cycle through them. */
 export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
@@ -437,7 +438,7 @@ html[data-imx-mode="dark"] .dbb-dark .dbb-banner.warn{background:rgba(245,158,11
 html[data-imx-mode="dark"] .dbb-dark .dbb-banner.err{background:rgba(239,68,68,.16);color:#FCA5A5}
 html[data-imx-mode="dark"] .dbb-dark .dbb-md mark{background:rgba(250,204,21,.3)}
 html[data-imx-mode="dark"] .dbb-appdark .dbb-skel .imx-skel,html[data-imx-mode="dark"] .dbb-appdark .dbb-st-skel .imx-skel{--imx-skel1:#1C2639;--imx-skel2:#25314A}
-`;
+` + SCALE_CSS;
 
 /** Adds a <style id=...> to <head> unless one with that id exists. Changing the CSS needs a page reload to apply. */
 export function ensureCss(id: string, css: string) {
