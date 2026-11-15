@@ -1446,3 +1446,23 @@ the bucket mean (n = 1 -> 0), merged by Chan; standard deviation = `n >= 2 ? sqr
   `widgets/test/cube.test.ts` runs the new sections `sd`, `raw`, `rawBuckets` (numbers within 1e-12 relative) and a raw
   tail joined to a head bucket = the sample standard deviation of all 40 readings.
 - `npx vitest run`: **511 passed (32 files)** at first; re-run in the evening **518 passed (33 files)** (another stream added a file); `npx tsc --noEmit`: clean. Not deployed, not committed.
+
+### D-089 The Builder's own screens on the app's one type scale (15 Nov 2026; Akshay's review; App UI U-184 .. U-186 and `docs/design/TYPE_SCALE.md` there, AI Insights A-077, Reports D-139; coordinator renumbers)
+Akshay: section header, sub-section header, label and value at the same size and weight across the application.
+
+- `widgets/src/render/scale-css.ts` (`SCALE_CSS`), appended to the core CSS in `render/theme.ts` (injected on every
+  Builder page); each selector starts with `html ` so it wins over the builder, list and menu sheets injected after it,
+  and no line of those sheets changes. Sizes and weights only (the kit's `--imx-fs-*` / `--imx-fw-*` tokens, each
+  with its value as fallback); colours stay with the sheets, light and dark.
+- What changes: dialog titles 17/700 (were 16/600); the side panel's groups ("Widget", "Data source", "Theme",
+  "Background") 14/700 (were 12.5/600); field labels 12.5/600 (were 11/500); what a field holds 14 (was 12); hints 13
+  (were 12); the palette's eyebrows ("VALUES", "CHARTS") and the Edit menu's 11.5/700 (were 10.5-11/600); the Open
+  dialog's table header 12/600; the start screen's title 20/700; a dashboard's name in the Dashboards list 14/600
+  (was 14.5) with its line 13.
+- Not changed on purpose: the dashboards the Builder makes (card titles, values, charts) follow the dashboard's own
+  Theme; the side panel already puts short fields side by side (Unit and Decimals, Accent colour and Font).
+- `widgets/src/render/kit-css.ts` regenerated from the App UI kit (ui-density; it carries the tokens). The integrator
+  runs the App UI's `scripts/export-kit.mjs` again after merging.
+- Checked: `tsc --noEmit` clean; `vitest run` 518 passed (33 files); `test:e2e` all passed; on LOCAL without saving
+  anything (the page was given this build in the browser only): Dashboards list, the Builder with a widget selected,
+  light and dark, 1440 and 360 px (no sideways scroll).
