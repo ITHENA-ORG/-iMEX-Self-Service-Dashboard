@@ -88,7 +88,7 @@ export async function confirmModal(root: HTMLElement, title: string, text: strin
  * Shows a short message. D-045: inside the iMEX app it goes to the app's one toast stack (centred, a fifth of the
  * window up, themed, window.imxToast; kinds ok / warn / error), so the Builder never shows a second kind of toast there.
  * Without the app (the stand-in app, the test harness) it uses its own stack inside `root` (created on first use, with
- * `role="status"` so screen readers announce it), placed and timed as the app's (D-088, fb-small 15 Nov 2026): centred,
+ * `role="status"` so screen readers announce it), placed and timed as the app's (D-089, fb-small 15 Nov 2026): centred,
  * a fifth of the way up; at least 5 s (an error 8 s), about 250 ms a word longer for a longer text; paused while
  * pointed at.
  * @param text Plain text (set via textContent, so no escaping needed).
