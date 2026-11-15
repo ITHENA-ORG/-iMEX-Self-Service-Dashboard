@@ -47,10 +47,12 @@ export function modal(root: HTMLElement, title: string, html: string, buttons: [
     <div class="dbb-modal-h">${esc(title)}</div><div class="dbb-modal-b">${html}</div>
     <div class="dbb-modal-f">${buttons.map(([k, l, c]) => `<button class="dbb-btn ${c ?? ''}" data-mb="${k}">${esc(l)}</button>`).join('')}</div></div>`;
   root.appendChild(wrap);
+  placeToasts(root);
   let resolve!: (v: string) => void;
   const result = new Promise<string>((r) => (resolve = r));
   const close = (v: string) => {
     wrap.remove();
+    placeToasts(root);
     document.removeEventListener('keydown', onKey, true);
     resolve(v);
   };
@@ -107,12 +109,37 @@ export function toast(root: HTMLElement, text: string, kind: 'ok' | 'warn' | 'er
   t.className = `dbb-toast ${kind}`;
   t.textContent = text;
   host.appendChild(t);
+  placeToasts(root);
   const words = String(text).split(/\s+/).filter(Boolean).length;
   let left = Math.min(30000, Math.max(kind === 'err' ? 8000 : 5000, 2000 + words * 250)), start = Date.now(), timer = 0;
   const arm = (ms: number) => { start = Date.now(); left = ms; timer = window.setTimeout(() => t.remove(), ms); };
   t.addEventListener('mouseenter', () => { clearTimeout(timer); left -= Date.now() - start; });
   t.addEventListener('mouseleave', () => arm(Math.max(2500, left)));
   arm(left);
+}
+
+/**
+ * D-089 (integration, 15 Nov 2026): the Builder's own toast stack (stand-alone page, test harness) keeps clear of an
+ * open dialog's buttons, as the app's kit does: below the dialog when there is room, otherwise at the top centre.
+ * Called when a toast is shown and when a dialog opens or closes.
+ */
+function placeToasts(root: HTMLElement) {
+  const host = root.querySelector('.dbb-toasts') as HTMLElement | null;
+  if (!host) return;
+  host.style.top = '';
+  host.style.bottom = '';
+  const boxes = root.querySelectorAll<HTMLElement>('.dbb-modal .dbb-modal-box');
+  const box = boxes[boxes.length - 1];
+  if (!box) return;
+  const r = root.getBoundingClientRect();
+  const b = box.getBoundingClientRect();
+  const h = Math.max(44, host.offsetHeight);
+  const below = r.bottom - b.bottom;
+  if (below >= h + 16) host.style.bottom = `${Math.round(Math.max(8, (below - h) / 2))}px`;
+  else {
+    host.style.top = '12px';
+    host.style.bottom = 'auto';
+  }
 }
 
 // ---------- D-032 start screen helpers ----------
