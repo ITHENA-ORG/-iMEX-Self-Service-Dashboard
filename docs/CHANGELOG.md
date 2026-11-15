@@ -69,4 +69,4 @@ Newest first. One row per change; details in `DECISIONS.md`. Rows that also belo
 | 2026-10-16 | (D-060) | Role catalogue: built-in roles follow later pages (BASE_KEYS, newKeys) — synced with App UI U-059 | `widgets/src/core/perm.ts`, `widgets/test/perm.test.ts` |
 | 2026-10-16 | (D-062) | Machine-page Analyzer button also needs the analyzer licence | `widgets/src/entries/renderer.ts` |
 | 2026-10-16 | (D-064) | ◆ One machine status from the app's machine model (pill, cards, status widget); names / units / decimals from Sites & machines; no guessed units or type icons | `widgets/src/core/machine.ts`, `entries/renderer.ts`, `entries/listing.ts`, `render/widgets.ts`, `core/scope.ts`, `core/design.ts` |
-| 2026-11-15 | (D-089) | The Builder's own screens on the app's one type scale (titles, panel groups, labels, hints, eyebrows) | `widgets/src/render/scale-css.ts`, `widgets/src/render/theme.ts`, `widgets/src/render/kit-css.ts` |
+| 2026-11-15 | (D-090) | The Builder's own screens on the app's one type scale (titles, panel groups, labels, hints, eyebrows) | `widgets/src/render/scale-css.ts`, `widgets/src/render/theme.ts`, `widgets/src/render/kit-css.ts` |

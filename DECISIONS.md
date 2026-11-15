@@ -1447,7 +1447,7 @@ the bucket mean (n = 1 -> 0), merged by Chan; standard deviation = `n >= 2 ? sqr
   tail joined to a head bucket = the sample standard deviation of all 40 readings.
 - `npx vitest run`: **511 passed (32 files)** at first; re-run in the evening **518 passed (33 files)** (another stream added a file); `npx tsc --noEmit`: clean. Not deployed, not committed.
 
-### D-089 The Builder's own screens on the app's one type scale (15 Nov 2026; Akshay's review; App UI U-184 .. U-186 and `docs/design/TYPE_SCALE.md` there, AI Insights A-077, Reports D-139; coordinator renumbers)
+### D-090 The Builder's own screens on the app's one type scale (15 Nov 2026; Akshay's review; App UI U-191 .. U-193 and `docs/design/TYPE_SCALE.md` there, AI Insights A-077, Reports D-140; coordinator renumbers)
 Akshay: section header, sub-section header, label and value at the same size and weight across the application.
 
 - `widgets/src/render/scale-css.ts` (`SCALE_CSS`), appended to the core CSS in `render/theme.ts` (injected on every

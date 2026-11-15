@@ -1,6 +1,6 @@
 /**
- * D-089 (15 Nov 2026): the Builder's own screens on the app's ONE type scale (App UI U-184 .. U-186,
- * docs/design/TYPE_SCALE.md there; AI Insights A-077, Reports D-139). The sizes and weights are the iMEX kit's tokens
+ * D-090 (15 Nov 2026): the Builder's own screens on the app's ONE type scale (App UI U-191 .. U-193,
+ * docs/design/TYPE_SCALE.md there; AI Insights A-077, Reports D-140). The sizes and weights are the iMEX kit's tokens
  * (`--imx-fs-*` / `--imx-fw-*`, carried by kit-css.ts; each rule keeps the token's value as its fallback).
  *
  * Appended to the core CSS (theme.ts `CSS`, injected on every Builder page); every selector starts with `html ` so it

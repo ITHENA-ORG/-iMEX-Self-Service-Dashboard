@@ -36,7 +36,7 @@
 import type { DashboardTheme } from '../core/schema';
 import { axis as fmtAxis } from '../core/datefmt';
 import * as regional from '../core/regional';
-import { SCALE_CSS } from './scale-css'; // D-089: the app's type scale, appended to the core CSS
+import { SCALE_CSS } from './scale-css'; // D-090: the app's type scale, appended to the core CSS
 
 /** Categorical series colours (light surfaces), in assignment order. Charts cycle through them. */
 export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
