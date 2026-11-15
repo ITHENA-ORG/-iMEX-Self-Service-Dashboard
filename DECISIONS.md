@@ -1476,3 +1476,4 @@ something"). "The end user need not know this ... check ALL such messages ... cu
 - Tests: `widgets/test/usermsg.test.ts` (wording, statuses, old relay texts, the relay script's sentences); e2e "chat: an
   expired AI key reads 'AI is not available right now'"; `widgets/deploy/relay/script-selftest.mjs` +12 cases on
   LOCAL's script engine (nothing stored). Deploy: the integrator redeploys the chain (deploy-node.mjs) with the widgets.
+- Wording check against the App UI stream (wt-msg-appui `widgets/_shared/msg.js` KINDS, 15 Nov): the secondary sentences (AI down = "AI is not available right now. Please try again in a few minutes. If it keeps happening, contact your ITHENA administrator.", offline, signed out, not found, busy, out of date) are copied from it. The six common sentences follow the coordinator's list and DIFFER from that branch (role / license / conflict / no data): the integrator picks one and aligns all four repos.

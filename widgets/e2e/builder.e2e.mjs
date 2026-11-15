@@ -895,7 +895,7 @@ test('chat: builds widgets from the reply, highlight, discard; clarification; pr
   await t.b(() => window.__chatQueue.push('The gemini service is overloaded right now (a temporary problem on the provider\'s side). Try again in a minute.', 'The gemini service is overloaded right now (a temporary problem on the provider\'s side). Try again in a minute.'));
   await t.click('.dbb-chat-log [data-opt="Pune"]');
   // D-088: in plain words, no provider name
-  await t.page.waitForFunction(() => /AI assistant is busy right now/.test(document.querySelector('.dbb-chat-log')?.textContent ?? ''), null, { timeout: 8000 });
+  await t.page.waitForFunction(() => /AI is not available right now\. Please try again in a few minutes/.test(document.querySelector('.dbb-chat-log')?.textContent ?? ''), null, { timeout: 8000 });
   ok(!/gemini|overloaded|provider/i.test(await t.page.textContent('.dbb-chat-log')), 'no provider words in the chat');
   eq((await t.draft()).widgets.length, 0, 'draft unchanged on error');
   ok(await t.page.isEnabled('.dbb-chat-form button[type="submit"]'), 'Send enabled again');

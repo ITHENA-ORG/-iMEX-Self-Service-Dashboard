@@ -17,7 +17,7 @@
  *   --grid, --card-bg / --surface, --accent) set by theme.ts applyTheme and per-card cardVars.
  *   Data colours (series, slices, bars, rule colours) are passed in by the caller.
  * - Tooltips: one absolutely positioned .dbb-tip div per host (tipAt), placed by placeTip.
- * - Empty data draws the placeholder "No data in this time range".
+ * - Empty data draws the placeholder "No data for this period yet." (D-088: the shared wording).
  * - All labels are escaped with esc(); colours are interpolated as given (they come from the
  *   palette, validated rule colours or theme tokens).
  *
@@ -176,7 +176,7 @@ export function lineChart(host: HTMLElement, series: Series[], opts: LineOpts) {
   host.style.position = 'relative';
   let withData = series.filter((s) => s.points.length);
   if (!withData.length) {
-    host.innerHTML = '<div class="dbb-ph">No data in this time range</div>';
+    host.innerHTML = '<div class="dbb-ph">No data for this period yet.</div>';
     return;
   }
   // stacking: resample every series on the union of timestamps (step hold), then accumulate.
@@ -356,7 +356,7 @@ export function barChart(host: HTMLElement, bars: Bar[], opts: { unit?: string; 
   host.style.position = 'relative';
   const vals = bars.map((b) => b.value).filter((v): v is number => v != null && Number.isFinite(v));
   if (!vals.length) {
-    host.innerHTML = '<div class="dbb-ph">No data in this time range</div>';
+    host.innerHTML = '<div class="dbb-ph">No data for this period yet.</div>';
     return;
   }
   const W = Math.max(120, inner(host).w);
@@ -523,7 +523,7 @@ export function donut(host: HTMLElement, slices: Slice[], o: { unit?: string; de
   const data = slices.filter((s) => s.value > 0);
   const total = data.reduce((a, s) => a + s.value, 0);
   if (!data.length || !total) {
-    host.innerHTML = '<div class="dbb-ph">No data in this time range</div>';
+    host.innerHTML = '<div class="dbb-ph">No data for this period yet.</div>';
     return;
   }
   const W = Math.max(120, inner(host).w);
@@ -591,7 +591,7 @@ export function stateTimeline(host: HTMLElement, rows: TimelineRow[], o: { start
   host.innerHTML = '';
   host.style.position = 'relative';
   if (!rows.some((r) => r.segments.length)) {
-    host.innerHTML = '<div class="dbb-ph">No data in this time range</div>';
+    host.innerHTML = '<div class="dbb-ph">No data for this period yet.</div>';
     return;
   }
   if (o.legend.length) {
@@ -665,7 +665,7 @@ export function heatmap(host: HTMLElement, rows: HeatRow[], cols: number[], o: {
   host.style.position = 'relative';
   const vs = rows.flatMap((r) => r.cells).filter((v): v is number => v != null && Number.isFinite(v));
   if (!vs.length || !cols.length) {
-    host.innerHTML = '<div class="dbb-ph">No data in this time range</div>';
+    host.innerHTML = '<div class="dbb-ph">No data for this period yet.</div>';
     return;
   }
   const lo = Math.min(...vs);

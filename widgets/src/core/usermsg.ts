@@ -14,13 +14,13 @@ export const MSG = {
   notLicensed: 'This feature is not included in your license.',
   unavailable: 'This is not available right now. Please try again in a few minutes. If it keeps happening, contact your administrator.',
   aiUnavailable: 'AI is not available right now. Contact your ITHENA administrator.',
-  aiBusy: 'The AI assistant is busy right now. Please try again in a few minutes. If it keeps happening, contact your ITHENA administrator.',
+  aiBusy: 'AI is not available right now. Please try again in a few minutes. If it keeps happening, contact your ITHENA administrator.',
   changed: 'Someone else changed this in the meantime. Reload to see the latest, then try again.',
   noData: 'No data for this period yet.',
-  notFound: 'This no longer exists. It may have been deleted. Reload the page to see the latest.',
-  offline: 'You appear to be offline. Check your connection, then try again.',
-  session: 'Your session has expired. Sign in again.',
-  reload: 'This page is out of date. Reload the page (Ctrl+F5) and try again.',
+  notFound: 'This no longer exists or was removed. Reload the page.',
+  offline: 'You appear to be offline. Check your connection and try again.',
+  session: 'Your session has ended. Sign in again.',
+  reload: 'This page is out of date. Reload the page and try again.',
   generic: 'Something went wrong. Please try again. If it keeps happening, contact your administrator.',
   storeMissing: 'Saving dashboards is not set up for your organisation yet. Contact your ITHENA administrator.',
 } as const;
@@ -47,7 +47,7 @@ export class UserError extends Error {
 export function looksInternal(text: string): boolean {
   const t = String(text ?? '');
   return (
-    /thingsboard|dbb-?llm|llm[_ -]?config|dbb_[a-z_]+|\basset\b|\battribute|rule ?chain|\brelay\b|\btenant\b|\bjson\b|\bnull\b|undefined|traceback|exception|stack ?trace|\b[A-Z][a-z]+Error\b|\bHTTP\b|\b(?:4\d\d|5\d\d)\b|https?:\/\/|\/api\/|[{}[\]<>]|\b[0-9a-f]{8}-[0-9a-f]{4}-/i.test(t)
+    /thingsboard|dbb-?llm|llm[_ -]?config|dbb_[a-z_]+|\basset\b|\battribute|rule ?chain|\brelay\b|\btenant\b|\bjson\b|\bnull\b|undefined|traceback|exception|stack ?trace|\b[A-Z][a-z]+Error\b|\bHTTP\b|\b(?:status|code)\s*[45]\d\d\b|\b[45]\d\d\s+(?:Bad|Unauthori[sz]ed|Forbidden|Not Found|Internal|Service|Gateway|Too Many|Conflict|Unprocessable)|https?:\/\/|\/api\/|[{}[\]<>]|\b[0-9a-f]{8}-[0-9a-f]{4}-/i.test(t)
   );
 }
 

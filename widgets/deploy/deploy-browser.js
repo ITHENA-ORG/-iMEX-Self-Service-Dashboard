@@ -394,7 +394,7 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId, more) {
     'else if (err.contains("429") || err.contains("503") || err.contains("529") || err.contains("UNAVAILABLE") || err.contains("overloaded")) { code = "AI_BUSY"; }',
     'else if (err.contains("WebClientRequestException") || err.contains("ReadTimeout") || err.contains("timed out") || err.contains("Connection reset")) { code = "AI_BUSY"; }',
     `var text = "${AI_NA}";`,
-    'if (code == "RELOAD") { text = "This page is out of date. Reload the page (Ctrl+F5) and try again."; }',
+    'if (code == "RELOAD") { text = "This page is out of date. Reload the page and try again."; }',
     'else if (code == "TOO_BIG") { text = "This conversation is too long. Start a new conversation, or ask for fewer changes at once."; }',
     'else if (code == "ROLE_ERR") { text = "Your access could not be checked just now, so the chat stays off. Reload the page and try again. If it keeps happening, contact your administrator."; }',
     'else if (code == "ROLE") { text = "Your role does not include the chat assistant (it needs Build dashboards). Contact your administrator if you need it."; }',
@@ -403,7 +403,7 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId, more) {
     'else if (code == "QUOTA") { text = "Your organisation has used this month\'s AI allowance (" + metadata.qUsed + " of " + metadata.qLimit + "). Contact your administrator."; }',
     'else if (code == "AI_OFF") { text = "The chat assistant is switched off for your organisation. Contact your administrator if you need it."; }',
     'else if (code == "AI_SW") { text = "The chat assistant is not available right now. Please try again in a few minutes. If it keeps happening, contact your administrator."; }',
-    'else if (code == "AI_BUSY") { text = "The AI assistant is busy right now. Please try again in a few minutes. If it keeps happening, contact your ITHENA administrator."; }',
+    'else if (code == "AI_BUSY") { text = "AI is not available right now. Please try again in a few minutes. If it keeps happening, contact your ITHENA administrator."; }',
     // for support (the browser console): the code, the status and the start of the provider's answer; never the key
     'var detail = body;',
     'if (detail.length() > 200) { detail = detail.substring(0, 200); }',
