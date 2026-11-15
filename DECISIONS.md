@@ -1446,3 +1446,33 @@ the bucket mean (n = 1 -> 0), merged by Chan; standard deviation = `n >= 2 ? sqr
   `widgets/test/cube.test.ts` runs the new sections `sd`, `raw`, `rawBuckets` (numbers within 1e-12 relative) and a raw
   tail joined to a head bucket = the sample standard deviation of all 40 readings.
 - `npx vitest run`: **511 passed (32 files)** at first; re-run in the evening **518 passed (33 files)** (another stream added a file); `npx tsc --noEmit`: clean. Not deployed, not committed.
+
+### D-088 Messages a user can understand: one wording table, the chat relay sends codes (15 Nov 2026; Akshay's review: "an expired key showed DBLLM not configured"; App UI shared wording, AI Insights A-076, Reports D-138; coordinator renumbers)
+
+Akshay (15 Nov, dark-theme test): Generate with AI on an expired key showed an internal name ("DBLLM not configured or
+something"). "The end user need not know this ... check ALL such messages ... customer-appropriate responses."
+
+- **One wording table** `widgets/src/core/usermsg.ts` (same sentences as the App UI's shared helper, AI Insights
+  `AIML.userMsg` and Reports `widget/src/usermsg.ts`): no access, not licensed, not available right now (try again in a
+  few minutes, then contact your administrator), **AI is not available right now. Contact your ITHENA administrator.**,
+  someone else changed it (reload), not found, offline, session expired, out of date (reload), no data yet.
+  `friendlyError(e, action)`: a `UserError` (messages written for the user: store validation, conflicts, the licence
+  limit, role checks) is shown as it is; a refused platform call reads by status (403 no access, 404 gone, 409 changed,
+  401 session, else "Could not <action> right now. Please try again in a few minutes. If it keeps happening, contact your
+  administrator."); exception text is never shown. The detail goes to `console.warn('[dbb] <action>: ...')`.
+- Used for every toast and banner that showed `e.message` (builder load / open / save / apply / restore / delete,
+  launcher, listing, renderer, the ticket form, a widget's "Could not load data (<status> <text>)"). Store and access
+  warnings no longer name the store asset, the widget setting `customerId` or "Selected node".
+- **Chat relay** (`deploy-browser.js` "Error reply"): writes `code` (AI_UNAVAILABLE | AI_BUSY | AI_OFF | AI_SW |
+  NOT_LICENSED | QUOTA | RATE | ROLE | ROLE_ERR | TOO_BIG | RELOAD), a sentence in `error` (no provider, config asset,
+  key attribute, model attribute, platform name or status code) and `detail` = the start of the provider's answer (for the
+  console; the REST node's own error text, which may carry the request, is not copied). A refused, expired or missing
+  key, an unknown model or unreadable settings = AI_UNAVAILABLE; rate-limited, overloaded or not reachable = AI_BUSY
+  (the builder still retries once, now by code). "Parse LLM reply" adds `code: NO_OPS`.
+- **The builder** maps the code (`chatError`); replies of a relay not yet redeployed are mapped from their old English
+  text (`chatCodeOf`), so the server's current chain already reads right with the new widgets.
+- "I couldn't build that: <reason>" keeps the reason only when it is plain words (`plainReason`: no aliases, op or
+  schema names); the model's problems go to the console.
+- Tests: `widgets/test/usermsg.test.ts` (wording, statuses, old relay texts, the relay script's sentences); e2e "chat: an
+  expired AI key reads 'AI is not available right now'"; `widgets/deploy/relay/script-selftest.mjs` +12 cases on
+  LOCAL's script engine (nothing stored). Deploy: the integrator redeploys the chain (deploy-node.mjs) with the widgets.

@@ -103,6 +103,7 @@ import { lineChart, barChart, gauge, sparkline, donut, stateTimeline, heatmap, S
 import { effectiveRules, matchRule, thresholdLines, stateLabel, valueType, asBool, cssColor } from './rules';
 import { sanitizeHtml, fillPlaceholders, placeholderKeys } from './rich';
 import { icon, ICON_SVG } from './icons';
+import { friendlyError } from '../core/usermsg';
 
 /** Everything a widget needs from its surroundings to draw. One env is shared by all widgets of a grid. */
 export interface RenderEnv {
@@ -436,7 +437,7 @@ export function renderWidget(container: HTMLElement, w: Widget, env: RenderEnv, 
     } catch (e: any) {
       if (!alive) return;
       firstDone();
-      placeholder(body, `Could not load data (${e?.status ?? ''} ${e?.message?.slice(0, 80) ?? e})`);
+      placeholder(body, friendlyError(e, 'load the data'));
     }
   };
   void refresh();

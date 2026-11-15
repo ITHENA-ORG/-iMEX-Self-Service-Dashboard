@@ -30,7 +30,7 @@ describe('legacy selectedNodes (production shape, read by the access core, D-050
     const ctx = await scope.loadUserContext();
     expect(ctx.access.source).toBe('legacy');
     expect(scope.allDevices(ctx).map((d) => d.id).sort()).toEqual(['pc', 'pw']);
-    expect(ctx.warnings.join()).toContain('"Nowhere" was not found');
+    expect(ctx.warnings.join()).toContain('("Nowhere") no longer exists');
   });
 });
 

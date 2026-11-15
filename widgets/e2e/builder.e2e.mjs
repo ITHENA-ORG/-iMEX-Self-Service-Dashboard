@@ -894,9 +894,27 @@ test('chat: builds widgets from the reply, highlight, discard; clarification; pr
   // overloaded twice: the builder retries once by itself (D-024), then shows the message
   await t.b(() => window.__chatQueue.push('The gemini service is overloaded right now (a temporary problem on the provider\'s side). Try again in a minute.', 'The gemini service is overloaded right now (a temporary problem on the provider\'s side). Try again in a minute.'));
   await t.click('.dbb-chat-log [data-opt="Pune"]');
-  await t.page.waitForFunction(() => /overloaded right now/.test(document.querySelector('.dbb-chat-log')?.textContent ?? ''), null, { timeout: 8000 });
+  // D-088: in plain words, no provider name
+  await t.page.waitForFunction(() => /AI assistant is busy right now/.test(document.querySelector('.dbb-chat-log')?.textContent ?? ''), null, { timeout: 8000 });
+  ok(!/gemini|overloaded|provider/i.test(await t.page.textContent('.dbb-chat-log')), 'no provider words in the chat');
   eq((await t.draft()).widgets.length, 0, 'draft unchanged on error');
   ok(await t.page.isEnabled('.dbb-chat-form button[type="submit"]'), 'Send enabled again');
+});
+
+test('chat: an expired AI key reads "AI is not available right now" (D-088)', async (t) => {
+  await t.click('.dbb-right .dbb-tab[data-tab="chat"]');
+  // an older relay's text named the key and its settings; the current relay sends a code and keeps the detail aside
+  await t.b(() => window.__chatQueue.push('The anthropic API key on DBB-LLM-CONFIG is invalid or has no access to the model.'));
+  await t.page.fill('.dbb-chat-in', 'add a gauge');
+  await t.page.keyboard.press('Enter');
+  await t.page.waitForFunction(() => /AI is not available right now\. Contact your ITHENA administrator\./.test(document.querySelector('.dbb-chat-log')?.textContent ?? '') && !window.__b.busy, null, { timeout: 8000 });
+  await t.b(() => window.__chatQueue.push({ __err: { code: 'AI_UNAVAILABLE', status: '401 UNAUTHORIZED', error: 'AI is not available right now. Contact your ITHENA administrator.', detail: '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}' } }));
+  await t.page.fill('.dbb-chat-in', 'add a gauge');
+  await t.page.keyboard.press('Enter');
+  await t.page.waitForFunction(() => !window.__b.busy && (document.querySelector('.dbb-chat-log')?.textContent.match(/AI is not available right now/g) ?? []).length >= 2, null, { timeout: 8000 });
+  const log = await t.page.textContent('.dbb-chat-log');
+  ok(!/DBB|LLM|API key|anthropic|x-api-key|401|asset/i.test(log), 'no internals in the chat log');
+  eq((await t.draft()).widgets.length, 0, 'draft unchanged');
 });
 
 test('chat: invalid answer gets one corrective retry', async (t) => {

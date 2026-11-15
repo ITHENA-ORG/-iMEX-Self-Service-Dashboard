@@ -208,7 +208,7 @@ describe('WHAT: the role (imexRole in the store, else the legacy Role / dbbAdmin
     asGrantee(tb, 'u-ad', [{ id: 'pun' }], 'admin');
     const admin = await scope.loadUserContext();
     expect(admin.canBuild).toBe(true);
-    await expect(store.customise(admin, 'rc', store.blankDashboard(admin, 't', 'Compressor'))).rejects.toThrow(/outside your access/);
+    await expect(store.customise(admin, 'rc', store.blankDashboard(admin, 't', 'Compressor'))).rejects.toThrow(/not in your access/);
   });
 
   it('an imexRole that is gone is the Viewer, with a warning; no store (POC customers) = the built-ins', async () => {

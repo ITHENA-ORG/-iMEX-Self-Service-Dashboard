@@ -48,6 +48,7 @@ import { metaLookup, propKind } from './compat';
 import { sanitizeHtml } from '../render/rich';
 import { firstFit } from '../render/grid';
 import { watchAttribute } from './tb-socket';
+import { chatError, looksInternal, MSG, UserError } from './usermsg';
 import { alertsLicensed, widgetLicensed } from './licence';
 import { make as makeNames, readSwitches, settings as privacySettings, type Entity, type Names } from './privacy';
 
@@ -598,6 +599,11 @@ export function applyOpsLenient(ctx: UserContext, draft: Dashboard, out: LlmOutp
   return acc;
 }
 
+/** D-088: a model problem a user may read: plain words, no aliases, op or schema names, ids or internals. */
+export function plainReason(p: string): boolean {
+  return !looksInternal(p) && !/\.\d+\.|\b\w+\.\w+:|alias|\bops?\b|binding|setMachineType|startNewDashboard|nodeQuery|machineType|\bW\d+\b|\bD\d+\b|\bN\d+\b|Required|Invalid|Expected|enum|catalog/i.test(p);
+}
+
 /** Validation problem without the internal "op 3 (addWidget): " prefix, for the user. */
 export function plainProblem(p: string): string {
   return p.replace(/^op \d+ \(\w+\): /, '').replace(/^Skipped [^:]+: /, '');
@@ -840,7 +846,8 @@ export function ruleChainTransport(ctx: UserContext, timeoutMs = 30000): Transpo
       try {
         return await once(body);
       } catch (e: any) {
-        if (!/overloaded|Could not reach/i.test(String(e?.message))) throw e;
+        // D-088: by the relay's code (AI_BUSY: the provider overloaded, rate-limited or not reachable)
+        if (e?.kind !== 'AI_BUSY') throw e;
         await new Promise((r) => setTimeout(r, 4000));
         return once(body);
       }
@@ -851,7 +858,7 @@ export function ruleChainTransport(ctx: UserContext, timeoutMs = 30000): Transpo
 /** One request through the relay (see ruleChainTransport). */
 function oneRelayCall(ctx: UserContext, timeoutMs: number): (body: unknown) => Promise<{ toolInput: any; usage?: any }> {
   return async (body) => {
-    if (!ctx.store) throw new Error('Dashboard store is missing.');
+    if (!ctx.store) throw new UserError(MSG.storeMissing);
     const reqId = newId('r');
     // D-074: the reply comes on the user's own entity (only the rule engine and the user can write it)
     const me: api.EntityRef = { id: ctx.userId, entityType: 'USER' };
@@ -891,20 +898,21 @@ function oneRelayCall(ctx: UserContext, timeoutMs: number): (body: unknown) => P
         wake = null;
         const r = pushed ?? (await api.getAttrs(me, [respKey]))[respKey];
         if (r?.reqId === reqId) {
-          if (!r.ok) throw new Error(r.error || `LLM call failed (${r.status ?? 'error'})`);
+          // D-088: a plain sentence per case (an expired AI key = "AI is not available right now"); the detail in the console
+          if (!r.ok) throw chatError(r);
           // OpenAI returns the tool arguments as a JSON string (toolInputJson); Claude and Gemini as an object.
           let toolInput = r.toolInput;
           if (toolInput == null && r.toolInputJson) {
             try {
               toolInput = JSON.parse(r.toolInputJson);
             } catch {
-              throw new Error('The assistant returned an unreadable answer. Try again.');
+              throw new UserError('The assistant returned an answer that could not be read. Please try again.');
             }
           }
           return { toolInput, usage: r.usage };
         }
       }
-      throw new Error('The assistant did not answer within 30 seconds. Your draft is unchanged.');
+      throw new UserError('The assistant did not answer within 30 seconds. Your draft is unchanged. Please try again in a few minutes.', 'AI_BUSY_TIMEOUT');
     } finally {
       watch?.stop();
     }
@@ -970,7 +978,16 @@ export async function chatTurn(
       }
     }
   }
-  throw new Error(`I couldn't build that: ${plainProblem(lastProblems[0] ?? 'the answer was not valid')}${lastProblems.length > 1 ? ` (and ${lastProblems.length - 1} more problem${lastProblems.length > 2 ? 's' : ''})` : ''}. Try asking for fewer things at once, or name the machines or properties.`);
+  // D-088: the model's problems name aliases, op names and schema paths: they go to the console, not to the user
+  try {
+    console.warn('[dbb] chat: answer not usable:', lastProblems.slice(0, 6).join(' | '));
+  } catch {
+    /* console missing */
+  }
+  // the first reason is kept when it reads as plain words ("Compressor has no property vibration"), not as model plumbing
+  const first = plainProblem(lastProblems[0] ?? '');
+  const why = first && plainReason(first) ? `: ${first.replace(/[.\s]+$/, '')}` : '';
+  throw new UserError(`I couldn't build that${why}. Try asking for fewer things at once, or name the machines or properties.`);
 }
 
 /**

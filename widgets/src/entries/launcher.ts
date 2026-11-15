@@ -33,6 +33,7 @@
 import { openBuilder, setBuilderPlacement, measureHeaderTop, BUILDER_UNLICENSED } from '../builder/builder';
 import { builderLicensed, mayBuild, onLicenceChange } from '../core/licence';
 import * as store from '../core/store';
+import { friendlyError, UserError } from '../core/usermsg';
 import { CSS, ensureCss, esc, loadFont } from '../render/theme';
 import { userContext, userPerms, userContextFor, stateEntity, notifyChanged, currentState, currentActions, ACTIONS_EVENT, EditAction, RSTATE_KEY, CHANGED_EVENT, liveLend, liveRelease, NO_ACCESS_HTML } from './common';
 import * as scope from '../core/scope';
@@ -150,9 +151,9 @@ export async function open(tbCtx: any, opts: { deviceId?: string | null; dashboa
   const ctx = await userContextFor(tbCtx, opts.deviceId ?? (ent?.entityType === 'DEVICE' ? ent.id : null), true);
   const settings = tbCtx?.settings ?? {};
   // D-050: the role's dashboards.build (the settings adminOnly and chatEnabledRoles are no longer used)
-  if (!ctx.canBuild) throw new Error("Your role can't build dashboards.");
+  if (!ctx.canBuild) throw new UserError("Your role can't build dashboards.");
   // D-059: and the instance licence's builder (no licence API on the page = allowed)
-  if (!builderLicensed()) throw new Error(BUILDER_UNLICENSED);
+  if (!builderLicensed()) throw new UserError(BUILDER_UNLICENSED);
   const chatEnabled = settings.chatEnabled !== false;
   registerPlacement(tbCtx);
   // On the Dashboard Overview state the builder opens the standalone dashboard shown there (D-026).
@@ -353,7 +354,7 @@ export function init(tbCtx: any) {
     try {
       await withBusy(btn, () => open(tbCtx, { startNew }));
     } catch (e: any) {
-      alertInline(host, `Could not open the builder: ${e.message ?? e}`);
+      alertInline(host, friendlyError(e, 'open the Dashboard Builder'));
     }
   };
   let menu: HTMLElement | null = null;
@@ -414,7 +415,7 @@ export function init(tbCtx: any) {
         closeMenu();
         if (id === '__builder') void openBuilderFromMenu();
         else if (id === '__new') void openBuilderFromMenu(true);
-        else if (id === '__list') void dashboardList(tbCtx, ed).catch((e) => alertInline(host, `Could not load the dashboards: ${e.message ?? e}`));
+        else if (id === '__list') void dashboardList(tbCtx, ed).catch((e) => alertInline(host, friendlyError(e, 'load the dashboards')));
         else currentActions()?.run(id);
       }),
     );
@@ -812,7 +813,7 @@ export async function dashboardList(tbCtx: any, roleEditor: boolean, host?: HTML
     try {
       openStandalone(tbCtx, id);
     } catch (e: any) {
-      alertInline(wrap, `Could not open the dashboard: ${e.message ?? e}`);
+      alertInline(wrap, friendlyError(e, 'open the dashboard'));
     }
   };
   // Opens a dashboard in the builder (below the navbar: openBuilder uses the launcher's placement). With the
@@ -826,7 +827,7 @@ export async function dashboardList(tbCtx: any, roleEditor: boolean, host?: HTML
     try {
       openBuilder({ ctx, dashboardId: id, deviceId, chatEnabled: tbCtx.settings?.chatEnabled !== false, onClose: (ch) => ch && notifyChanged() });
     } catch (e: any) {
-      alertInline(wrap, `Could not open the builder: ${e.message ?? e}`);
+      alertInline(wrap, friendlyError(e, 'open the Dashboard Builder'));
     }
   };
   wrap.querySelector('[data-close]')!.addEventListener('click', close);
@@ -835,7 +836,7 @@ export async function dashboardList(tbCtx: any, roleEditor: boolean, host?: HTML
   const pageBtn = (sel: string, startNew: boolean) =>
     wrap.querySelector<HTMLButtonElement>(sel)?.addEventListener('click', (e) => {
       const b = e.currentTarget as HTMLButtonElement;
-      void withBusy(b, () => open(tbCtx, { startNew })).catch((err: any) => alertInline(wrap, `Could not open the Dashboard Builder: ${err?.message ?? err}`));
+      void withBusy(b, () => open(tbCtx, { startNew })).catch((err: any) => alertInline(wrap, friendlyError(err, 'open the Dashboard Builder')));
     });
   pageBtn('[data-new]', true);
   pageBtn('[data-builder]', false);

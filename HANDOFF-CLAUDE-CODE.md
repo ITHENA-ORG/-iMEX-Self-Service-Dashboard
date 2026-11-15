@@ -225,7 +225,7 @@ Then fill a **collision table**: each row of section 5 against what Reports uses
   - `await window.DBB_DEPLOY(opts)`, with opts read from a git-ignored `deploy.local.json`: customerTitle, storeName, profileKeys, userEmails `[]`, skipAppDashboard;
   - print the returned `log`, never the JWT.
   - Alternative: Akshay pastes `deploy-browser.js` into a logged-in tenant-admin page's console (README section "One-time setup").
-- If the local tenant has no `DBB-LLM-CONFIG` key yet, chat will answer "No LLM API key is set". Akshay sets `dbb_llm_api_key` himself in the UI. You never handle the key.
+- If the local tenant has no `DBB-LLM-CONFIG` key yet, chat will answer "AI is not available right now. Contact your ITHENA administrator." (D-088; the browser console shows the code). Akshay sets `dbb_llm_api_key` himself in the UI. You never handle the key.
 - Users:
   - Admins need user attribute `Role` = `Admin` (or `Customer Admin` / `Administrator`, or `dbbAdmin=true`).
   - Everyone needs `selectedNodes` in the production format (`[{"ID":..,"name":..,"categoryId":..,"entityId":"<asset uuid>"}]`).

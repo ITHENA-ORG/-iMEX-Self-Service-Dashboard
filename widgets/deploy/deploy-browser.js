@@ -348,8 +348,10 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId, more) {
     '}',
     'var ok = tool != null || toolJson != "";',
     'var errText = "";',
-    'if (!ok) { errText = "The model returned no dashboard operations."; }',
-    'var resp = {reqId: metadata.reqId, ok: ok, provider: p, toolInput: tool, toolInputJson: toolJson, usage: usage, error: errText};',
+    'var errCode = "";',
+    // D-088: a code for the builder and a sentence for older pages
+    'if (!ok) { errText = "The assistant did not return an answer. Please try again, or say it in other words."; errCode = "NO_OPS"; }',
+    'var resp = {reqId: metadata.reqId, ok: ok, provider: p, toolInput: tool, toolInputJson: toolJson, usage: usage, error: errText, code: errCode};',
     'var out = {};',
     // D-074: on the requesting user (node "To the user (reply)"), not on the customer-writable store
     'out["dbb_chat_resp"] = resp;',
@@ -358,7 +360,12 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId, more) {
     'return {msg: out, metadata: md, msgType: "POST_ATTRIBUTES_REQUEST"};',
   ].join('\n');
   // Also reached when the config asset is not linked (related-data node failure) or no key is set.
-  // Never echoes the key: only the provider's error text, capped at 300 characters.
+  // D-088 (Akshay, 15 Nov 2026: an expired key showed internal names): the reply carries a stable `code`, a sentence for
+  // the user in `error` (no provider, config, key or platform names, no status codes; the same words as
+  // widgets/src/core/usermsg.ts chatMessage) and `detail` = the provider's status and the start of its answer, which the
+  // builder writes to the browser console only. Never echoes the key: the error message of the REST node (which may hold
+  // the request) is not copied, only the provider's response body.
+  const AI_NA = 'AI is not available right now. Contact your ITHENA administrator.';
   const errScript = [
     'var err = "LLM call failed";',
     'if (metadata.error != null) { err = "" + metadata.error; }',
@@ -368,35 +375,44 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId, more) {
     'err = err + " " + body;',
     'var p = metadata.provider;',
     'if (p == null) { p = ""; }',
-    `if (err.startsWith("NO_KEY")) { err = "No LLM API key is set. A tenant admin sets dbb_llm_api_key (Claude, OpenAI or Gemini key) on the asset ${o.llmConfigName}."; }`,
-    'else if (err.startsWith("USER_MISMATCH")) { err = "The chat request did not come from your user. Reload the page and try again."; }',
-    'else if (err.startsWith("TOO_BIG")) { err = "The chat request is too large. Start a new conversation or ask for fewer changes at once."; }',
-    'else if (err.startsWith("BAD_TOOL") || err.startsWith("BAD_REQ")) { err = "The chat request was not made by the Dashboard Builder."; }',
+    'var code = "AI_UNAVAILABLE";',
+    'if (err.startsWith("NO_KEY")) { code = "AI_UNAVAILABLE"; }',
+    'else if (err.startsWith("USER_MISMATCH") || err.startsWith("BAD_TOOL") || err.startsWith("BAD_REQ") || err.startsWith("OLD_CLIENT")) { code = "RELOAD"; }',
+    'else if (err.startsWith("TOO_BIG")) { code = "TOO_BIG"; }',
     // D-074
-    'else if (err.startsWith("ROLE_ERR")) { err = "Your role could not be checked, so the chat stays off. Try again; if it keeps happening, ask your administrator."; }',
-    'else if (err.startsWith("ROLE")) { err = "Your role can\'t use the chat assistant (it needs Build dashboards). Ask your administrator."; }',
-    'else if (err.startsWith("RATE")) { err = "Chat limit reached (' + RATE + ' requests per hour). Try again later."; }',
-    'else if (err.startsWith("NOT_LICENSED")) { err = "The chat assistant is not included in this installation\'s license. Ask your administrator."; }',
-    'else if (err.startsWith("QUOTA")) { err = "Monthly AI limit reached (" + metadata.qUsed + " of " + metadata.qLimit + ") — contact your administrator"; }',
-    'else if (err.startsWith("AI_OFF")) { err = "AI (LLM) use is switched off for the Dashboard builder chat. An administrator can switch it on in Configuration › General › AI (LLM) usage."; }',
-    'else if (err.startsWith("AI_SW")) { err = "The chat could not read the AI switches of the application, so it stays off. Ask your administrator."; }',
-    'else if (err.startsWith("OLD_CLIENT")) { err = "This page is running an older version of the Dashboard Builder. Reload the page (Ctrl+F5) and try again."; }',
-    `else if (p == "") { err = "The chat relay could not read the LLM settings or build the request. Check that asset ${o.llmConfigName} exists and is linked to this store (relation UsesLlmConfig)."; }`,
-    `else if (err.contains("401") || err.contains("403") || err.contains("authentication") || err.contains("API key not valid") || err.contains("API_KEY_INVALID")) { err = "The " + p + " API key on ${o.llmConfigName} is invalid or has no access to the model."; }`,
-    'else if (err.contains("404")) { err = "The " + p + " model was not found. Set dbb_llm_model_" + p + " on the LLM config asset."; }',
-    'else if (err.contains("429")) { err = "The " + p + " API is rate-limited or out of credit. Try again later or switch the key."; }',
-    // provider-side capacity problems (Gemini 503 UNAVAILABLE, Claude 529 overloaded_error): not our bug, say so plainly
-    'else if (err.contains("503") || err.contains("529") || err.contains("UNAVAILABLE") || err.contains("overloaded")) { err = "The " + p + " service is overloaded right now (a temporary problem on the provider\'s side). Try again in a minute. If it keeps happening, use a paid key or another provider\'s key on ' + o.llmConfigName + '."; }',
-    // network problems between ThingsBoard and the provider (seen as "WebClientRequestException: null" / timeouts, D-024)
-    'else if (err.contains("WebClientRequestException") || err.contains("ReadTimeout") || err.contains("timed out") || err.contains("Connection reset")) { err = "Could not reach the " + p + " service (a network problem between ThingsBoard and the provider). Try again in a moment."; }',
-    'else if (body != "") { err = p + " rejected the request: " + body; }',
-    'if (err.length() > 300) { err = err.substring(0, 300); }',
+    'else if (err.startsWith("ROLE_ERR")) { code = "ROLE_ERR"; }',
+    'else if (err.startsWith("ROLE")) { code = "ROLE"; }',
+    'else if (err.startsWith("RATE")) { code = "RATE"; }',
+    'else if (err.startsWith("NOT_LICENSED")) { code = "NOT_LICENSED"; }',
+    'else if (err.startsWith("QUOTA")) { code = "QUOTA"; }',
+    'else if (err.startsWith("AI_OFF")) { code = "AI_OFF"; }',
+    'else if (err.startsWith("AI_SW")) { code = "AI_SW"; }',
+    // no settings read (config not linked): not set up; a refused key (expired, wrong) or an unknown model: not set up either
+    'else if (p == "") { code = "AI_UNAVAILABLE"; }',
+    'else if (err.contains("401") || err.contains("403") || err.contains("authentication") || err.contains("API key not valid") || err.contains("API_KEY_INVALID") || err.contains("404")) { code = "AI_UNAVAILABLE"; }',
+    // rate-limited, provider overloaded (Gemini 503 UNAVAILABLE, Claude 529 overloaded_error) or not reachable (D-024): try again
+    'else if (err.contains("429") || err.contains("503") || err.contains("529") || err.contains("UNAVAILABLE") || err.contains("overloaded")) { code = "AI_BUSY"; }',
+    'else if (err.contains("WebClientRequestException") || err.contains("ReadTimeout") || err.contains("timed out") || err.contains("Connection reset")) { code = "AI_BUSY"; }',
+    `var text = "${AI_NA}";`,
+    'if (code == "RELOAD") { text = "This page is out of date. Reload the page (Ctrl+F5) and try again."; }',
+    'else if (code == "TOO_BIG") { text = "This conversation is too long. Start a new conversation, or ask for fewer changes at once."; }',
+    'else if (code == "ROLE_ERR") { text = "Your access could not be checked just now, so the chat stays off. Reload the page and try again. If it keeps happening, contact your administrator."; }',
+    'else if (code == "ROLE") { text = "Your role does not include the chat assistant (it needs Build dashboards). Contact your administrator if you need it."; }',
+    'else if (code == "RATE") { text = "You have reached the chat limit of ' + RATE + ' requests per hour. Please try again later."; }',
+    'else if (code == "NOT_LICENSED") { text = "This feature is not included in your license."; }',
+    'else if (code == "QUOTA") { text = "Your organisation has used this month\'s AI allowance (" + metadata.qUsed + " of " + metadata.qLimit + "). Contact your administrator."; }',
+    'else if (code == "AI_OFF") { text = "The chat assistant is switched off for your organisation. Contact your administrator if you need it."; }',
+    'else if (code == "AI_SW") { text = "The chat assistant is not available right now. Please try again in a few minutes. If it keeps happening, contact your administrator."; }',
+    'else if (code == "AI_BUSY") { text = "The AI assistant is busy right now. Please try again in a few minutes. If it keeps happening, contact your ITHENA administrator."; }',
+    // for support (the browser console): the code, the status and the start of the provider's answer; never the key
+    'var detail = body;',
+    'if (detail.length() > 200) { detail = detail.substring(0, 200); }',
     // failures before "Build LLM request" have no reqId/userId in metadata yet: take them from the request itself,
     // otherwise the builder ignores the reply and waits for its 30 s timeout
     'var rid = metadata.reqId;',
     'var uid = metadata.userId;',
     'if (msg.dbb_chat_req != null) { if (rid == null) { rid = msg.dbb_chat_req.reqId; } if (uid == null) { uid = msg.dbb_chat_req.userId; } }',
-    'var resp = {reqId: rid, ok: false, provider: p, status: "" + metadata.status, error: err};',
+    'var resp = {reqId: rid, ok: false, provider: p, status: "" + metadata.status, code: code, error: text, detail: detail, qUsed: metadata.qUsed, qLimit: metadata.qLimit};',
     'var out = {};',
     // D-074: on the requesting user (node "To the user (reply)")
     'out["dbb_chat_resp"] = resp;',

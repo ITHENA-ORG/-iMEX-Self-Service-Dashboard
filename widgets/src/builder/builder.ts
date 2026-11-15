@@ -48,6 +48,7 @@ import * as scope from '../core/scope';
 import type { UserContext } from '../core/scope';
 import * as store from '../core/store';
 import * as chat from '../core/chat';
+import { friendlyError, UserError } from '../core/usermsg';
 import { RELATIVE_MODES, Dashboard, Widget, WidgetType, WIDGET_TYPES, WIDGET_LABELS, WIDGET_CAPS, WIDGET_GROUPS, CONTENT_TYPES, DEFAULT_SIZE, TIME_RANGES, HISTORIC_RANGES, SHIFT_RANGES, MAX_WIDGETS, MAX_KEYS, MAX_DEVICES, MAX_IMAGE_CHARS, imageChars, normalizeRange, rangeLabel, isShiftRange, rangeWindow, checkDashboard, dashboardKind, newId } from '../core/schema';
 import { calendarFor, shiftWindowText } from '../core/shifts';
 import { ensureKitCss, topProgress, progressBar, kitSelects } from '../render/kit';
@@ -214,9 +215,9 @@ const HELP: Record<WidgetType, string> = {
  */
 export function openBuilder(o: BuilderOptions) {
   // Building needs the role's dashboards.build (D-017, D-050; the built-in Admin has it). UI-level check only; see D-012.
-  if (!o.ctx.canBuild) throw new Error("Your role can't build dashboards.");
+  if (!o.ctx.canBuild) throw new UserError("Your role can't build dashboards.");
   // D-059: and the instance licence must include the Builder (feature `builder`; no licence API on the page = allowed)
-  if (!lic.builderLicensed()) throw new Error(BUILDER_UNLICENSED);
+  if (!lic.builderLicensed()) throw new UserError(BUILDER_UNLICENSED);
   ensureCss('dbb-css-core', CSS);
   ensureCss('dbb-css-grid', GRID_CSS);
   ensureCss('dbb-css-builder', BUILDER_CSS);
@@ -671,7 +672,7 @@ class Builder {
         } else this.loadDraft(store.blankDashboard(this.ctx, `${node.profile} dashboard`, node.profile));
       } else this.loadDraft(store.blankDashboard(this.ctx, 'Untitled dashboard', null));
     } catch (e: any) {
-      toast(this.root, `Could not load: ${e.message}`, 'err');
+      toast(this.root, friendlyError(e, 'load the dashboard'), 'err');
     } finally {
       this.setBusy(false);
     }
@@ -687,7 +688,7 @@ class Builder {
     this.setBusy(true, 'Loading…');
     try {
       const d = await store.getDashboard(this.ctx, id);
-      if (!d) throw new Error('Dashboard not found.');
+      if (!d) throw new UserError('This dashboard no longer exists. It may have been deleted.');
       if (d.profile && (!this.deviceId || this.ctx.nodes.get(this.deviceId)?.profile !== d.profile)) {
         this.deviceId = scope.allDevices(this.ctx, d.profile)[0]?.id ?? null;
       }
@@ -698,7 +699,7 @@ class Builder {
       this.loadDraft(d);
       void this.loadUsage();
     } catch (e: any) {
-      toast(this.root, e.message, 'err');
+      toast(this.root, friendlyError(e, 'open the dashboard'), 'err');
     } finally {
       this.setBusy(false);
     }
@@ -2080,7 +2081,8 @@ class Builder {
       }
       void audit(this.ctx, 'chat', { message: text, ops: res.changed, ok: true, intent: res.intent, attempts: res.attempts, skipped: res.skipped, usage: res.usage });
     } catch (e: any) {
-      this.chatLog.push({ role: 'assistant', text: e.message || "I couldn't build that; try rephrasing." });
+      // D-088: the chat's own sentences (UserError) as they are; anything else in plain words, the detail in the console
+      this.chatLog.push({ role: 'assistant', text: friendlyError(e, 'answer that') });
       void audit(this.ctx, 'chat', { message: text, ok: false, error: String(e.message ?? e) });
     } finally {
       // D-066: the relay chain metered each provider call on the server (llm_builder on "iMEX Keeper"); the note
@@ -2194,7 +2196,7 @@ class Builder {
         ]);
         if (choice === 'reload') this.loadDraft(e.current);
         if (choice === 'copy') await this.saveNow(true);
-      } else toast(this.root, `Save failed: ${e.message}`, 'err');
+      } else toast(this.root, `Not saved. ${friendlyError(e, 'save the dashboard')}`, 'err');
     }
   }
 
@@ -2287,7 +2289,7 @@ class Builder {
       m.button('apply').textContent = 'Apply';
       pvEl.innerHTML = `<div class="dbb-hint">Checking affected machines…</div>`;
       const my = ++seq;
-      const pv = await store.previewApply(this.ctx, d, t).catch((e) => ({ errors: [e.message] }) as any as store.ApplyPreview);
+      const pv = await store.previewApply(this.ctx, d, t).catch((e) => ({ errors: [friendlyError(e, 'check the affected machines')] }) as any as store.ApplyPreview);
       if (my !== seq) return;
       seen = pv.seen;
       const parts: string[] = [];
@@ -2326,7 +2328,7 @@ class Builder {
       if (this.deviceId) this.source = await store.resolveForDevice(this.ctx, this.deviceId, this.ctx.nodes.get(this.deviceId)!.profile);
       await this.loadUsage();
     } catch (e: any) {
-      toast(this.root, `Apply failed: ${e.message}`, 'err');
+      toast(this.root, `Not applied. ${friendlyError(e, 'apply the dashboard')}`, 'err');
     } finally {
       this.setBusy(false);
       this.renderBanner();
@@ -2497,7 +2499,7 @@ class Builder {
     try {
       list = await store.listDashboards(this.ctx);
     } catch (e: any) {
-      toast(this.root, e.message, 'err');
+      toast(this.root, friendlyError(e, 'load the dashboards'), 'err');
     }
     this.setBusy(false);
     // D-027: wider dialog, Inter throughout, "New blank dashboard" on the right, roomier columns.
@@ -2572,7 +2574,7 @@ class Builder {
           this.loadDraft(d);
           toast(this.root, `Restored version ${b.dataset.v} as version ${d.version}.`, 'ok');
         } catch (e: any) {
-          toast(this.root, e.message, 'err');
+          toast(this.root, friendlyError(e, 'restore that version'), 'err');
         } finally {
           this.setBusy(false);
         }
@@ -2608,7 +2610,7 @@ class Builder {
       this.baseline = JSON.stringify(this.draft);
       await this.selectMachine(this.deviceId);
     } catch (e: any) {
-      toast(this.root, e.message, 'err');
+      toast(this.root, friendlyError(e, 'delete the dashboard'), 'err');
     } finally {
       this.setBusy(false);
     }

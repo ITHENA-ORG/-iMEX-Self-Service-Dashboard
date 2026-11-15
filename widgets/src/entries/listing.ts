@@ -23,6 +23,7 @@ import * as api from '../core/api';
 import * as machine from '../core/machine';
 import * as scope from '../core/scope';
 import * as store from '../core/store';
+import { friendlyError } from '../core/usermsg';
 import type { UserContext, Node } from '../core/scope';
 import { CSS, ensureCss, esc, fmtNum, STATUS, loadFont } from '../render/theme';
 import { keyMeta } from '../render/widgets';
@@ -163,7 +164,7 @@ function initMap(tbCtx: any, host: HTMLElement) {
         c.onkeydown = (e) => (e.key === 'Enter' || e.key === ' ') && go();
       });
     } catch (e: any) {
-      sitesEl.innerHTML = `<div class="dbb-banner err">Could not load sites: ${esc(e.message ?? e)}</div>`;
+      sitesEl.innerHTML = `<div class="dbb-banner err">${esc(friendlyError(e, 'load the sites'))}</div>`;
     }
   })();
 }
@@ -314,7 +315,7 @@ export function init(tbCtx: any) {
       drawTree();
       await drawCards();
     } catch (e: any) {
-      cardsEl.innerHTML = `<div class="dbb-banner err">Could not load: ${esc(e.message ?? e)}</div>`;
+      cardsEl.innerHTML = `<div class="dbb-banner err">${esc(friendlyError(e, 'load the dashboards'))}</div>`;
     }
   };
   search.oninput = () => ctx && !denied && drawTree();

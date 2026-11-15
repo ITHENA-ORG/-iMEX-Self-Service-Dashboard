@@ -21,8 +21,9 @@ if (p == "openai") {
 }
 var ok = tool != null || toolJson != "";
 var errText = "";
-if (!ok) { errText = "The model returned no dashboard operations."; }
-var resp = {reqId: metadata.reqId, ok: ok, provider: p, toolInput: tool, toolInputJson: toolJson, usage: usage, error: errText};
+var errCode = "";
+if (!ok) { errText = "The assistant did not return an answer. Please try again, or say it in other words."; errCode = "NO_OPS"; }
+var resp = {reqId: metadata.reqId, ok: ok, provider: p, toolInput: tool, toolInputJson: toolJson, usage: usage, error: errText, code: errCode};
 var out = {};
 out["dbb_chat_resp"] = resp;
 var md = {reqId: "" + metadata.reqId, userId: "" + metadata.userId, userEmail: "" + metadata.userEmail, llmCall: "1"};

@@ -419,7 +419,7 @@ export async function loadUserContext(opts: LoadOptions = {}): Promise<UserConte
   let pre: PreTree | undefined;
   if (tenant) {
     // A tenant admin has no customer and no grants: show the configured customer's whole hierarchy.
-    if (!ctx.customerId) warnings.push('Opened as tenant admin: set the widget setting "customerId" to choose which customer to show.');
+    if (!ctx.customerId) warnings.push('This page is not linked to an organisation yet, so no equipment is shown. Contact your ITHENA administrator.');
     else {
       const assets = await api.get<any>(`/api/customer/${ctx.customerId}/assets?pageSize=1000&page=0`).catch(() => ({ data: [] }));
       // at most 1000 customer assets are considered
@@ -448,7 +448,7 @@ export async function loadUserContext(opts: LoadOptions = {}): Promise<UserConte
       for (const n of p.legacyNames) {
         const hit = access.pickByName(byName[n]);
         if (hit) grants.push({ id: hit.id, type: hit.type, mode: hit.type === 'DEVICE' ? 'fixed' : 'all' });
-        else warnings.push(`Selected node "${n}" was not found.`);
+        else warnings.push(`A location or machine in your access ("${n}") no longer exists. Ask your administrator to update your access.`);
       }
     }
     grants = access.normalize(grants);
@@ -463,7 +463,7 @@ export async function loadUserContext(opts: LoadOptions = {}): Promise<UserConte
   // D-064: the machine model (names, units, decimals, hidden keys, order per type) is read beside the store
   const [, sto, mm] = await Promise.all([buildTree(ctx, grants, attrs, tenant, source, false, pre), storeP, machine.load(api.systemConfigMachineModel)]);
   if (sto) ctx.store = sto.ref;
-  else if (ctx.customerId) warnings.push('Dashboard store asset (type DashboardStore) is missing; saving is disabled.');
+  else if (ctx.customerId) warnings.push('Saving dashboards is not set up for your organisation yet, so you cannot save. Contact your ITHENA administrator.');
   const sa = sto?.attrs ?? {};
   ctx.catalogue = sa.dbb_profile_keys && typeof sa.dbb_profile_keys === 'object' ? sa.dbb_profile_keys : {};
   // a copy per type: liveKeys adds to these lists, the catalogue stays as stored

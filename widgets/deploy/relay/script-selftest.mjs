@@ -86,6 +86,21 @@ const cases = [
   ['error text', 'Error reply', req(good), { error: 'ROLE', userId: U, userEmail: 'a@x' }, (o) => /Build dashboards/.test(o.msg.dbb_chat_resp.error) && o.metadata.userEmail === 'a@x'],
   ['error text', 'Error reply', req(good), { error: 'RATE', userId: U, userEmail: 'a@x' }, (o) => /60 requests per hour/.test(o.msg.dbb_chat_resp.error)],
   ['error text', 'Error reply', req(good), { error: 'ROLE_ERR', userId: U, userEmail: 'a@x' }, (o) => /could not be checked/.test(o.msg.dbb_chat_resp.error)],
+  // D-088: a code and a plain sentence; no provider, config, key or platform names, no status codes in `error`
+  ...[
+    [{ error: 'NO_KEY' }, 'AI_UNAVAILABLE'],
+    [{ provider: 'anthropic', status: '401', error: '401 Unauthorized', error_body: '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}' }, 'AI_UNAVAILABLE'],
+    [{ provider: 'gemini', status: '400', error: '400 Bad Request', error_body: '{"error":{"message":"API key expired. Please renew the API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}' }, 'AI_UNAVAILABLE'],
+    [{ provider: 'openai', status: '404', error: '404 Not Found', error_body: '{"error":{"message":"The model does not exist"}}' }, 'AI_UNAVAILABLE'],
+    [{ error: 'Failed to fetch related data' }, 'AI_UNAVAILABLE'],
+    [{ provider: 'gemini', status: '503', error: '503 Service Unavailable', error_body: '{"error":{"status":"UNAVAILABLE"}}' }, 'AI_BUSY'],
+    [{ provider: 'openai', error: 'org.springframework.web.reactive.function.client.WebClientRequestException: null' }, 'AI_BUSY'],
+    [{ provider: 'anthropic', status: '429', error: '429 Too Many Requests', error_body: '{"error":{"type":"rate_limit_error"}}' }, 'AI_BUSY'],
+    [{ error: 'OLD_CLIENT' }, 'RELOAD'],
+    [{ error: 'QUOTA', qUsed: '10', qLimit: '10' }, 'QUOTA'],
+    [{ error: 'AI_OFF' }, 'AI_OFF'],
+    [{ error: 'NOT_LICENSED' }, 'NOT_LICENSED'],
+  ].map(([m, code]) => ['error code ' + code, 'Error reply', req(good), { userId: U, userEmail: 'a@x', ...m }, (o) => o.msg.dbb_chat_resp.code === code && o.msg.dbb_chat_resp.ok === false && !/DBB|LLM|asset|ThingsBoard|anthropic|openai|gemini|API key|\b[45]\d\d\b|\{/i.test(o.msg.dbb_chat_resp.error) && !/x-api-key|AIza|sk-/.test(o.msg.dbb_chat_resp.error)]),
 ];
 // the gate: the role error wins; the alarm list follows the licence
 const month = new Date().toISOString().slice(0, 7);

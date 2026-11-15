@@ -127,7 +127,8 @@ const baseFetch = tb.fetch;
     (window as any).__chatReqs.push(req);
     const next = (window as any).__chatQueue.shift();
     setTimeout(() => {
-      const resp = typeof next === 'string' ? { reqId: req.reqId, ok: false, provider: 'gemini', error: next } : { reqId: req.reqId, ok: true, provider: 'gemini', toolInput: next ?? { reply: 'ok', ops: [] } };
+      // D-088: {__err: {...}} = a coded error reply of the current relay (code, error, detail)
+      const resp = typeof next === 'string' ? { reqId: req.reqId, ok: false, provider: 'gemini', error: next } : next && next.__err ? { reqId: req.reqId, ok: false, provider: 'anthropic', ...next.__err } : { reqId: req.reqId, ok: true, provider: 'gemini', toolInput: next ?? { reply: 'ok', ops: [] } };
       tb.setAttrs('USER', req.userId, { dbb_chat_resp: resp });
     }, 200);
   }

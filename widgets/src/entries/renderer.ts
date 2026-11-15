@@ -35,6 +35,7 @@ import * as api from '../core/api';
 import * as machine from '../core/machine';
 import * as scope from '../core/scope';
 import * as store from '../core/store';
+import { friendlyError } from '../core/usermsg';
 import type { UserContext } from '../core/scope';
 import { normalizeRange, isShiftRange, rangeWindow } from '../core/schema';
 import { calendarFor, shiftWindowText } from '../core/shifts';
@@ -604,7 +605,7 @@ export function init(tbCtx: any) {
       }
     } catch (e: any) {
       if (stale()) return;
-      head.innerHTML = `<div class="dbb-banner err">Could not load the dashboard: ${esc(e.message ?? e)}</div>`;
+      head.innerHTML = `<div class="dbb-banner err">${esc(friendlyError(e, 'load the dashboard'))}</div>`;
     }
   };
 
@@ -802,7 +803,7 @@ export function init(tbCtx: any) {
         toast(root, 'Customised copy created.', 'ok');
         notifyChanged();
       } catch (e: any) {
-        toast(root, e.message, 'err');
+        toast(root, friendlyError(e, 'make the copy'), 'err');
       }
     }
     // Removes the device's `dbb_assign` and its customised copy, so it falls back to the shared dashboard; audited.
@@ -814,7 +815,7 @@ export function init(tbCtx: any) {
         toast(root, 'Reset to the shared dashboard.', 'ok');
         notifyChanged();
       } catch (e: any) {
-        toast(root, e.message, 'err');
+        toast(root, friendlyError(e, 'reset the dashboard'), 'err');
       }
     }
   }
@@ -842,7 +843,7 @@ export function init(tbCtx: any) {
       void withBusy(btn, async () => {
         const ctx = await userContextFor(tbCtx, where.deviceId ?? null, true);
         openBuilder({ ctx, deviceId: where.deviceId ?? null, dashboardId: startNew ? null : where.dashboardId ?? null, startNew, chatEnabled: tbCtx.settings?.chatEnabled !== false, onClose: (ch) => ch && notifyChanged() });
-      }).catch((e: any) => toast(root, `Could not open the Dashboard Builder: ${e?.message ?? e}`, 'err'));
+      }).catch((e: any) => toast(root, friendlyError(e, 'open the Dashboard Builder'), 'err'));
     b.addEventListener('click', () => openBarMenu(b, { acts, onNew: (x) => builder(x, true), onBuilder: (x) => builder(x, false) }));
     box.appendChild(b);
   }
@@ -1019,7 +1020,7 @@ export function init(tbCtx: any) {
     try {
       await T.open({ deviceId, deviceName: node.label || node.name, where, source: 'machine', subject: '', description: lines.join('\n') });
     } catch (e: any) {
-      toast(root, `The ticket form could not be opened: ${e?.message ?? e}`, 'err');
+      toast(root, friendlyError(e, 'open the ticket form'), 'err');
     }
   }
 
@@ -1060,7 +1061,7 @@ export function init(tbCtx: any) {
   async function thresholds(ctx: UserContext, deviceId: string, label: string) {
     const attrs = await api.getAttrs({ id: deviceId, entityType: 'DEVICE' }).catch(() => ({}) as Record<string, any>);
     const keys = Object.keys(attrs).filter((k) => k.startsWith('thr_'));
-    if (!keys.length) return toast(root, 'This machine has no threshold attributes.', 'warn');
+    if (!keys.length) return toast(root, 'This machine has no alarm thresholds to set.', 'warn');
     const m = modal(
       root,
       `Alarm thresholds — ${label}`,
@@ -1080,7 +1081,7 @@ export function init(tbCtx: any) {
       void audit(ctx, 'thresholds.update', { deviceId, before: Object.fromEntries(keys.map((k) => [k, attrs[k]])), after: vals });
       toast(root, 'Thresholds saved.', 'ok');
     } catch (e: any) {
-      toast(root, e.message, 'err');
+      toast(root, friendlyError(e, 'save the thresholds'), 'err');
     }
   }
 

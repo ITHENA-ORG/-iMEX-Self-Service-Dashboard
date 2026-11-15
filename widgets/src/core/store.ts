@@ -46,6 +46,7 @@ import { metaLookup } from './compat';
 import type { UserContext } from './scope';
 import * as scope from './scope';
 import * as lic from './licence';
+import { friendlyError, MSG, UserError } from './usermsg';
 
 /** A dashboard assigned at node or customer level: which dashboard, who assigned it (display name), when (ms). */
 export interface Assignment {
@@ -86,14 +87,14 @@ export const DOC_CHARS = 2_500_000;
 export const SAVE_CHARS = 8_000_000;
 
 /** Thrown by `saveDashboard` when the stored version differs from the one being saved; carries the stored copy. */
-export class ConflictError extends Error {
+export class ConflictError extends UserError {
   constructor(public current: Dashboard) {
     super(`This dashboard was changed by ${current.updatedBy} (version ${current.version}).`);
   }
 }
 
 /** D-086: thrown when a new dashboard would exceed the licence's `limits.maxDashboards` (core/licence.ts). */
-export class DashboardLimitError extends Error {
+export class DashboardLimitError extends UserError {
   constructor(
     public limit: number,
     public count: number,
@@ -150,7 +151,7 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R
 
 /** The customer's store asset, or throws when the customer has none (saving disabled). */
 function requireStore(ctx: UserContext): api.EntityRef {
-  if (!ctx.store) throw new Error('Dashboard store is not set up for this customer.');
+  if (!ctx.store) throw new UserError(MSG.storeMissing);
   return ctx.store;
 }
 
@@ -229,11 +230,11 @@ export async function saveDashboard(
   const store = requireStore(ctx);
   const parsed = Dashboard.parse(doc);
   const problems = checkDashboard(parsed, metaLookup(ctx, parsed));
-  if (problems.length) throw new Error(problems.join(' '));
+  if (problems.length) throw new UserError(problems.join(' '));
   const cur = await api.getAttrs(store, [D(doc.id), H(doc.id)]);
   const existing = Dashboard.safeParse(cur[D(doc.id)]);
   if (existing.success && existing.data.version !== doc.version) throw new ConflictError(existing.data);
-  if (!existing.success && doc.version !== 0) throw new Error('Dashboard no longer exists; use Save as.');
+  if (!existing.success && doc.version !== 0) throw new UserError('This dashboard no longer exists. It may have been deleted. Use Save as to keep your changes.');
   // D-086: a NEW dashboard needs a free slot under the licence limit; editing an existing one never does
   if (!existing.success) {
     const full = await dashboardRoom(ctx, 1);
@@ -245,7 +246,7 @@ export async function saveDashboard(
   // D-074: one save stays well under the platform's request limit: the document is capped (uploaded images: checkDashboard)
   // and only as many earlier versions are kept as fit in SAVE_CHARS (newest first; at most 10)
   const docChars = JSON.stringify(next).length;
-  if (docChars > DOC_CHARS) throw new Error(`This dashboard is too large to save (${Math.round(docChars / 1024)} KB; at most ${Math.round(DOC_CHARS / 1024)} KB). Remove uploaded images or widgets, or use https:// image addresses.`);
+  if (docChars > DOC_CHARS) throw new UserError(`This dashboard is too large to save (${Math.round(docChars / 1024)} KB; at most ${Math.round(DOC_CHARS / 1024)} KB). Remove uploaded images or widgets, or use https:// image addresses.`);
   const keep = hist.slice(0, 10);
   let histChars = JSON.stringify(keep).length;
   while (keep.length && docChars + histChars > SAVE_CHARS) histChars -= JSON.stringify(keep.pop()).length + 1;
@@ -278,7 +279,7 @@ export async function versions(ctx: UserContext, id: string): Promise<{ version:
 export async function restoreVersion(ctx: UserContext, id: string, version: number): Promise<Dashboard> {
   const [cur, hist] = await Promise.all([getDashboard(ctx, id), versions(ctx, id)]);
   const v = hist.find((h) => h.version === version);
-  if (!cur || !v) throw new Error('Version not found.');
+  if (!cur || !v) throw new UserError('This version no longer exists. Reload the page to see the latest.');
   return saveDashboard(ctx, { ...v.doc, version: cur.version });
 }
 
@@ -674,7 +675,7 @@ function slotDash(cur: any, s: Slot): string | null {
 }
 
 /** Thrown by `apply` when an assignment it would overwrite changed since the preview (another administrator). */
-export class ApplyConflictError extends Error {}
+export class ApplyConflictError extends UserError {}
 
 /** What `apply` writes for a target (not personal / none) and which machines it covers. Pure. */
 function planWrites(ctx: UserContext, doc: Dashboard, t: ApplyTarget, now: number): { writes: SlotWrite[]; covers: string[] } {
@@ -741,7 +742,7 @@ async function seenSlots(ctx: UserContext, doc: Dashboard, t: ApplyTarget): Prom
  */
 export async function apply(ctx: UserContext, doc: Dashboard, t: ApplyTarget, opts: { seen?: Record<string, string | null> } = {}): Promise<string[]> {
   const deny = canApply(ctx, t);
-  if (deny) throw new Error(deny);
+  if (deny) throw new UserError(deny);
   const now = Date.now();
   if (t.type === 'none') return [];
   if (t.type === 'personal') {
@@ -793,9 +794,10 @@ export async function apply(ctx: UserContext, doc: Dashboard, t: ApplyTarget, op
     }
     if (ctx.store && copies.length) await api.deleteAttrs(ctx.store, copies.flatMap((id) => [D(id), H(id), VIS(id)])).catch(() => stuck.push(`${copies.length} machine cop${copies.length === 1 ? 'y' : 'ies'} of the dashboard`));
     if (done.length) await assignChanged(ctx);
-    const why = String(e?.message ?? e).replace(/[.\s]+$/, '');
+    // D-088: the reason in plain words (a refused write reads as no access / changed / try again, the detail in the console)
+    const why = (e?.userFacing ? String(e.message) : friendlyError(e).split('. ')[0]).replace(/[.\s]+$/, '');
     const what = !done.length ? 'Nothing was changed.' : stuck.length ? `It stopped after ${done.length} of ${writes.length} changes; these could not be put back: ${stuck.join(', ')}.` : `It stopped after ${done.length} of ${writes.length} changes, which were undone.`;
-    throw new Error(`${why}. ${what}`);
+    throw new UserError(`${why}. ${what}`);
   }
   // 3. tell the other pages (a cache hint: best effort)
   await assignChanged(ctx);
@@ -809,8 +811,8 @@ export async function apply(ctx: UserContext, doc: Dashboard, t: ApplyTarget, op
  * the user (D-050; before, an admin could customise any machine). UI-only checks (D-012).
  */
 export async function customise(ctx: UserContext, deviceId: string, template: Dashboard): Promise<Dashboard> {
-  if (!ctx.canBuild) throw new Error("Your role can't build dashboards.");
-  if (!scope.isGrantedMachine(ctx, deviceId)) throw new Error('Machine is outside your access.');
+  if (!ctx.canBuild) throw new UserError("Your role can't build dashboards.");
+  if (!scope.isGrantedMachine(ctx, deviceId)) throw new UserError('This machine is not in your access.');
   const label = ctx.nodes.get(deviceId)?.label ?? deviceId;
   const copy = await saveDashboard(ctx, {
     ...template,
@@ -880,7 +882,7 @@ export async function usage(ctx: UserContext, doc: Dashboard): Promise<{ devices
  * @returns labels of what was unassigned, for the confirmation/audit.
  */
 export async function deleteDashboard(ctx: UserContext, doc: Dashboard): Promise<string[]> {
-  if (doc.ownerId !== ctx.userId && !ctx.canDeleteAny) throw new Error("Only the owner can delete this dashboard: your role can't delete others' dashboards.");
+  if (doc.ownerId !== ctx.userId && !ctx.canDeleteAny) throw new UserError("Only the owner can delete this dashboard: your role can't delete others' dashboards.");
   const store = requireStore(ctx);
   const affected: string[] = [];
   // current assignments of every node in scope in 2 calls (D-022) instead of one read per node
