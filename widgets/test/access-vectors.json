@@ -4870,7 +4870,7 @@
    ],
    "expect": [
     {
-     "text": "Pune · all equipment, including new",
+     "text": "Pune · all machines, including new",
      "tip": "3 machines today: Compressor 1, Dryer 1, Weather Station 1. Machines added later are included.",
      "kind": "all"
     }
@@ -4888,7 +4888,7 @@
    ],
    "expect": [
     {
-     "text": "ITHENA ORG · all sites and equipment, including new",
+     "text": "ITHENA ORG · all sites and machines, including new",
      "tip": "5 sites, 15 machines today",
      "kind": "all"
     }
@@ -4906,7 +4906,7 @@
    ],
    "expect": [
     {
-     "text": "New Site · all equipment, including new (none yet)",
+     "text": "New Site · all machines, including new (none yet)",
      "tip": "",
      "kind": "all"
     }
@@ -5017,7 +5017,7 @@
    },
    "expect": [
     {
-     "text": "Pune · all equipment, including new",
+     "text": "Pune · all machines, including new",
      "tip": "3 machines today: Compressor 1, Dryer 1, Weather Station 1. Machines added later are included.",
      "kind": "all"
     },

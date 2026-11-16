@@ -700,17 +700,17 @@ export function summary(grants: unknown, tree: Tree | TreeSpec, opts: { exists?:
     const devs = devicesUnder(T, id);
     const subs = (T.children[id] || []).some((c) => typeOf(T, c) !== 'DEVICE');
     const line: SummaryLine = { text: '', tip: '', kind: 'all' };
-    if (!devs.length) line.text = `${name} · all equipment, including new (none yet)`;
+    if (!devs.length) line.text = `${name} · all machines, including new (none yet)`;
     else if (subs) {
       let nSites = 0;
       below(T, id, MAX_DEPTH, (c) => {
         if (typeOf(T, c) !== 'DEVICE' && isSite(T, c)) nSites++;
       });
       if (isSite(T, id)) nSites++;
-      line.text = `${name} · all sites and equipment, including new`;
+      line.text = `${name} · all sites and machines, including new`;
       line.tip = `${plural(nSites, 'site', 'sites')}, ${plural(devs.length, 'machine', 'machines')} today`;
     } else {
-      line.text = `${name} · all equipment, including new`;
+      line.text = `${name} · all machines, including new`;
       line.tip = `${plural(devs.length, 'machine', 'machines')} today: ${devs
         .map((d) => nameOf(T, names, d))
         .sort(cmp)
