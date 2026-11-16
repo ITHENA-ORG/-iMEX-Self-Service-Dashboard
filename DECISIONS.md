@@ -1598,3 +1598,10 @@ The Builder now offers it wherever a widget lets the user pick avg / min / max /
   - Summaries aborted: every card shows the plain sentence, and the Builder's list greys the choice with "Needs data
     summaries".
   - Light and dark at 1440 and 360 px. No `agg=SD` request.
+
+### D-093 Version 5.0: the iMEX v5 version scheme (16 Nov 2026; Akshay; main note Control Centre CC-051)
+
+Akshay (16 Nov 2026): every iMEX version is the iMEX release in two parts: **5.0** now, then 5.1, 5.2 ... (never x.y.z
+again); git tag `v5.0` (made by the coordinator). Here: `package.json` 5.0. The Builder's build stamp (`LIB_VERSION` /
+store attribute `dbb_lib_version` / "built <ISO time>" in the widget-type description) is a staleness check (the
+"Reload the page" banner), not a product version, and is never shown as a version: unchanged.
