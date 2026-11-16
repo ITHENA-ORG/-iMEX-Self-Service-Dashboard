@@ -57,7 +57,7 @@ import { modal, confirmModal, toast } from '../builder/ui';
 import { audit } from '../core/audit';
 import { mayBuild, builderLicensed, onLicenceChange, licHas, licenceApi, widgetLicensed } from '../core/licence';
 import type { LicenceApi } from '../core/licence';
-import { userContextFor, currentEntity, currentParam, RSTATE_KEY, CHANGED_EVENT, notifyChanged, publishActions, EditAction, EditActions, scheduleRedraw, liveLend, liveRelease, pageGate, NO_ACCESS_HTML, isMobileApp } from './common';
+import { userContextFor, currentEntity, currentParam, RSTATE_KEY, CHANGED_EVENT, notifyChanged, publishActions, EditAction, EditActions, scheduleRedraw, liveLend, liveRelease, pageGate, NO_ACCESS_HTML, machineNoAccessHtml, isMobileApp } from './common';
 
 const R_CSS = `
 .dbb-rend{height:100%;display:flex;flex-direction:column;background:var(--plane);position:relative}
@@ -100,6 +100,10 @@ html.imx-mobile .dbb-rend .dbb-rhead .dbb-crumb{flex:1 1 100%}
 .dbb-rtools{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .dbb-rtools select{font:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
 .dbb-rbody{flex:1;overflow:auto;min-height:0;padding:4px 6px}
+/* D-094 (final QA R-07): a machine outside the access: the app's lock empty state in the page, "Go to Machines" under it */
+.dbb-rdenied{display:flex;justify-content:center;padding:48px 16px 24px}
+.dbb-rdenied>*{max-width:420px}
+.dbb-rdenied .dbb-rgo{margin-top:10px}
 .dbb-ract{flex:none;display:inline-flex;align-items:center;gap:6px}
 /* the machine page: time window, freshness and the buttons as one group at the right end (it wraps as a whole, right-aligned) */
 .dbb-rright{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px 10px;min-width:0}
@@ -118,6 +122,8 @@ html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn svg{color:var(--imx-a2,#7DD3F
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.34)}
 html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn:focus-visible{box-shadow:0 0 0 3px rgba(125,211,252,.45)}
 html.imx-mobile .dbb-rbtn{width:40px;height:40px;padding:0}
+/* D-094 (QA S-09): touch screens get a 40 px target (the bar buttons and the period chip were 28 px); laptops with a mouse keep the compact bar */
+@media (pointer:coarse){.dbb-rbtn{height:40px;min-width:40px}.dbb-rend .dbb-tw{height:40px}}
 html.imx-mobile .dbb-rend .dbb-tw{height:40px;padding:0 10px 0 13px;border-radius:10px}
 html.imx-mobile .dbb-rright .dbb-upd{order:3;flex-basis:100%;justify-content:flex-end}
 html.imx-mobile .dbb-rbtn span{display:none}
@@ -251,6 +257,17 @@ export function dashHasState(tbCtx: any, id: string): boolean {
   } catch {
     return true;
   }
+}
+
+/** D-094 (final QA W-22): the App UI's page of one machine's stops (Losses page key `losses`). */
+export const STOPS_STATE = 'machine_stops';
+/** D-094 (final QA R-07): the App UI's machine list (Machines page). */
+export const LISTING_STATE = 'listing';
+/** The parameters the App UI's Losses page opens `machine_stops` with (imex_losses_page openMachine). */
+export function stopsParams(deviceId: string, node: { name: string; label?: string | null }) {
+  const entityId = { entityType: 'DEVICE', id: deviceId };
+  const entityLabel = node.label || node.name;
+  return { entityId, entityName: node.name, entityLabel, selectedEquipment: { entityId, entityName: node.name, entityLabel } };
 }
 
 /** D-063: the App UI's Help state and its "?" glyph (imex_page_header: 18 px, stroke 2). */
@@ -583,6 +600,7 @@ export function init(tbCtx: any) {
       api.resetDataClock();
     }
     st.lastKey = key;
+    root.querySelector(':scope .dbb-rdenied')?.remove(); // D-094: the "not in your access" state of the last machine
     try {
       // a machine missing from a cached scope (added minutes ago) reloads the scope once before it is refused
       const ctx = await userContextFor(tbCtx, ent?.entityType === 'DEVICE' ? ent.id : null, force);
@@ -696,8 +714,24 @@ export function init(tbCtx: any) {
     rememberState();
     const node = scope.isGrantedMachine(ctx, deviceId) ? ctx.nodes.get(deviceId) : undefined;
     if (!node) {
-      head.innerHTML = `<div class="dbb-banner warn">This machine is outside your access.</div>`;
+      // D-094 (final QA R-07): the app's "not in your access" empty state (was a one-line banner over an empty page)
+      // and a way on: "Go to Machines" (the app's machine list, state `listing`) where the dashboard has it. The state is
+      // drawn in the page body (the bar is the dark band: only a plain title there, never the machine's name)
+      head.innerHTML = `<div class="dbb-rtitle">Machine</div>`;
       st.grid?.render([]);
+      root.querySelector(':scope .dbb-rdenied')?.remove();
+      const denied = document.createElement('div');
+      denied.className = 'dbb-rdenied';
+      denied.innerHTML = machineNoAccessHtml();
+      if (dashHasState(tbCtx, LISTING_STATE)) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dbb-rbtn dbb-rgo';
+        b.textContent = 'Go to Machines';
+        b.addEventListener('click', () => goPage(LISTING_STATE, {}));
+        ((denied.firstElementChild as HTMLElement | null) ?? denied).appendChild(b);
+      }
+      gridHost.before(denied);
       publishActions(id, null);
       return;
     }
@@ -934,6 +968,20 @@ export function init(tbCtx: any) {
         }
         tbCtx.stateController?.openState?.(t.state, t.params, false);
       });
+      box.appendChild(b);
+    }
+    // D-094 (final QA W-22): "Stops": this machine's stops (the Losses page's state `machine_stops`, with the same
+    // parameters as the Losses page's own machine link) when the dashboard has that state, the role sees Losses and the
+    // licence has `losses`
+    if (dashHasState(tbCtx, STOPS_STATE) && ctx.perms.page('losses') !== 'hidden' && licHas('losses')) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'dbb-rbtn dbb-rstops';
+      const tip = 'Show the stops of this machine';
+      b.title = tip;
+      b.setAttribute('aria-label', tip);
+      b.innerHTML = `${UI_ICON.stops}<span>Stops</span>`;
+      b.addEventListener('click', () => goPage(STOPS_STATE, stopsParams(deviceId, node)));
       box.appendChild(b);
     }
     // D-068: "Create playbook": the Playbooks page's editor with a new playbook for this machine (playbookTarget: role

@@ -114,9 +114,9 @@ export function dashboardLimit(L: LicenceApi | null = licenceApi()): number | nu
  * per-machine copies alike (core/store.ts countDashboards).
  */
 export function dashboardLimitMessage(limit: number, count = limit, adding = 1): string {
-  if (limit <= 0) return 'This installation’s licence allows no new dashboards. The saved ones can still be viewed and edited; ask for a larger licence.';
-  if (adding > 1) return `This installation has ${count} of its ${limit} licensed dashboards; ${adding} per-machine copies would go over the limit (every saved dashboard counts, including private ones and per-machine copies). Delete some or ask for a larger licence.`;
-  return `This installation has reached its ${limit} licensed dashboards (every saved dashboard counts, including private ones and per-machine copies). Delete one or ask for a larger licence.`;
+  if (limit <= 0) return 'This installation’s license allows no new dashboards. The saved ones can still be viewed and edited; ask for a larger license.';
+  if (adding > 1) return `This installation has ${count} of its ${limit} licensed dashboards; ${adding} per-machine copies would go over the limit (every saved dashboard counts, including private ones and per-machine copies). Delete some or ask for a larger license.`;
+  return `This installation has reached its ${limit} licensed dashboards (every saved dashboard counts, including private ones and per-machine copies). Delete one or ask for a larger license.`;
 }
 
 // ---------------------------------------------------------------------------------------------- LLM quota

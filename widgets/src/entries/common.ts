@@ -231,6 +231,27 @@ export const NO_ACCESS_HTML =
   '<b style="font-size:14px;font-weight:700;color:var(--imx-text,#0F172A)">You don\'t have access to this page</b>' +
   '<span style="font-size:12.5px;color:var(--imx-muted,#5B6B82);white-space:normal">Ask your administrator if you need it.</span></div>';
 
+/**
+ * D-094 (final QA R-07): the app's empty state for a machine outside the user's access (imxShell.noAccess('machine'),
+ * ROLES / ACCESS: "This machine is not in your access"): the kit's own when the app's shell is on the page, else this
+ * copy of it.
+ */
+export function machineNoAccessHtml(): string {
+  const k = (globalThis as any).imxShell;
+  if (k && typeof k.noAccess === 'function') {
+    try {
+      const h = k.noAccess('machine');
+      if (typeof h === 'string' && h) return h;
+    } catch {
+      /* the copy below */
+    }
+  }
+  return NO_ACCESS_HTML.replace("You don't have access to this page", 'This machine is not in your access').replace(
+    'Ask your administrator if you need it.',
+    'Choose another machine, or ask your administrator.',
+  );
+}
+
 /** Window event meaning "stored dashboards or assignments changed"; listeners reload with force. */
 export const CHANGED_EVENT = 'imex-dbb:changed';
 /** Fires CHANGED_EVENT on `window`, reaching every widget (every library copy) on the page. */

@@ -119,3 +119,39 @@ describe('playbookTarget (D-068: the bar\'s "Create playbook")', () => {
     expect(playbookTarget(tb({ playbooks: {} }), editor, '', lic(['playbooks']))).toBeNull();
   });
 });
+
+// D-094 (final QA W-22, R-07): the machine bar's Stops button and the "not in your access" empty state
+import { stopsParams, STOPS_STATE, LISTING_STATE } from '../src/entries/renderer';
+import { machineNoAccessHtml, NO_ACCESS_HTML } from '../src/entries/common';
+
+describe('stopsParams (D-094, W-22)', () => {
+  it('opens machine_stops with the Losses page parameters (imex_losses_page openMachine)', () => {
+    expect(STOPS_STATE).toBe('machine_stops');
+    const e = { entityType: 'DEVICE', id: 'd1' };
+    expect(stopsParams('d1', { name: 'Compressor 1', label: 'Comp 1' })).toEqual({ entityId: e, entityName: 'Compressor 1', entityLabel: 'Comp 1', selectedEquipment: { entityId: e, entityName: 'Compressor 1', entityLabel: 'Comp 1' } });
+    expect(stopsParams('d1', { name: 'Compressor 1', label: null }).entityLabel).toBe('Compressor 1');
+  });
+});
+
+describe('machineNoAccessHtml (D-094, R-07)', () => {
+  it('uses the kit (imxShell.noAccess("machine")) when the app shell is on the page', () => {
+    const g = globalThis as any;
+    const was = g.imxShell;
+    const asked: string[] = [];
+    g.imxShell = { noAccess: (k: string) => (asked.push(k), '<div class="kit">x</div>') };
+    try {
+      expect(machineNoAccessHtml()).toBe('<div class="kit">x</div>');
+      expect(asked).toEqual(['machine']);
+    } finally {
+      g.imxShell = was;
+    }
+  });
+  it('falls back to a copy with the kit wording', () => {
+    const h = machineNoAccessHtml();
+    expect(h).toContain('This machine is not in your access');
+    expect(h).toContain('Choose another machine, or ask your administrator.');
+    expect(h).not.toContain("You don't have access to this page");
+    expect(NO_ACCESS_HTML).toContain("You don't have access to this page");
+    expect(LISTING_STATE).toBe('listing');
+  });
+});

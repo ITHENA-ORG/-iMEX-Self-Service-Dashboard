@@ -1605,3 +1605,54 @@ Akshay (16 Nov 2026): every iMEX version is the iMEX release in two parts: **5.0
 again); git tag `v5.0` (made by the coordinator). Here: `package.json` 5.0. The Builder's build stamp (`LIB_VERSION` /
 store attribute `dbb_lib_version` / "built <ISO time>" in the widget-type description) is a staleness check (the
 "Reload the page" banner), not a product version, and is never shown as a version: unchanged.
+
+### D-094 Final QA v5.0 fixes (17 Nov 2026; stream F4): plain words, touch targets, Stops on the machine bar, a way out of "not in your access", and a phone layout script for the app dashboard
+
+Findings W-38, W-14, S-09, W-22, R-07 (Builder widgets) and S-01, S-02, D-08 (the app dashboard's layout; script only).
+
+- **W-38**: the dashboard grid's delete tool is titled "Remove" (was "Remove (Delete)"; `render/grid.ts`).
+- **W-14**: the dashboard-limit messages say "license" (US, as the app's "License" page name): "This installation's
+  license allows no new dashboards ...", "... ask for a larger license." (`core/licence.ts`). Code names (`licence.ts`,
+  `licHas`, the `licence` page key) are unchanged.
+- **S-09**: on touch screens (`@media (pointer:coarse)`) the machine bar's buttons (`.dbb-rbtn`) are at least 40 x 40 px
+  and the period chip (`.dbb-tw`) 40 px high (both were 28 px); with a mouse the bar keeps its compact size
+  (`entries/renderer.ts`).
+- **W-22**: the machine bar has a "Stops" button (the side menu's Losses icon) after Analyzer: it opens the app's
+  `machine_stops` state with the parameters the Losses page uses for its own machine link (`entityId`, `entityName`,
+  `entityLabel`, `selectedEquipment`; `stopsParams`). Shown only when the dashboard has that state, the role does not
+  hide Losses (`perms.page('losses')`; the state belongs to the Losses page) and the licence has `losses`. Checked on
+  LOCAL as a Viewer with one machine: bar "Analyzer · Stops · Create ticket (locked)"; Stops opened Compressor 1's
+  Stops page.
+- **R-07**: a machine outside the user's access (opened by URL): the bar shows only the title "Machine" (never the
+  machine's name) and the page body shows the app's lock empty state, `imxShell.noAccess('machine')` ("This machine is
+  not in your access · Choose another machine, or ask your administrator."; a copy when the shell is not on the page),
+  with a "Go to Machines" button (state `listing`, where the dashboard has it). The coordinator suggested
+  `noAccess('equipment')`; that kit text is "No equipment assigned to you yet", wrong for a user who has other
+  machines, so 'machine' is used. Checked on LOCAL: the button opens the Machines page and the state is gone.
+- **S-01 / S-02 / D-08: `scripts/mirror/mobile-layout.mjs`** (dry run by default; `--go` backs the dashboard up to
+  `backups/<day>/` and saves once; the platform's version check refuses a save over a newer hand edit; the server only
+  through `newTenantClient()`, which refuses the read-only SOURCE tenant; `--local [--dashboard <id>]` for LOCAL). For
+  every state's main layout: `mobileAutoFillHeight` true, `mobileRowHeight` 8, side menu / launcher cells
+  `mobileHeight` 1, the side menu cell's `mobileHide` removed; a page cell without `mobileHeight` gets the usual share
+  (71 rows, 64 under the page header; the server's alarm history, the developers' widget, placed by hand: only its
+  layout cell, not the widget); the listing's `imex_org_hierarchy`: `showTitle` false, title "Organization Hierarchy",
+  and its cell `mobileHeight` 2. Why 2: below 960 px the tree is a sheet over the cards and its cell is drawn 0 px high
+  (imex_org_hierarchy CSS), so with the filled layout its 71-row share left the cards half the screen; in a 1-row cell
+  the platform never started the widget (no tree, no "Organisation" button); 2 rows work (tested).
+  - Tested on a throwaway LOCAL copy of the app dashboard (menu cells set hidden like the server's; deleted afterwards):
+    before at 390 px the `default` state never loaded the app shell; after: shell on every page, the grid exactly the
+    screen height (844 / 1024 px) on default, listing, machine, reports, user_management, analytics; listing cards 799
+    of 844 px with the tree sheet and its button working. Second run: "nothing to change".
+  - Server dry run (GET only, 17 Nov 2026, NEW TENANT iserv-demov2.ithena.app, dashboard db4109a0-c279-11f1-9f70-2b66090a5d6c
+    version 73): 36 states, 90 changes: 36 x `mobileAutoFillHeight false -> true`, 30 x `mobileRowHeight 12 -> 8`,
+    6 x `mobileRowHeight 6 -> 8`, `mobileHide` removed from the side menu cell in `default` and `machine`, side menu and
+    launcher `mobileHeight 2 -> 1` in analytics and the five aiml_* states, alert_history
+    `imex_v5_alert_history_page` cell `mobileHeight undefined -> 64`, listing hierarchy `showTitle true -> false`, title
+    "Orgnization Hierarchy" -> "Organization Hierarchy", cell `mobileHeight 71 -> 2`. NOT applied: `--go` on the
+    server only on Akshay's go-ahead.
+  - LOCAL's own app dashboard is generated by the App UI repo's `scripts/make-test-dashboard.mjs` (~398: sets
+    `mobileAutoFillHeight: false`, `mobileRowHeight: 12 / u`, `mobileHeight = sizeY`): the same rules belong there or the
+    next run undoes them; not changed here (App UI is another stream's).
+- Checks: `tsc` clean; vitest **553 passed** (35 files; new: `stopsParams`, `machineNoAccessHtml` kit and copy);
+  `npm run test:e2e` all passed; `npm run build:widgets`; deployed to LOCAL (`deploy-node.mjs --go`, skipAppDashboard).
+- Help: the machine page's Stops button and the "not in your access" page (Machines Help article).

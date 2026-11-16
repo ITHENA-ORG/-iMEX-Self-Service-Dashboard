@@ -55,7 +55,7 @@ describe('dashboardLimit (core/licence.ts)', () => {
     expect(lic.dashboardLimit()).toBe(9);
   });
   it('the message names the limit and how dashboards count; limit 0 says the saved ones stay', () => {
-    expect(lic.dashboardLimitMessage(10)).toBe('This installation has reached its 10 licensed dashboards (every saved dashboard counts, including private ones and per-machine copies). Delete one or ask for a larger licence.');
+    expect(lic.dashboardLimitMessage(10)).toBe('This installation has reached its 10 licensed dashboards (every saved dashboard counts, including private ones and per-machine copies). Delete one or ask for a larger license.');
     expect(lic.dashboardLimitMessage(0)).toMatch(/allows no new dashboards.*saved ones can still be viewed and edited/);
     expect(lic.dashboardLimitMessage(10, 8, 3)).toMatch(/8 of its 10 licensed dashboards; 3 per-machine copies would go over the limit/);
   });
@@ -77,7 +77,7 @@ describe('the store refuses a new dashboard at the limit (D-086)', () => {
     const b = await store.saveDashboard(ctx, mk(ctx, 'B'));
     const refused = store.saveDashboard(ctx, mk(ctx, 'C'));
     await expect(refused).rejects.toBeInstanceOf(store.DashboardLimitError);
-    await expect(refused).rejects.toThrow('This installation has reached its 2 licensed dashboards (every saved dashboard counts, including private ones and per-machine copies). Delete one or ask for a larger licence.');
+    await expect(refused).rejects.toThrow('This installation has reached its 2 licensed dashboards (every saved dashboard counts, including private ones and per-machine copies). Delete one or ask for a larger license.');
     expect(Object.keys(tb.getAttrs('ASSET', 'store', 'SERVER_SCOPE')).filter((k) => k.startsWith('dbb_d_')).length).toBe(2);
     // editing an existing dashboard never needs a slot (and reads no key list)
     const before = keysReads();
