@@ -1511,3 +1511,90 @@ Akshay: section header, sub-section header, label and value at the same size and
 
 ### D-091 The Builder's own toasts sit 10% up (15 Nov 2026; App UI U-194)
 - `.dbb-toasts` `bottom: 22%` -> `10%`, as the app's kit (Akshay: "further down, maybe 10%"). Kit CSS copy re-exported (20261115.1131).
+
+### D-092 Standard deviation as a widget aggregation (16 Nov 2026; Akshay's status item #71 "Reports and dashboards offering standard deviation"; App UI U-178 / U-177, Builder D-087; the Reports half in its own repo; coordinator renumbers)
+The platform cannot compute a standard deviation; the data summaries keep `m2` per bucket since imex-cubes 0.2.0 (D-087).
+The Builder now offers it wherever a widget lets the user pick avg / min / max / sum, except the donut.
+
+- **Code `SD`** in `WidgetSettings.agg` (`core/schema.ts`: `['NONE','AVG','MIN','MAX','SUM','SD']`). Stored dashboards
+  without it parse as before. A build older than this one would refuse a dashboard that holds `SD` (strict enum), so the
+  widgets of a release go out together. The chat prompt and tool are unchanged (the assistant is not told about `SD`):
+  `widgets/dist/chat-prompt.mjs` changed only by the schema enum, and `chat-contract.json` (the relay's prompt and
+  tool) did not change, so the relay chain needs no redeploy.
+- **Where** (`core/sd.ts` `aggChoices`, `SD_TYPES`):
+  - Line / area: avg, min, max, **standard deviation**, Raw values.
+  - Bar / heatmap: avg, min, max, sum, **standard deviation**.
+  - Not on the donut "share by machine" (a share of spreads means nothing). A donut that keeps `SD` from another type
+    shows the average.
+  - The value / KPI / summary tiles have no aggregation choice and are unchanged.
+- **Reads** (`core/sd.ts`): the SAMPLE standard deviation, `cube.cubeSd` = sqrt(m2 / (n - 1)) for n >= 2.
+  - **A window of 4 h or less** (the usual 1 / 2 / 4 h ranges): read entirely from raw readings (one platform read,
+    `agg=NONE`, limit 50 000) and bucketed with `cubeRawBuckets`. No service is needed, so this works while the
+    summaries are down.
+  - **Longer windows**: one summary call (`fields=n,avg,m2`, the level of `cubeLevel`). It covers the whole level
+    buckets inside the coverage, on the coverage's own grid (India hours are UTC :30). An uncovered head or tail of
+    4 h or less is joined from raw readings by Chan's merge (`cubeCombine`).
+  - **No value ("not available")**: an uncovered part over 4 h, a summary bucket without m2, or a raw read that may be
+    cut by its limit. The buckets such a part touches stay empty. A partial figure is never shown as the whole.
+  - **The whole-window value** (bar "Compare machines", `sdWindow`): a number only when all of the window has one.
+- **Never sent to the platform as an aggregation**: `api.ts` `PLATFORM_AGGS` makes `fromPlatform` / `readAgg` (`series()`,
+  `windowAgg()`) throw before sending any other aggregation; the widgets branch to `core/sd.ts` before those.
+- **Buckets**:
+  - **Line / area**: `auto`. Each key gets the smallest step of `pickInterval`'s ladder that is at least
+    `pickInterval(span, 120)` and holds about 8 of its readings. Readings 5–10 min apart in 1-min buckets would leave
+    every bucket without a spread.
+  - **Bars** (15 min / hour / day) and **heatmap cells**: their own steps, at least the level's bucket.
+  - A point is stamped in its bucket's middle, as before.
+- **Cache**: kept 55 s (a window ending now) or 5 min (a past window), cleared by `api.clearCaches()`
+  (`onClearCaches`). Nothing is appended live; the next read is exact again.
+- **Availability** (`sdWhy`, `sdAvailability`; as the Analyzer, U-178):
+  - Disabled with **"Needs data summaries"** when:
+    - the service is off (no address) or paused (trouble less than 60 s ago);
+    - the licence's `dataCubes` is false (`licHas`: ON unless a licence says false);
+    - the service answered 403 `{error:'licence'}` in the last 10 minutes (seen by the summary call's fetch).
+  - Good or not known yet: offered.
+  - The editor checks again as the list opens (pointerdown / focusin on the Aggregation field), so the stale 'unknown'
+    of the first draw never decides (U-178 "Fixed (1)"). `sdFreshen` sets `disabled`, `data-sub` (the kit's muted
+    second line) and `title`.
+- **Drawn output**:
+  - The card header gets a **"Std. deviation"** chip (`statChip`, the time window chip's look). On a narrow card it
+    wraps under the title instead of pushing the title out.
+  - Line legend: "<name> · Std. deviation", shown even for one line.
+  - Bar tooltip: "<machine> · Std. deviation of <value>".
+  - Heatmap tooltip: "· Std. deviation". An empty cell of a part without one says "Not available".
+  - The value's colour rules and limits do not apply to its spread: no threshold lines, bars in series colours, the
+    heatmap ramp even with "Use the Colours rules".
+- **Plain sentences** (no platform or service names):
+  - **"Standard deviation needs data summaries, which are not available right now."**: the summaries are needed and
+    cannot be used. It takes the place of the chart, never an error.
+  - **"Standard deviation is not available for part of this period."**: the chart is drawn with a gap and the
+    sentence underneath (laid out before the drawing, so it never overlaps the axis). The sentence alone when nothing
+    is left to draw.
+  - "Standard deviation is not available for this period.": the summaries answered but cover none of it.
+- **Tests**: `widgets/test/sd.test.ts` (21). The fake summary service builds n / avg / m2 from the fake platform's
+  readings; every figure is compared with the plain two-pass sample sd of the readings (within 1e-9). Covered:
+  - Reads:
+    - 4 h from raw, whole and per bucket.
+    - 7 days of summaries plus a 1 h raw tail; 6 h buckets; an unaligned start; a 3 h raw head joined.
+    - A 10 h head gives a gap and 'part'. A bucket without m2. No coverage gives 'none'.
+    - The service down gives 'off', then no call while paused, and 1 h is still read raw. No address.
+    - Licence false: no read at all. A 403 licence answer greys the option.
+    - The cache.
+  - Never to the platform: series / windowAgg refuse SD without a request, and every test checks that no request had
+    `agg=SD`.
+  - The editor and wording: `sdWhy` and the fresh state, the choices, `sdFreshen`, the words.
+  - The schema: SD accepted, old dashboards parse, unknown codes refused.
+  - The automatic bucket.
+  - e2e "D-092: standard deviation ...": the line's choices, picking it, chip and legend, greyed with "Needs data
+    summaries" after a pause and offered again on focus, the 8 h sentence, bar offers it, no `agg=SD` request.
+- **Checks**: `npx tsc --noEmit` clean; `npx vitest run` **550 passed (35 files)**; `npm run build:widgets`;
+  `npm run test:e2e` **82 passed**. Deployed to LOCAL (`deploy-node.mjs --go`, skipAppDashboard).
+- **Live on LOCAL**: Playwright as the app admin, with a private fixture "Std deviation check (test)" on Blower 2 / 3 / 4
+  Airflow Rate (removed afterwards). The page's `/cubes-api/` was served from :8092 by the test browser, or aborted.
+  - 7 days ending 15 Nov 00:00 IST: bars per machine 1,195.0 / 542.0 / 189.4 CFM. The pooled sd from the summaries'
+    hourly n / avg / m2, worked out separately: 1194.9621 / 541.9604 / 189.4005.
+  - The line's 3 h bucket 8 Nov 03:00–06:00 IST: 22.0 CFM. The plain sd of its 238 raw readings: 22.0433.
+  - 26 Oct – 2 Nov (the summaries start 27 Oct 20:00 IST): gaps and "not available for part of this period".
+  - Summaries aborted: every card shows the plain sentence, and the Builder's list greys the choice with "Needs data
+    summaries".
+  - Light and dark at 1440 and 360 px. No `agg=SD` request.

@@ -263,7 +263,8 @@ export const WidgetSettings = z
     bands: z.array(Band).max(6).optional(),
     /** Status mapping value -> label/colour. */
     statusMap: z.array(z.object({ value: z.union([z.number(), z.string()]), label: z.string().max(60), color: LegacyColor })).max(8).optional(),
-    agg: z.enum(['NONE', 'AVG', 'MIN', 'MAX', 'SUM']).optional(),
+    /** D-092: 'SD' = the standard deviation (core/sd.ts; line, area, bar, heatmap), never sent to the platform. */
+    agg: z.enum(['NONE', 'AVG', 'MIN', 'MAX', 'SUM', 'SD']).optional(),
     /** 'day' is legacy (drawn per hour). */
     groupBy: z.enum(['15m', 'hour', 'day', 'device']).optional(),
     /** Per-widget override of the dashboard time range ('realtime' | '1h' | '2h' | '4h' | '8h' | 'shift' | 'prevshift'). */

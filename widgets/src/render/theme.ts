@@ -337,7 +337,10 @@ html[data-imx-mode="dark"] .dbb-root{--surface:${APP_DARK.surface};--surface-2:$
 .dbb-value .vl{white-space:nowrap}
 .dbb-value .v.cut{display:inline-block;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 .dbb-pill .pt.cut{display:inline-block;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.dbb-card-win{flex:none;font-size:11px;font-weight:600;line-height:1;color:var(--ink-2);background:var(--grid);border-radius:999px;padding:4px 8px;white-space:nowrap;cursor:default}
+.dbb-card-win,.dbb-card-stat{flex:none;font-size:11px;font-weight:600;line-height:1;color:var(--ink-2);background:var(--grid);border-radius:999px;padding:4px 8px;white-space:nowrap;cursor:default}
+/* D-092: the "Std. deviation" chip never pushes the title out: on a narrow card it goes to a second line */
+.dbb-card-h:has(> .dbb-card-stat){flex-wrap:wrap;row-gap:4px}
+.dbb-card-stat{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .dbb-value .lbl{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;margin-top:6px;color:#fff}
 .dbb-kpi{display:flex;flex-direction:column;height:100%;justify-content:var(--card-justify,space-between);gap:6px}
 .dbb-kpi .dbb-value{flex:0 0 auto}

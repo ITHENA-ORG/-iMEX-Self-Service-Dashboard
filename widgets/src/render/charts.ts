@@ -46,6 +46,8 @@ export interface Series {
   decimals?: number;
   /** Numeric points, oldest first. */
   points: { ts: number; value: number }[];
+  /** D-092: periods without a value (the standard deviation's "not available" parts): the line is never drawn across one. */
+  gaps?: { from: number; to: number }[];
 }
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -151,6 +153,8 @@ export interface LineOpts {
   endTs: number;
   /** Legend is shown for 2+ series unless this is false. */
   showLegend?: boolean;
+  /** D-092: the legend also for a single series (its name says what is drawn, e.g. "Airflow · Std. deviation"). */
+  legendOne?: boolean;
   /** Fill under each line (the y axis then includes 0). */
   area?: boolean;
   /** Stack series on top of each other (area widgets). */
@@ -200,7 +204,7 @@ export function lineChart(host: HTMLElement, series: Series[], opts: LineOpts) {
       return { ...s, points: pts, raw: s.points } as Series;
     });
   }
-  if (series.length > 1 && opts.showLegend !== false) {
+  if ((series.length > 1 || opts.legendOne) && opts.showLegend !== false) {
     const lg = document.createElement('div');
     lg.className = 'dbb-legend';
     lg.innerHTML = series.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('');
@@ -261,8 +265,12 @@ export function lineChart(host: HTMLElement, series: Series[], opts: LineOpts) {
     const med = steps[Math.floor(steps.length / 2)] || 0;
     // split on gaps > max(3x median step, 15 min) so offline periods are visible
     const runs: { ts: number; value: number }[][] = [];
+    // D-092: a "not available" period between two points always breaks the line
+    const holes = s.gaps ?? [];
     pts.forEach((p, k) => {
-      const gap = k > 0 && med > 0 && !base && p.ts - pts[k - 1].ts > Math.max(med * 3, 15 * 60e3);
+      const gap =
+        (k > 0 && med > 0 && !base && p.ts - pts[k - 1].ts > Math.max(med * 3, 15 * 60e3)) ||
+        (k > 0 && !base && holes.some((h) => h.from < p.ts && h.to > pts[k - 1].ts));
       if (!runs.length || gap) runs.push([]);
       runs[runs.length - 1].push(p);
     });
@@ -280,6 +288,8 @@ export function lineChart(host: HTMLElement, series: Series[], opts: LineOpts) {
         g += `<path d="${d}${floor}Z" fill="url(#g${uid}${i})" stroke="none"/>`;
       }
       g += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      // D-092: a single value between two "not available" periods is still seen
+      if (run.length === 1 && s.gaps) g += `<circle cx="${xy[0][0].toFixed(1)}" cy="${xy[0][1].toFixed(1)}" r="2.5" fill="${s.color}"/>`;
     }
   }
   for (const t of thr) {
@@ -660,7 +670,7 @@ export interface HeatRow {
  *   are the min/max over all cells; null cells use --grid. o.legend: ramp colours for a min..max
  *   legend (omit for rule colours). o.unit / o.decimals: formatting.
  */
-export function heatmap(host: HTMLElement, rows: HeatRow[], cols: number[], o: { bucketMs: number; colorOf(v: number, lo: number, hi: number): string; unit?: string; decimals?: number; legend?: string[] }) {
+export function heatmap(host: HTMLElement, rows: HeatRow[], cols: number[], o: { bucketMs: number; colorOf(v: number, lo: number, hi: number): string; unit?: string; decimals?: number; legend?: string[]; what?: string; isNa?: (r: number, c: number) => boolean }) {
   host.innerHTML = '';
   host.style.position = 'relative';
   const vs = rows.flatMap((r) => r.cells).filter((v): v is number => v != null && Number.isFinite(v));
@@ -712,7 +722,8 @@ export function heatmap(host: HTMLElement, rows: HeatRow[], cols: number[], o: {
     if (!row || t.getAttribute('data-r') === null) return void (tip.style.display = 'none');
     const v = row.cells[c];
     const hr = host.getBoundingClientRect();
-    tip.innerHTML = `<div style="opacity:.7">${esc(row.label ? row.label + ' · ' : '')}${esc(fmt.range(cols[c], cols[c] + o.bucketMs, { short: true }))}</div>${v == null ? 'No data' : `<b>${fmtNum(v, o.decimals ?? 1)}</b> ${esc(o.unit ?? '')}`}`;
+    // D-092: o.what names the figure ("Std. deviation"); a cell o.isNa marks says "Not available" instead of "No data"
+    tip.innerHTML = `<div style="opacity:.7">${esc(row.label ? row.label + ' · ' : '')}${esc(fmt.range(cols[c], cols[c] + o.bucketMs, { short: true }))}</div>${v == null ? (o.isNa?.(r, c) ? 'Not available' : 'No data') : `<b>${fmtNum(v, o.decimals ?? 1)}</b> ${esc(o.unit ?? '')}${o.what ? ` <span style="opacity:.7">· ${esc(o.what)}</span>` : ''}`}`;
     placeTip(host, tip, ev.clientX - hr.left, ev.clientY - hr.top);
   });
   svg.addEventListener('mouseleave', () => (tip.style.display = 'none'));

@@ -96,10 +96,11 @@ import { viewWindow, hasEnded, presetLabel, chipLabel } from '../core/viewwindow
 import type { ViewWindow } from '../core/viewwindow';
 import * as fmt from '../core/datefmt';
 import { cardSkeleton, topProgress, pageBusy } from './kit';
+import * as sd from '../core/sd';
 import { compatible } from '../core/compat';
 import { widgetLicensed } from '../core/licence';
 import { SERIES, SERIES_DARK, STATUS, SEVERITY_COLOR, RAMP_BLUE, RAMP_ORANGE, esc, fmtNum, ago, miniMarkdown, fontStack, loadFont, safeUrl, darkColor } from './theme';
-import { lineChart, barChart, gauge, sparkline, donut, stateTimeline, heatmap, Slice, TimelineRow, HeatRow } from './charts';
+import { lineChart, barChart, gauge, sparkline, donut, stateTimeline, heatmap, Slice, TimelineRow, HeatRow, Bar } from './charts';
 import { effectiveRules, matchRule, thresholdLines, stateLabel, valueType, asBool, cssColor } from './rules';
 import { sanitizeHtml, fillPlaceholders, placeholderKeys } from './rich';
 import { icon, ICON_SVG } from './icons';
@@ -590,6 +591,57 @@ function windowChip(body: HTMLElement, range: string | null) {
   chip.setAttribute('aria-label', tip);
 }
 
+/**
+ * D-092: the card says what its figure is when it is not the usual average ("Std. deviation"): a chip in the card's
+ * header beside the title (the time window chip's look), or the card's tooltip when the title is hidden. null removes it.
+ */
+export function statChip(body: HTMLElement, label: string | null) {
+  const card = body.closest('.dbb-card') as HTMLElement | null;
+  if (!card) return;
+  const head = card.querySelector(':scope > .dbb-card-h') as HTMLElement | null;
+  let chip = card.querySelector(':scope > .dbb-card-h > .dbb-card-stat') as HTMLElement | null;
+  if (!label) {
+    chip?.remove();
+    if (card.dataset.stattip) {
+      if (!card.dataset.wintip) card.removeAttribute('title');
+      delete card.dataset.stattip;
+    }
+    return;
+  }
+  if (!head) {
+    if (!card.dataset.wintip) {
+      card.title = label;
+      card.dataset.stattip = '1';
+    }
+    return;
+  }
+  if (!chip) {
+    chip = document.createElement('span');
+    chip.className = 'dbb-card-stat';
+    head.insertBefore(chip, head.querySelector(':scope > .dbb-card-win, :scope > .dbb-info'));
+  }
+  if (chip.textContent !== label) {
+    chip.textContent = label;
+    chip.title = label;
+  }
+}
+
+/**
+ * D-092: draws into the body with a short plain note underneath (the standard deviation's "not available" sentence).
+ * The note is laid out first, so the drawing measures the height that is left. Without a note it draws into the body.
+ */
+function withNote(body: HTMLElement, note: string, drawIn: (host: HTMLElement) => void) {
+  if (!note) return drawIn(body);
+  body.innerHTML = '';
+  body.style.display = 'flex';
+  body.style.flexDirection = 'column';
+  const host = document.createElement('div');
+  host.style.cssText = 'flex:1;min-height:0;position:relative;display:flex;flex-direction:column';
+  body.appendChild(host);
+  body.insertAdjacentHTML('beforeend', `<div class="dbb-ph dbb-sd-note" style="height:auto;flex:none">${esc(note)}</div>`);
+  drawIn(host);
+}
+
 /** Smallest font size a tile's value is drawn at (px); the status pill's text stops at 10 px. */
 export const MIN_VALUE_PX = 12;
 /**
@@ -717,6 +769,8 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
   // D-061: a time-based card with its own stored range (no viewer choice) says so on the card, so the page's
   // "Time window" never claims a period the card does not show.
   windowChip(body, ownRange && !LATEST_ONLY.has(w.type) ? range : null);
+  // D-092: the card says when it shows the standard deviation
+  statChip(body, sd.isSd(w.type, s.agg) ? sd.SD_LABEL : null);
   // The current shift so far (or a custom window still running) grows from a fixed start: its series are cached by that
   // start (api.series).
   const fixedStart = (view ? view.range === 'shift' || view.range === 'custom' : isShiftRange(range)) && !ended;
@@ -876,28 +930,44 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
   // One line per device x key, capped at MAX_SERIES; api.series picks the bucket size (~500 points).
   if (w.type === 'line' || w.type === 'area') {
     const agg = s.agg ?? 'AVG';
+    // D-092: the standard deviation is read through core/sd.ts (summaries + raw readings), never as a platform aggregation
+    const sdMode = agg === sd.SD;
+    const states: sd.SdState[] = [];
     const series: Parameters<typeof lineChart>[1] = [];
     let slot = 0;
     for (const d of devices) {
       if (series.length >= MAX_SERIES) break; // D-080: no read (and no subscription) for lines that are not drawn
-      const data = await api.series(d.id, w.keys, startTs, endTs, agg, 500, { fixedStart });
+      let data: Record<string, { ts: number; value: number }[]>;
+      let gaps: Record<string, sd.Range[]> = {};
+      if (sdMode) {
+        const r = await sd.sdSeries(d.id, w.keys, startTs, endTs, sd.sdStep(startTs, endTs), { fixedStart, auto: true });
+        data = r.points;
+        gaps = r.gaps;
+        states.push(r.state);
+      } else data = await api.series(d.id, w.keys, startTs, endTs, agg as api.Agg, 500, { fixedStart });
       for (const k of w.keys) {
         if (series.length >= MAX_SERIES) break;
         const meta = keyMeta(ctx, d.profile, k);
+        const name = devices.length > 1 ? `${d.label} · ${meta.displayName}` : meta.displayName;
         series.push({
-          name: devices.length > 1 ? `${d.label} · ${meta.displayName}` : meta.displayName,
+          name: sdMode ? `${name} · ${sd.SD_LABEL}` : name,
           color: palette[slot++ % palette.length],
           unit: s.unit ?? meta.unit,
           decimals: s.decimals ?? meta.decimals,
           points: data[k] ?? [],
+          ...(sdMode ? { gaps: gaps[k] ?? [] } : {}),
         });
       }
     }
+    const note = sdMode ? sd.sdNote(states) : '';
+    // nothing to draw: the plain sentence alone (never an error, never "No data" beside it)
+    if (note && (note === sd.SD_NOTE_OFF || note === sd.SD_NOTE_NONE || series.every((x) => !x.points.length))) return void placeholder(body, note);
     body.style.display = 'flex';
     body.style.flexDirection = 'column';
     // With several keys, threshold lines are drawn only if no rule is scoped to a single key (the axis is shared).
-    const thr = s.showThresholds === false ? [] : thresholdLines(rules, w.keys.length === 1 ? w.keys[0] : undefined).filter((t) => w.keys.length === 1 || !rules.some((r) => r.key));
-    lineChart(body, series, { startTs, endTs, showLegend: s.showLegend, area: w.type === 'area', stacked: w.type === 'area' && !!s.stacked, smooth: s.smooth, thresholds: thr });
+    // D-092: the value's rules are not limits of its spread: none over a standard deviation
+    const thr = sdMode || s.showThresholds === false ? [] : thresholdLines(rules, w.keys.length === 1 ? w.keys[0] : undefined).filter((t) => w.keys.length === 1 || !rules.some((r) => r.key));
+    withNote(body, note, (host) => lineChart(host, series, { startTs, endTs, showLegend: s.showLegend, legendOne: sdMode, area: w.type === 'area', stacked: w.type === 'area' && !!s.stacked, smooth: s.smooth, thresholds: thr }));
     if (bound.hidden) body.insertAdjacentHTML('beforeend', `<div class="dbb-ph" style="height:auto">${bound.hidden} machine(s) not shown: no data in your scope</div>`);
     // Lines cut by the MAX_SERIES cap: from drawn devices and from devices beyond the cap.
     const dropped = devices.length * w.keys.length - series.length + moreDevices * w.keys.length;
@@ -913,9 +983,42 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     const group = s.groupBy === 'day' ? 'hour' : s.groupBy ?? (devices.length > 1 ? 'device' : endTs - startTs <= 2 * 3600e3 ? '15m' : 'hour');
     const meta = keyMeta(ctx, d0.profile, key);
     const dec = s.decimals ?? meta.decimals;
+    // D-092: the standard deviation (core/sd.ts); the value's colour rules and limits do not apply to its spread
+    const sdMode = agg === sd.SD;
     // Bar colour: matching rule colour, else the series colour.
-    const col = (v: number | null, fallback: string) => (v != null && matchRule(rules, v, key)?.color) || fallback;
-    const thr = s.showThresholds === false ? [] : thresholdLines(rules, key);
+    const col = (v: number | null, fallback: string) => (!sdMode && v != null && matchRule(rules, v, key)?.color) || fallback;
+    const thr = sdMode || s.showThresholds === false ? [] : thresholdLines(rules, key);
+    if (sdMode) {
+      const states: sd.SdState[] = [];
+      let bars: Bar[];
+      if (group === 'device') {
+        bars = await Promise.all(
+          devices.map(async (d, i) => {
+            const r = await sd.sdWindow(d.id, key, startTs, endTs, { fixedStart });
+            states.push(r.state);
+            return { label: d.label, value: r.value, color: palette[i % palette.length], detail: `${d.label} · ${sd.SD_LABEL} of ${meta.displayName}` };
+          }),
+        );
+      } else {
+        const step0 = group === '15m' ? 15 * 60e3 : endTs - startTs > 48 * 3600e3 ? 86400e3 : 3600e3;
+        const r = await sd.sdSeries(d0.id, [key], startTs, endTs, step0, { fixedStart });
+        states.push(r.state);
+        // a bucket that is not available keeps its slot (no bar), so the gap shows
+        const slots = [...(r.points[key] ?? []).map((p) => ({ ts: p.ts, value: p.value as number | null }))];
+        for (const g of r.gaps[key] ?? []) for (let t = g.from; t < g.to; t += r.step) slots.push({ ts: t + Math.floor(r.step / 2), value: null });
+        slots.sort((a, b) => a.ts - b.ts);
+        bars = slots.map((p) => ({
+          label: r.step >= 86400e3 ? fmt.date(p.ts, { short: true }) : fmt.time(p.ts),
+          value: p.value,
+          color: palette[0],
+          detail: `${d0.label} · ${fmt.dateTime(p.ts, { short: true })} · ${p.value == null ? 'not available' : sd.SD_LABEL}`,
+        }));
+      }
+      const note = sd.sdNote(states);
+      if (note === sd.SD_NOTE_OFF || note === sd.SD_NOTE_NONE || (note && bars.every((b) => b.value == null))) return void placeholder(body, note);
+      withNote(body, note, (host) => barChart(host, bars, { unit: s.unit ?? meta.unit, decimals: dec, thresholds: thr }));
+      return undefined;
+    }
     if (group === 'device') {
       const bars = await Promise.all(
         devices.map(async (d, i) => {
@@ -949,7 +1052,8 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     const mode = s.donutMode ?? (devices.length > 1 ? 'devices' : 'state');
     // 'devices' = share of an aggregate by machine; 'state' = hours spent in each state of one machine.
     if (mode === 'devices') {
-      const agg = s.agg && s.agg !== 'NONE' ? s.agg : 'AVG';
+      // D-092: a share of standard deviations means nothing: a donut kept from another type's 'SD' shows the average
+      const agg = s.agg && s.agg !== 'NONE' && s.agg !== sd.SD ? s.agg : 'AVG';
       const vals = await Promise.all(devices.map((d) => aggValue(d.id, key, startTs, endTs, agg, fixedStart)));
       const slices: Slice[] = devices.map((d, i) => ({ label: d.label, value: Math.max(0, vals[i] ?? 0), color: palette[i % palette.length], detail: `${d.label} · ${agg.toLowerCase()} ${meta.displayName}` }));
       donut(body, slices, { unit: s.unit ?? meta.unit, decimals: s.decimals ?? meta.decimals });
@@ -1018,8 +1122,25 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     const cols: number[] = [];
     for (let t = first; t < endTs; t += bucketMs) cols.push(t);
     const agg = s.agg && s.agg !== 'NONE' ? s.agg : 'AVG';
+    // D-092: the standard deviation per cell (core/sd.ts); cells of a part without one are "Not available"
+    const sdMode = agg === sd.SD;
+    const states: sd.SdState[] = [];
+    const naCells: boolean[][] = [];
     const rows: HeatRow[] = await Promise.all(
-      devices.map(async (d) => {
+      devices.map(async (d, di) => {
+        if (sdMode) {
+          const r = await sd.sdSeries(d.id, [key], first, endTs, bucketMs, { fixedStart });
+          states.push(r.state);
+          const cells: (number | null)[] = cols.map(() => null);
+          const na: boolean[] = cols.map(() => false);
+          for (const p of r.points[key] ?? []) {
+            const i = Math.floor((p.ts - first) / bucketMs);
+            if (i >= 0 && i < cells.length) cells[i] = p.value;
+          }
+          for (const g of r.gaps[key] ?? []) for (let i = Math.max(0, Math.floor((g.from - first) / bucketMs)); i < cells.length && first + i * bucketMs < g.to; i++) na[i] = true;
+          naCells[di] = na;
+          return { label: devices.length > 1 ? d.label : '', cells };
+        }
         const r = await api.getCached<any>(
           `heat|${d.id}|${key}|${agg}|${bucketMs}|${first}`,
           `/api/plugins/telemetry/DEVICE/${d.id}/values/timeseries?keys=${encodeURIComponent(key)}&startTs=${first}&endTs=${endTs}&agg=${agg}&interval=${bucketMs}&limit=500&orderBy=ASC`,
@@ -1038,14 +1159,20 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     // step (close to the card colour) is left out
     const ramp0 = s.heatColor === 'orange' ? RAMP_ORANGE : RAMP_BLUE;
     const ramp = env.dark ? [...ramp0].reverse().slice(1) : ramp0;
-    const useRules = s.heatColor === 'rules' && rules.length;
-    heatmap(body, rows, cols, {
-      bucketMs,
-      unit: s.unit ?? meta.unit,
-      decimals: s.decimals ?? meta.decimals,
-      legend: useRules ? undefined : ramp,
-      colorOf: (v, lo, hi) => (useRules ? matchRule(rules, v, key)?.color ?? 'var(--grid)' : ramp[Math.min(ramp.length - 1, Math.floor(((v - lo) / (hi - lo || 1)) * ramp.length))]),
-    });
+    // D-092: the value's colour rules say nothing about its spread: a standard deviation always uses the ramp
+    const useRules = !sdMode && s.heatColor === 'rules' && rules.length;
+    const note = sdMode ? sd.sdNote(states) : '';
+    if (note && (note === sd.SD_NOTE_OFF || note === sd.SD_NOTE_NONE || rows.every((r) => r.cells.every((c) => c == null)))) return void placeholder(body, note);
+    withNote(body, note, (host) =>
+      heatmap(host, rows, cols, {
+        bucketMs,
+        unit: s.unit ?? meta.unit,
+        decimals: s.decimals ?? meta.decimals,
+        legend: useRules ? undefined : ramp,
+        colorOf: (v, lo, hi) => (useRules ? matchRule(rules, v, key)?.color ?? 'var(--grid)' : ramp[Math.min(ramp.length - 1, Math.floor(((v - lo) / (hi - lo || 1)) * ramp.length))]),
+        ...(sdMode ? { what: sd.SD_LABEL, isNa: (r: number, c: number) => !!naCells[r]?.[c] } : {}),
+      }),
+    );
     return undefined;
   }
 

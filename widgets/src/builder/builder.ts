@@ -64,6 +64,7 @@ import { modal, confirmModal, toast, relTime, initials, avatarColor, ST_ICON } f
 import { picker, sectionize } from './controls';
 import { audit } from '../core/audit';
 import * as lic from '../core/licence';
+import * as sd from '../core/sd';
 import { compatible, metaLookup, propKind } from '../core/compat';
 import type { KeyMeta } from '../core/types';
 import * as dfmt from '../core/datefmt';
@@ -1792,8 +1793,15 @@ class Builder {
       f.push(sel('compare', 'Change badge', [['start', 'Change since start of range'], ['none', 'Hide']], s.compare ?? 'start'));
       f.push(chk('upIsGood', 'Going up is good (green)', s.upIsGood !== false));
     }
-    if (['line', 'area', 'bar', 'heatmap'].includes(w.type) || (w.type === 'donut' && s.donutMode === 'devices'))
-      f.push(sel('agg', 'Aggregation', (w.type === 'line' || w.type === 'area' ? ['AVG', 'MIN', 'MAX', 'NONE'] : ['AVG', 'MIN', 'MAX', 'SUM']).map((a) => [a, a === 'NONE' ? 'Raw values' : a.toLowerCase()]) as [string, string][], s.agg ?? 'AVG'));
+    if (['line', 'area', 'bar', 'heatmap'].includes(w.type) || (w.type === 'donut' && s.donutMode === 'devices')) {
+      // D-092: "standard deviation" on line, area, bar and heatmap; disabled with "Needs data summaries" while the
+      // summaries cannot be used (checked again as the list opens, wireAppearance)
+      const cur = s.agg ?? 'AVG';
+      const opts = sd.aggChoices(w.type, sd.isSd(w.type, sd.SD) ? sd.sdAvailability() : '')
+        .map((o) => `<option value="${o.v}" ${o.v === cur ? 'selected' : ''}${o.disabled ? ` disabled data-sub="${esc(o.sub ?? '')}" title="${esc(o.sub ?? '')}"` : ''}>${esc(o.l)}</option>`)
+        .join('');
+      f.push(`<label class="dbb-field"><span>Aggregation</span><select data-ap="agg">${opts}</select></label>`);
+    }
     if (w.type === 'line' || w.type === 'area') {
       f.push(chk('smooth', 'Smooth lines', !!s.smooth));
       if (w.type === 'area') f.push(chk('stacked', 'Stack series (same unit only)', !!s.stacked));
@@ -1823,6 +1831,15 @@ class Builder {
    * default false, empty inputs mean "use the catalogue default"). Each change is one undo step.
    */
   wireAppearance(panel: HTMLElement, w: Widget) {
+    // D-092: the standard deviation's availability can change while the form is open (the summaries answer, pause or
+    // come back): checked again as the Aggregation list is about to open (pointer before the click, focus before a key)
+    const aggSel = panel.querySelector<HTMLSelectElement>('select[data-ap="agg"]');
+    const aggField = aggSel?.closest('.dbb-field');
+    if (aggSel && aggField) {
+      const fresh = () => sd.sdFreshen(aggSel);
+      aggField.addEventListener('pointerdown', fresh, true);
+      aggField.addEventListener('focusin', fresh, true);
+    }
     panel.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-ap]').forEach((inp) =>
       inp.addEventListener('change', () =>
         this.updateWidget(w.id, (x) => {

@@ -2457,6 +2457,50 @@ test('D-063: "?" Help for this page at the right end of the machine bar and the 
   ok(!(await t.page.$('.dbb-rhelp')), 'no "?" on a phone');
 });
 
+test('D-092: standard deviation: offered on a line chart, drawn as "Std. deviation", greyed while the summaries are paused, a plain note on a long window', async (t) => {
+  const AGG = '.dbb-right select[data-ap="agg"]';
+  await t.addWidget('line');
+  await t.idle();
+  const opts = await t.b((s) => [...document.querySelector(s).options].map((o) => [o.value, o.textContent, o.disabled]), AGG);
+  eq(opts, [['AVG', 'avg', false], ['MIN', 'min', false], ['MAX', 'max', false], ['SD', 'standard deviation', false], ['NONE', 'Raw values', false]], 'line choices (the summaries not known yet: offered)');
+  await t.page.selectOption(AGG, 'SD');
+  await t.idle(900);
+  eq((await t.draft()).widgets[0].settings.agg, 'SD', 'stored as SD');
+  // a 1 h window: from the raw readings, no summary service needed
+  await t.page.waitForFunction(() => /Std\. deviation/.test(document.querySelector('.dbb-canvas .dbb-card .dbb-card-stat')?.textContent ?? ''), null, { timeout: 5000 });
+  const card = await t.b(() => {
+    const b = document.querySelector('.dbb-canvas .dbb-card-b');
+    return { legend: b.querySelector('.dbb-legend')?.textContent ?? '', svg: !!b.querySelector('svg'), text: b.textContent };
+  });
+  ok(/· Std\. deviation/.test(card.legend), `legend names the figure: ${card.legend}`);
+  ok(card.svg, `drawn: ${card.text}`);
+  eq(await t.cardErrors(), [], 'no card errors');
+  // the summaries paused (trouble a moment ago): greyed with the reason, checked again as the list opens
+  await t.b(() => {
+    globalThis.__imxCubeState = { ...(globalThis.__imxCubeState || {}), '/cubes-api': { t: Date.now(), ok: false } };
+  });
+  await t.page.dispatchEvent(AGG, 'pointerdown');
+  const sdOpt = await t.b((s) => { const o = [...document.querySelector(s).options].find((x) => x.value === 'SD'); return [o.disabled, o.getAttribute('data-sub'), o.textContent]; }, AGG);
+  eq(sdOpt, [true, 'Needs data summaries', 'standard deviation'], 'greyed with the reason');
+  // an 8 h window needs the summaries: the existing widget shows the plain note, never an error
+  await t.click('.dbb-top [data-rng="hist"]');
+  await t.page.selectOption('.dbb-top [data-a="range"]', '8h');
+  await t.page.waitForFunction(() => /Standard deviation needs data summaries, which are not available right now\./.test(document.querySelector('.dbb-canvas .dbb-card-b')?.textContent ?? ''), null, { timeout: 6000 });
+  eq(await t.cardErrors(), [], 'no card errors with the summaries paused');
+  // the summaries back: offered again as the list opens
+  await t.b(() => {
+    globalThis.__imxCubeState = { ...(globalThis.__imxCubeState || {}), '/cubes-api': { t: Date.now(), ok: true } };
+  });
+  await t.page.dispatchEvent(AGG, 'focusin');
+  eq(await t.b((s) => [...document.querySelector(s).options].find((x) => x.value === 'SD').disabled, AGG), false, 'offered again');
+  // bar and heatmap offer it too; the donut "share by machine" does not
+  await t.page.selectOption('.dbb-right [data-s="type"]', 'bar');
+  await t.idle(600);
+  ok(await t.b((s) => [...document.querySelector(s).options].some((o) => o.value === 'SD'), AGG), 'bar offers it');
+  // the platform is never asked for a standard deviation
+  eq(await t.b(() => window.__tb.urls.filter((u) => /[?&]agg=SD\b/.test(u))), [], 'no agg=SD request');
+});
+
 // ------------------------------------------------------------------ run
 
 const only = process.argv.slice(2).map((s) => s.toLowerCase());

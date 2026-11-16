@@ -398,8 +398,18 @@ export async function series(
 
 type Points = Record<string, { ts: number; value: number }[]>;
 
+/**
+ * D-092: the aggregations the platform computes. The standard deviation ('SD', core/sd.ts) is not one of them: a request
+ * with any other aggregation is refused here, before it is sent (the platform would answer it with an error).
+ */
+export const PLATFORM_AGGS: readonly string[] = ['NONE', 'AVG', 'MIN', 'MAX', 'SUM', 'COUNT'];
+function platformAgg(agg: string): void {
+  if (!PLATFORM_AGGS.includes(agg)) throw new Error(`aggregation ${agg} is not read from the platform`);
+}
+
 /** `series()`'s read before data summaries (D-083: still the read for anything the summaries do not cover). */
 async function fromPlatform(deviceId: string, keys: string[], startTs: number, endTs: number, agg: Agg, interval: number, maxPoints: number): Promise<Points> {
+  platformAgg(agg);
   const q =
     `keys=${encodeURIComponent(keys.join(','))}&startTs=${startTs}&endTs=${endTs}&limit=${maxPoints * 4}` +
     (agg === 'NONE' ? '&agg=NONE&orderBy=ASC' : `&agg=${agg}&interval=${interval}&orderBy=ASC`);
@@ -416,6 +426,18 @@ let cubesBase: string | null | undefined;
 /** Sets the summary service's address (the widget setting cubesServiceUrl; tests). */
 export function setCubesBase(v: unknown) {
   cubesBase = v === undefined ? undefined : v === null ? null : String(v);
+}
+/** D-092: the summary service's address as set (undefined = the default '/cubes-api'; '' / null = none). */
+export function cubesAddress(): string | null | undefined {
+  return cubesBase;
+}
+/** D-092: the signed-in user's token, or null without one (no call is made then). */
+export function jwtOrNull(): string | null {
+  try {
+    return token();
+  } catch {
+    return null;
+  }
 }
 /** The summary field that answers each aggregation. */
 const CUBE_FIELD: Partial<Record<Agg, 'avg' | 'min' | 'max' | 'sum' | 'n'>> = { AVG: 'avg', MIN: 'min', MAX: 'max', SUM: 'sum', COUNT: 'n' };
@@ -543,6 +565,7 @@ const aggCache = new Map<string, { fetchedAt: number; readEnd: number; value: nu
 
 /** Reads one aggregate bucket covering the whole window; null when the window has no data. */
 async function readAgg(deviceId: string, key: string, startTs: number, endTs: number, agg: string): Promise<number | null> {
+  platformAgg(agg);
   const r = await get<any>(
     `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${encodeURIComponent(key)}&startTs=${startTs}&endTs=${endTs}&agg=${agg}&interval=${Math.max(1, endTs - startTs)}&limit=10`,
   );
@@ -623,11 +646,18 @@ export async function windowAgg(
   return value;
 }
 
+const clearHooks: (() => void)[] = [];
+/** D-092: `fn` runs with every clearCaches() (core/sd.ts keeps its own short cache). */
+export function onClearCaches(fn: () => void) {
+  if (!clearHooks.includes(fn)) clearHooks.push(fn);
+}
+
 /**
  * Clears the caches (tests; the builder on open, D-029). The summary service's shared state (pause / known good, D-084)
  * is not touched: it belongs to every widget and page of the browser (tests: cube.cubeReset()).
  */
 export function clearCaches() {
+  for (const f of clearHooks) f();
   seriesCache.clear();
   aggCache.clear();
   getCache.clear();

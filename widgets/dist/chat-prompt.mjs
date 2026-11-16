@@ -4166,7 +4166,8 @@ var WidgetSettings = external_exports.object({
   bands: external_exports.array(Band).max(6).optional(),
   /** Status mapping value -> label/colour. */
   statusMap: external_exports.array(external_exports.object({ value: external_exports.union([external_exports.number(), external_exports.string()]), label: external_exports.string().max(60), color: LegacyColor })).max(8).optional(),
-  agg: external_exports.enum(["NONE", "AVG", "MIN", "MAX", "SUM"]).optional(),
+  /** D-092: 'SD' = the standard deviation (core/sd.ts; line, area, bar, heatmap), never sent to the platform. */
+  agg: external_exports.enum(["NONE", "AVG", "MIN", "MAX", "SUM", "SD"]).optional(),
   /** 'day' is legacy (drawn per hour). */
   groupBy: external_exports.enum(["15m", "hour", "day", "device"]).optional(),
   /** Per-widget override of the dashboard time range ('realtime' | '1h' | '2h' | '4h' | '8h' | 'shift' | 'prevshift'). */
