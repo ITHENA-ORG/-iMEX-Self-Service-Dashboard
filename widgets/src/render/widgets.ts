@@ -798,7 +798,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     const key = w.keys[0];
     const meta = keyMeta(ctx, d0.profile, key);
     const lv = (await valuesOf(d0.id, [key]))[key];
-    if (!lv) return void placeholder(body, ended ? `No ${meta.displayName} value before the end of this time window` : `Not available on this device (${d0.label} doesn't report ${meta.displayName})`);
+    if (!lv) return void placeholder(body, ended ? `No ${meta.displayName} value before the end of this time window` : `Not available for this machine (${d0.label} doesn't report ${meta.displayName})`);
     const v = Number(lv.value);
     const unit = s.unit ?? meta.unit;
     const dec = s.decimals ?? meta.decimals;
@@ -900,7 +900,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
         const x = lv[k];
         const r = x ? matchRule(rules, x.value, k) : null;
         const vt = valueType(meta, x?.value);
-        const val = !x ? '<span class="u" title="Not available on this device">—</span>' : vt === 'number' ? `${fmtVal(x.value, s.decimals ?? meta.decimals)}<span class="u">${esc(meta.unit)}</span>` : esc(r?.label ?? stateLabel(x.value, rules, meta, k));
+        const val = !x ? '<span class="u" title="This machine does not report this value">—</span>' : vt === 'number' ? `${fmtVal(x.value, s.decimals ?? meta.decimals)}<span class="u">${esc(meta.unit)}</span>` : esc(r?.label ?? stateLabel(x.value, rules, meta, k));
         const colorText = r && s.colorTarget === 'value';
         return `<div class="dbb-mv-row"><span class="dbb-dot" style="background:${r?.color ?? 'var(--grid)'}"></span><span class="k" title="${esc(meta.displayName)}">${esc(meta.displayName)}</span><span class="v" ${colorText ? `style="color:${r!.color}"` : ''}>${val}</span>${r?.label && vt === 'number' ? `<span class="dbb-muted" style="font-size:11px;color:${r.color};font-weight:600">${esc(r.label)}</span>` : ''}</div>`;
       })
@@ -1192,7 +1192,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
             `<tr><td>${esc(d.label)}</td>${w.keys
               .map((k, i) => {
                 const x = v[k];
-                if (!x) return `<td><span title="Not available on this device">—</span></td>`;
+                if (!x) return `<td><span title="This machine does not report this value">—</span></td>`;
                 const r = matchRule(rules, x.value, k);
                 const vt = valueType(metas[i], x.value);
                 const txt = vt === 'number' ? fmtVal(x.value, s.decimals ?? metas[i].decimals) : esc(stateLabel(x.value, rules, metas[i], k));

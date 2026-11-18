@@ -721,7 +721,7 @@ export function summary(grants: unknown, tree: Tree | TreeSpec, opts: { exists?:
   for (const p of Object.keys(fixed).sort((a, b) => (a && b ? byPath(a, b) : cmp(a ? 0 : 1, b ? 0 : 1)))) {
     const ids = fixed[p];
     lines.push({
-      text: `${p ? nameOf(T, names, p) : 'Not in a location'} · ${plural(ids.length, 'machine', 'machines')} (fixed)`,
+      text: `${p ? nameOf(T, names, p) : 'Not at a site'} · ${plural(ids.length, 'machine', 'machines')} (fixed)`,
       tip: `${ids
         .map((d) => nameOf(T, names, d))
         .sort(cmp)
@@ -733,7 +733,7 @@ export function summary(grants: unknown, tree: Tree | TreeSpec, opts: { exists?:
   if (goneD) lines.push({ text: goneD + (goneD === 1 ? ' machine no longer exists' : ' machines no longer exist'), tip: 'It will be removed when you save.', kind: 'warn' });
   if (outside.length)
     lines.push({
-      text: `+${plural(outside.length, 'location', 'locations')} outside your access (kept)`,
+      text: `+${plural(outside.length, 'site', 'sites')} outside your access (kept)`,
       tip: outside
         .map((g) => nameOf(T, names, g.id))
         .filter(Boolean)

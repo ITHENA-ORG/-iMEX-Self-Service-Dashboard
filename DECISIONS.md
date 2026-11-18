@@ -1656,3 +1656,17 @@ Findings W-38, W-14, S-09, W-22, R-07 (Builder widgets) and S-01, S-02, D-08 (th
 - Checks: `tsc` clean; vitest **553 passed** (35 files; new: `stopsParams`, `machineNoAccessHtml` kit and copy);
   `npm run test:e2e` all passed; `npm run build:widgets`; deployed to LOCAL (`deploy-node.mjs --go`, skipAppDashboard).
 - Help: the machine page's Stops button and the "not in your access" page (Machines Help article).
+
+### D-095 Wording: no "device" on the dashboard cards; access summary lines say sites (18 Nov 2026; Akshay's go-ahead "Yes, fix them" for App UI U-210's list; App UI U-211)
+
+- A card whose machine does not send its value says **"Not available for this machine (<machine> doesn't report <value>)"**
+  (was "Not available on this device (...)"); the "—" cells of the multi-value and table cards have the tooltip **"This
+  machine does not report this value"**; the Save warning names the new text (`render/widgets.ts`, `builder/builder.ts`).
+- `core/access.ts` summary lines, the same text as the App UI's `widgets/_shared/access.js`: **"Not at a site"** (was "Not
+  in a location") and **"+N sites outside your access (kept)"** (was locations); `widgets/test/access-vectors.json`
+  byte-identical with the App UI's (also in Reports, AI Insights, Cubes).
+- Checks: `tsc` clean; vitest 553 passed; `npm run test:e2e` all passed; `npm run build:widgets`; deployed to LOCAL
+  (`deploy-node.mjs --go`, dbb_lib_version 2026-11-18T06:21:26.632Z); server: the three widget types with
+  `push-widgets-target.mjs --only=imex_dbb_*` (dry run first, backup `backups/2026-11-18/`), then the App UI's
+  `dbb-version-set.mjs` (store stamp 2026-11-16T20:07:41.778Z -> 2026-11-18T06:21:26.632Z, dry run first).
+- Help: the Dashboards guide and question ("Not available for this machine"), App UI repo.

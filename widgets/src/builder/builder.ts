@@ -2186,7 +2186,7 @@ class Builder {
       const pv = await store.previewApply(this.ctx, d, { type: 'devices', deviceIds: scope.allDevices(this.ctx, d.profile).map((x) => x.id).slice(0, 50), mode: 'linked' }).catch(() => null);
       if (pv?.missingKeys.length) {
         const txt = pv.missingKeys.map((m) => `${m.devices.length} of ${pv.affected.length} ${d.profile} machines don't report ${keyMeta(this.ctx, d.profile!, m.key).displayName} (${m.devices.join(', ')})`).join('; ');
-        if (!(await confirmModal(this.root, 'Some machines lack a property', `${txt}. Those widgets will show "Not available on this device". Save anyway?`, 'Save anyway'))) return;
+        if (!(await confirmModal(this.root, 'Some machines lack a property', `${txt}. Those widgets will show "Not available for this machine". Save anyway?`, 'Save anyway'))) return;
       }
     }
     this.setBusy(true, 'Saving…');
