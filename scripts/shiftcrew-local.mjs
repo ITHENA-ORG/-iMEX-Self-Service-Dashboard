@@ -9,8 +9,8 @@
 //    three value cards on Moulding Machine 1 (On shift: Primary operator, On shift: Shift manager, Current shift).
 //    The dashboard is KEPT (Akshay's review); running the script again rewrites it.
 // 2. Screenshots: light, dark (the user's own mode, put back afterwards), phone width (390 px), the builder's property
-//    list of a value card, the Help guide; then as the Viewer (VIEWER_EMAIL, default viewer+imex@ithena.ai; Crew
-//    Hidden in the built-in Viewer role): the shift without names.
+//    list of a value card, the Help guide; then as the Viewer (VIEWER_EMAIL, default viewer+imex@ithena.ai; Crew roster
+//    Hidden in the built-in Viewer role): the shift and the names (Akshay 19 Nov, Option 1: every dashboard viewer).
 // Credentials: .env TB_URL (must be LOCAL), APP_USER_PASSWORD or LOCAL_USER_PASSWORD; nothing is printed.
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -166,8 +166,11 @@ try {
   const txt = await openBoard(V.page).catch(async (e) => { results.push('viewer: ' + e.message); return V.page.evaluate(() => [...document.querySelectorAll('.dbb-rend .dbb-card')].map((c) => c.innerText.replace(/\s+/g, ' ').trim())); });
   await V.page.screenshot({ path: join(OUT, 'viewer-light.png') });
   results.push('viewer texts: ' + JSON.stringify(txt));
-  check(txt.some((t) => /Your role does not allow this/.test(t)), 'viewer: the shared no-access sentence');
-  check(txt.some((t) => /Morning|Afternoon|Night|Between shifts|No data in your scope/.test(t)), 'viewer: the shift (or no access to that site) shown');
+  // Akshay 19 Nov (Option 1): every dashboard viewer sees the names (Crew roster guards only its own page)
+  const pune = txt.find((t) => /Pune/.test(t)) || '';
+  check(/Shift manager \S+/.test(pune) && !/Shift manager (Nobody planned|Names not available)/.test(pune), `viewer: names on the Pune card (${pune.slice(0, 220)})`);
+  check(!txt.some((t) => /Your role does not allow this/.test(t)), 'viewer: no role wording');
+  check(txt.some((t) => /Morning|Afternoon|Night|Between shifts/.test(t)), 'viewer: the shift shown');
 } finally {
   await V.ctx.close();
 }

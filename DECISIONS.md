@@ -1712,11 +1712,12 @@ What a dashboard can show now, all worked out in the browser (nothing stored, no
 - **Names, and who sees them.** The names come the app's own way (Settings › Crew, Users & roles, Losses): a customer
   user `GET /api/users` (its own customer's people; checked on LOCAL 4.3.1.5: 200 for the Admin and the Viewer, 14
   users), a tenant administrator `GET /api/customer/{id}/users` (the launcher's customer, else the customer of System
-  Configuration). No new privilege, no relay. A role with **Crew = Hidden** (the built-in Viewer and the Operator
-  template) sees the shift but no names: the crew parts say the shared sentence `MSG.noAccess` ("Your role does not allow
-  this. If you need it, ask your administrator.") and the people are not read. Admin, Supervisor (Crew Full) and tenant
-  administrators see names. As everywhere in the app this is what the app shows, not a platform boundary (D-012): any
-  customer user can read `imexCrew` and the user list through the platform.
+  Configuration). No new privilege, no relay. **Akshay 19 Nov chose names visible to all dashboard viewers ("Option
+  1")**: everyone who can open the dashboard sees who is on shift, whatever their role's Crew roster level (the built-in
+  Viewer and the Operator template included); the Crew roster permission still guards only the app's Settings › Crew
+  roster page. (The first build of this entry hid names from Crew = Hidden roles; removed.) A person missing from the
+  list shows "Name not available"; when the list cannot be read at all the crew parts say "Names not available" (not a
+  role sentence), and the next update asks again (a failed read is not kept).
 - **The page bar** of a dashboard whose cards read no machine data (only Current shift / computed / text cards) no
   longer says "Waiting for data…" for ever: the "Updated" indicator is hidden (`renderer.ts readsData`).
 
@@ -1728,15 +1729,16 @@ customerPeople), `core/schema.ts`, `core/compat.ts`, `core/scope.ts` (NOT_OFFERE
 (new), `fake-tb.ts` (users, asset), `widgets/harness/harness.ts` (`?crew=1`), `widgets/e2e/builder.e2e.mjs` (3 new
 scenarios, the palette lists 20 types); `scripts/shiftcrew-local.mjs` (LOCAL check with screenshots).
 
-Checks: `tsc` clean; vitest 575 passed (553 + crew vectors 10 + shiftcrew 12); `npm run test:e2e` all passed (85);
+Checks: `tsc` clean; vitest 576 passed (553 + crew vectors 10 + shiftcrew 13); `npm run test:e2e` all passed (85);
 `npm run build:widgets`; deployed to LOCAL from the worktree (`deploy-node.mjs --go`, the chat relay chain rewritten for
 the new prompt; backup `backups/2026-11-19-shiftcrew/`); `node scripts/shiftcrew-local.mjs`: the LOCAL overview
 dashboard **"Shift and crew"** (id `dshiftcrew1`, shared, kept): Current shift cards for Mumbai and Pune with the crew,
 value cards "On shift: Primary operator", "On shift: Shift manager" (Neha Kapoor) and "Current shift" on Moulding
-Machine 1; light, dark, phone (no sideways scroll), the builder's property list, the Viewer (no names, the shared
-sentence). Not on the server: the release needs the three widget types and the chat relay chain (server mode of
+Machine 1; light, dark, phone (no sideways scroll), the builder's property list, the Viewer (Vera Viewer: the names on
+the Pune card, no role wording). Not on the server: the release needs the three widget types and the chat relay chain (server mode of
 `deploy-node.mjs`, the prompt changed).
 - Help: App UI U-218 (guide "Show the current shift and who is on shift", two questions; clip
   `dashboard-builder-shift-crew` for the end batch). The script's Help check fails on LOCAL at the moment: another
   session (App UI worktree `wt-delivery-appui`) pushed its own Help build over it minutes later; after both branches are
-  merged the App UI's help-build / help-content-push / push-widgets --only=imex_help put it back.
+  merged the App UI's help-build / help-content-push / push-widgets --only=imex_help put it back (not pushed from here:
+  the coordinator builds Help after the merge).

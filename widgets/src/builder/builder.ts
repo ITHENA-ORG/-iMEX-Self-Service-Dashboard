@@ -1853,7 +1853,7 @@ class Builder {
     if (w.type === 'shiftinfo')
       f.push(
         chk('showCrew', 'Show who is on shift', !!s.showCrew),
-        `<div class="dbb-hint">The people on shift now and their crew role, from the crew roster of the site. People whose role does not show the crew roster see no names.</div>`,
+        `<div class="dbb-hint">The people on shift now and their crew role, from the crew roster of the site. Everyone who can open the dashboard sees the names.</div>`,
       );
     return f.join('') || '<div class="dbb-hint">No options for this widget.</div>';
   }

@@ -9,9 +9,9 @@
  * way: GET /api/users for a customer user, /api/customer/{id}/users for a tenant administrator; at most every 5
  * minutes per page). A failed read is not cached.
  *
- * Who sees names: a role with Crew (Settings › Crew) at View or Full, and tenant administrators. A role with Crew
- * Hidden sees no one's name: the crew parts say the shared sentence MSG.noAccess instead (the names are not read).
- * As everywhere in the app, this is what the app shows, not a platform boundary (D-012).
+ * Who sees names (Akshay, 19 Nov 2026, "Option 1"): everyone who can open the dashboard. The Crew roster permission
+ * controls only the app's Settings › Crew roster page, not these cards. When the user list cannot be read at all, the
+ * cards say "Names not available" (a person missing from a list that was read: "Name not available").
  *
  * The site of a machine is the asset that directly Contains it (as the app's crew core and shift directory say); a
  * site's crew uses the site's shift calendar (a machine's own shift override does not change who is on shift there).
@@ -23,7 +23,6 @@ import type { CrewDoc, OnShiftRow } from './crew';
 import { calendarFor, chainFor } from './shifts';
 import type { ShiftCalendar, ShiftInstance } from './shiftcal';
 import type { KeyMeta } from './types';
-import { MSG } from './usermsg';
 
 /** Key of the computed property "Current shift". */
 export const SHIFT_KEY = '@shift';
@@ -38,7 +37,7 @@ export const COMPUTED_TYPES = new Set(['value', 'status', 'multivalue']);
 const ROSTER_MS = 2 * 60e3;
 const NAMES_MS = 5 * 60e3;
 let roster: { at: number; p: Promise<CrewDoc | null> } | null = null;
-let names: { at: number; key: string; p: Promise<Map<string, string>> } | null = null;
+let names: { at: number; key: string; p: Promise<Map<string, string> | null> } | null = null;
 
 /** Forgets the cached roster and names (tests; after a save elsewhere). */
 export function clearCrewCache() {
@@ -84,15 +83,8 @@ export function computedMeta(key: string): KeyMeta {
   return { key, displayName: key === SHIFT_KEY ? 'Current shift' : 'On shift', unit: '', decimals: 0, min: 0, max: 0, type: 'string' };
 }
 
-/** May this user see who is on shift (Settings › Crew at View or Full, or unrestricted)? */
-export function canSeeCrew(ctx: Pick<UserContext, 'perms'>): boolean {
-  const p = ctx.perms;
-  if (!p) return false;
-  return p.unrestricted || p.page('crew') !== 'hidden';
-}
-
-/** user id -> display name of the app customer's people (empty map when the list could not be read). */
-export function loadNames(ctx: Pick<UserContext, 'customerId' | 'perms'>): Promise<Map<string, string>> {
+/** user id -> display name of the app customer's people; null when the list could not be read. */
+export function loadNames(ctx: Pick<UserContext, 'customerId' | 'perms'>): Promise<Map<string, string> | null> {
   const tenant = !!ctx.perms?.unrestricted;
   const key = `${tenant ? 't' : 'c'}:${ctx.customerId || ''}`;
   if (names && names.key === key && Date.now() - names.at < NAMES_MS) return names.p;
@@ -104,13 +96,13 @@ export function loadNames(ctx: Pick<UserContext, 'customerId' | 'perms'>): Promi
         const sc = await api.systemConfigCrew().catch(() => null);
         cid = sc ? await api.assetCustomer(sc.id).catch(() => '') : '';
       }
-      if (!cid) return new Map<string, string>();
+      if (!cid) throw new Error('no customer');
     }
     const list = await api.customerPeople(cid);
     return new Map(list.map((u) => [u.id, u.name]));
-  })().catch(() => {
+  })().catch((): Map<string, string> | null => {
     if (names?.p === p) names = null;
-    return new Map<string, string>();
+    return null;
   });
   names = { at: Date.now(), key, p };
   return p;
@@ -149,19 +141,22 @@ export async function shiftNow(ctx: UserContext, id: string, ts = Date.now()): P
 
 /** Who is on shift at a site: rows with names, or why there are none. */
 export interface CrewNow {
-  /** 'hidden': the role may not see the crew; 'noSite': the machine is not at a site; 'noRoster': nobody on the site's
+  /** 'noSite': the machine is not at a site; 'noRoster': nobody on the site's
    * roster and nothing planned there (or no roster at all);
    * 'noShifts': no shifts are set up for the site; 'noShift': no shift runs now; 'ok': rows (possibly empty: nobody
    * planned). */
-  state: 'hidden' | 'noSite' | 'noRoster' | 'noShifts' | 'noShift' | 'ok';
+  state: 'noSite' | 'noRoster' | 'noShifts' | 'noShift' | 'ok';
   roles: { id: string; name: string }[];
   rows: (OnShiftRow & { name: string })[];
+  /** false: the user list could not be read (every name is NO_NAMES) */
+  named?: boolean;
 }
-/** Name shown for a person the user list does not have (a removed user, or the list could not be read). */
+/** Name shown for a person the user list does not have (a removed user). */
 export const NO_NAME = 'Name not available';
+/** Shown instead of names when the user list could not be read at all. */
+export const NO_NAMES = 'Names not available';
 
 export async function crewNow(ctx: UserContext, siteId: string | null, ts = Date.now()): Promise<CrewNow> {
-  if (!canSeeCrew(ctx)) return { state: 'hidden', roles: [], rows: [] };
   if (!siteId) return { state: 'noSite', roles: [], rows: [] };
   const doc = await loadRoster();
   if (doc) rolesNow = doc.roles.map((r) => ({ id: r.id, name: r.name }));
@@ -179,10 +174,10 @@ export async function crewNow(ctx: UserContext, siteId: string | null, ts = Date
   if (!cur) return { state: 'noShift', roles, rows: [] };
   const on = crew.onShift(siteId, ts, { doc, calendar: cal, chain: chain.chain });
   const who = on.length ? await loadNames(ctx) : new Map<string, string>();
-  return { state: 'ok', roles, rows: on.map((r) => ({ ...r, name: who.get(r.userId) || NO_NAME })) };
+  return { state: 'ok', roles, named: !!who, rows: on.map((r) => ({ ...r, name: who ? who.get(r.userId) || NO_NAME : NO_NAMES })) };
 }
 
-/** What a computed property shows: a text and an optional line under it, or a sentence instead (no access). */
+/** What a computed property shows: a text and an optional line under it, or a sentence instead. */
 export type Computed = { text: string; sub?: string; muted?: boolean } | { message: string };
 
 /** Short "2 h 15 min" / "45 min" / "less than a minute". */
@@ -206,10 +201,8 @@ export async function computedValue(ctx: UserContext, key: string, deviceId: str
     return { text: s.cur.name, sub: `${time(s.cur.start, s.tz)}–${time(s.cur.end, s.tz)} · ${duration(s.cur.end - ts)} left` };
   }
   const roleId = key.slice(CREW_PREFIX.length);
-  if (!canSeeCrew(ctx)) return { message: MSG.noAccess };
   const site = siteOf(ctx, deviceId);
   const c = await crewNow(ctx, site?.id ?? null, ts);
-  if (c.state === 'hidden') return { message: MSG.noAccess };
   if (c.state === 'noSite') return { text: '—', sub: 'This machine is not at a site', muted: true };
   if (c.state === 'noRoster') return { text: '—', sub: 'No crew roster for this site yet', muted: true };
   if (!c.roles.some((r) => r.id === roleId)) return { text: '—', sub: 'This crew role is no longer in the roster', muted: true };
@@ -217,5 +210,6 @@ export async function computedValue(ctx: UserContext, key: string, deviceId: str
   if (c.state === 'noShift') return { text: 'Between shifts', muted: true };
   const list = c.rows.filter((r) => r.role === roleId);
   if (!list.length) return { text: 'Nobody planned', sub: c.rows[0]?.shiftName || undefined, muted: true };
+  if (c.named === false) return { text: NO_NAMES, sub: list[0].shiftName || undefined, muted: true };
   return { text: list.map((r) => r.name).join(', '), sub: list[0].shiftName || undefined };
 }

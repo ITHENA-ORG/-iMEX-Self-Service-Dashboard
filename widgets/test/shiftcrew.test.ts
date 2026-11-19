@@ -1,5 +1,5 @@
 // D-096: the shift and the crew on shift worked out in the browser (core/shiftcrew.ts): the computed properties of the
-// value cards (Current shift, On shift: <crew role>), who sees names (Crew Hidden: nobody's), where the names come from
+// value cards (Current shift, On shift: <crew role>), who sees names (every dashboard viewer), where the names come from
 // (the app's own way: /api/users for a customer user, /api/customer/{id}/users for a tenant administrator), what the
 // pickers no longer offer (the old calendar-month shift) and that the computed keys are never read as readings.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -8,7 +8,6 @@ import * as api from '../src/core/api';
 import * as scope from '../src/core/scope';
 import { clearShiftCache } from '../src/core/shifts';
 import * as sc from '../src/core/shiftcrew';
-import { MSG } from '../src/core/usermsg';
 import { compatible, propKind } from '../src/core/compat';
 import { analyzerKeys } from '../src/entries/renderer';
 
@@ -125,17 +124,27 @@ describe('computed properties: Current shift and On shift: <crew role>', () => {
     expect(tb.calls.filter((c) => c === 'POST /api/entitiesQuery/find').length).toBeLessThanOrEqual(4);
   });
 
-  it('Crew Hidden (the built-in Viewer): the shared no-access sentence, and no names are read', async () => {
+  it('Akshay 19 Nov (Option 1): a Viewer (Crew roster Hidden) sees the names too; Crew roster only guards its page', async () => {
     asUser(tb, 'u2', 'Viewer', ['root']);
     const ctx = await scope.loadUserContext();
     expect(ctx.perms.page('crew')).toBe('hidden');
-    expect(sc.canSeeCrew(ctx)).toBe(false);
     tb.calls = [];
-    expect(await sc.computedValue(ctx, '@crew:op1', 'pc', MORNING, time)).toEqual({ message: MSG.noAccess });
-    expect((await sc.crewNow(ctx, PUN, MORNING)).state).toBe('hidden');
-    expect(tb.calls.some((c) => /users/.test(c))).toBe(false);
-    // the shift itself is not personal: shown
+    expect(await sc.computedValue(ctx, '@crew:op1', 'pc', MORNING, time)).toEqual({ text: 'Ravi Kumar', sub: 'Morning' });
+    expect((await sc.crewNow(ctx, PUN, MORNING)).rows.map((r) => r.name)).toEqual(['Ravi Kumar', 'Name not available', 'Sunita']);
+    expect(tb.calls.filter((c) => /users/.test(c))).toEqual(['GET /api/users']);
     expect(await sc.computedValue(ctx, '@shift', 'pc', MORNING, time)).toMatchObject({ text: 'Morning' });
+  });
+
+  it('the user list cannot be read: "Names not available", no role wording', async () => {
+    asUser(tb, 'u2', 'Viewer', ['root']);
+    const ctx = await scope.loadUserContext();
+    tb.failNext = { match: /^\/api\/users$/, status: 403 };
+    const c = await sc.crewNow(ctx, PUN, MORNING);
+    expect([c.state, c.named, c.rows.map((r) => r.name)]).toEqual(['ok', false, ['Names not available', 'Names not available', 'Names not available']]);
+    // a failed read is not kept: asked again next time
+    tb.failNext = { match: /^\/api\/users$/, status: 403 };
+    expect(await sc.computedValue(ctx, '@crew:op1', 'pc', MORNING, time)).toEqual({ text: 'Names not available', sub: 'Morning', muted: true });
+    expect(await sc.computedValue(ctx, '@crew:op1', 'pc', MORNING, time)).toEqual({ text: 'Ravi Kumar', sub: 'Morning' });
   });
 
   it('a tenant administrator: the names of the customer of System Configuration', async () => {
@@ -151,7 +160,7 @@ describe('computed properties: Current shift and On shift: <crew role>', () => {
     sc.clearCrewCache();
     tb.calls = [];
     const names = await sc.loadNames({ customerId: '', perms: { unrestricted: true } as any });
-    expect(names.get('u-ravi')).toBe('Ravi Kumar');
+    expect(names?.get('u-ravi')).toBe('Ravi Kumar');
     expect(tb.calls).toContain('GET /api/asset/sys');
     expect(tb.calls).toContain('GET /api/customer/c1/users');
   });

@@ -104,7 +104,7 @@ import { lineChart, barChart, gauge, sparkline, donut, stateTimeline, heatmap, S
 import { effectiveRules, matchRule, thresholdLines, stateLabel, valueType, asBool, cssColor } from './rules';
 import { sanitizeHtml, fillPlaceholders, placeholderKeys } from './rich';
 import { icon, ICON_SVG } from './icons';
-import { friendlyError, MSG } from '../core/usermsg';
+import { friendlyError } from '../core/usermsg';
 import * as shiftcrew from '../core/shiftcrew';
 import { offset as tzOffset } from '../core/shiftcal';
 
@@ -1324,8 +1324,7 @@ async function drawShift(body: HTMLElement, w: Widget, env: RenderEnv): Promise<
   if (c) {
     const line = (txt: string) => `<div class="cr-msg">${esc(txt)}</div>`;
     let inner: string;
-    if (c.state === 'hidden') inner = line(MSG.noAccess);
-    else if (c.state === 'noSite') inner = line('This machine is not at a site.');
+    if (c.state === 'noSite') inner = line('This machine is not at a site.');
     else if (c.state === 'noRoster') inner = line('No crew roster for this site yet. An administrator plans it in Settings › Crew roster.');
     else if (c.state === 'noShifts' || c.state === 'noShift') inner = line('Nobody is on shift now.');
     else {
@@ -1334,8 +1333,9 @@ async function drawShift(body: HTMLElement, w: Widget, env: RenderEnv): Promise<
       inner = c.roles
         .filter((r) => by.has(r.id) || c.roles.length <= 6)
         .map((r) => {
-          const who = (by.get(r.id) ?? ['Nobody planned']).join(', ');
-          return `<div class="cr"><span class="k" title="${esc(r.name)}">${esc(r.name)}</span><span class="n${by.has(r.id) ? '' : ' mut'}" title="${esc(who)}">${esc(who)}</span></div>`;
+          // the user list could not be read: the roles that have someone say so, without names
+          const who = by.has(r.id) && c.named === false ? shiftcrew.NO_NAMES : (by.get(r.id) ?? ['Nobody planned']).join(', ');
+          return `<div class="cr"><span class="k" title="${esc(r.name)}">${esc(r.name)}</span><span class="n${by.has(r.id) && c.named !== false ? '' : ' mut'}" title="${esc(who)}">${esc(who)}</span></div>`;
         })
         .join('');
       inner = inner ? `<div class="crg">${inner}</div>` : line('Nobody is planned on this shift.');

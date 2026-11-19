@@ -2605,7 +2605,7 @@ test('D-096 value card: Current shift and On shift: <role> in the picker; the ol
   eq(await t.cardErrors(), [], 'no card errors');
 });
 
-test('D-096 machine page: a Viewer (Crew hidden) sees the shift but nobody\'s name', async (t) => {
+test('D-096 machine page: a Viewer (Crew roster Hidden) sees the shift and the names (Akshay 19 Nov, Option 1)', async (t) => {
   await t.page.close();
   Object.assign(t, await open('dev=pc&role=Viewer&crew=1'));
   await t.b(() => {
@@ -2623,9 +2623,10 @@ test('D-096 machine page: a Viewer (Crew hidden) sees the shift but nobody\'s na
   await t.page.waitForFunction(() => /SHIFT/.test(document.querySelector('.dbb-rbody')?.textContent ?? '') && /Morning|Afternoon|Night/.test(document.querySelector('.dbb-rbody')?.textContent ?? ''), null, { timeout: 8000 });
   await t.page.waitForTimeout(800);
   const txt = await t.b(() => document.querySelector('.dbb-rbody').textContent);
-  ok(!/Ravi|Sunita|Anil/.test(txt), 'no names');
-  ok((txt.match(/Your role does not allow this/g) ?? []).length === 2, `the shared sentence on both: ${txt}`);
-  eq(await t.b(() => window.__tb.calls.filter((c) => /\/users/.test(c))), [], 'the people are not read');
+  ok(/Primary operator\s*Ravi Kumar/.test(txt) && /Shift manager\s*Sunita Rao/.test(txt), `names on the card: ${txt}`);
+  ok(/OPERATOR\s*Ravi Kumar/.test(txt), `name on the value card: ${txt}`);
+  ok(!/Your role does not allow this/.test(txt), 'no role wording');
+  ok(await t.b(() => window.__tb.calls.some((c) => c === 'GET /api/users')), 'the names read the app’s own way');
   // the page bar never waits for data that no card reads (hidden, or the machine's own status reading)
   ok(await t.b(() => { const u = document.querySelector('.dbb-upd'); return !!u && (u.hidden || !/Waiting for data/.test(u.textContent)); }), 'no "Waiting for data…" for computed cards');
 });
