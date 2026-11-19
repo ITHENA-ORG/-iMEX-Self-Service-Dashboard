@@ -1758,5 +1758,7 @@ the Pune card, no role wording). Not on the server: the release needs the three 
 - **Found, not changed (next server run of `deploy-node.mjs --target=server`):** the record
   `mirror-data/target-chat-chain.json` (the base of the next run) is the MERGED chain, so it now holds the App UI's
   playbook hook; the next dry run (checked right after) says `remove Playbook AI request?` / `remove iMEX Playbook AI`,
-  because our build does not have them. Run it with `--keep-server="Playbook AI request?,iMEX Playbook AI"` (or run the
-  App UI's `pb-ai-chain.mjs --go` again afterwards) until the merge treats nodes that only the server ever had as theirs.
+  because our build does not have them (`merge3`: server = base, so ours wins; `--keep-server` is only read for a
+  conflict and does not help here). Until the merge treats nodes that only the server ever had as theirs: after any later
+  `deploy-node.mjs --target=server --go`, run the App UI's `on-server.mjs pb-ai-chain.mjs` (dry run, then `--go`) to
+  hook the playbook AI in again, or drop the two nodes and their links from the record before the run.
