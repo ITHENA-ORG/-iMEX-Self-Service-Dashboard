@@ -1742,3 +1742,7 @@ the Pune card, no role wording). Not on the server: the release needs the three 
   session (App UI worktree `wt-delivery-appui`) pushed its own Help build over it minutes later; after both branches are
   merged the App UI's help-build / help-content-push / push-widgets --only=imex_help put it back (not pushed from here:
   the coordinator builds Help after the merge).
+- **Merged (19 Nov 2026):** `shift-crew` merged into `data-summaries`; tsc clean, vitest 576 passed, `npm run test:e2e`
+  all passed (85); `npm run build:widgets` from the merged tree (only the build stamp and esbuild path comments differ)
+  and deployed to LOCAL (`deploy-node.mjs --go`: the three widget types, the chat relay chain rewritten); the App UI's
+  merged Help on LOCAL (the guide found); `node scripts/shiftcrew-local.mjs` all pass. Not on the server.
