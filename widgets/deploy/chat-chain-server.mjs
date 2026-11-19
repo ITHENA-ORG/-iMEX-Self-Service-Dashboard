@@ -5,6 +5,7 @@
 // What it reads (GET only until --go):
 //   - the chain (must exist: never created here), the keeper chain "iMEX Licence keeper" (App UI relay.mjs --install,
 //     must exist: the meter's "Recount" node links to it)
+//   - D-098: the chain "iMEX Playbook AI" (App UI pb-ai-chain.mjs): when it exists, its hook is part of OUR chain
 //   - the LLM config asset THE SERVER USES: the asset its DashboardStore store(s) point to with the relation
 //     UsesLlmConfig (exactly one, tenant-owned). Never created, never written; its name only goes into the error texts.
 //   - the base: what we last left on the server (mirror-data/target-chat-chain.json, written after every --go here), or
@@ -21,6 +22,8 @@ export const RC_NAME = 'DBB Chat relay (POC)';
 export const KEEPER_CHAIN = 'iMEX Licence keeper';
 // D-074: the chat checks the writer's role in the role guard's registry, and passes other store changes to the guard
 export const GUARD_CHAIN = 'iMEX Role guard';
+// D-098: the App UI's Playbook AI chain (pb-ai-chain.mjs); its hook in this chain is carried by DBB_CHAT_CHAIN
+export const PB_CHAIN = 'iMEX Playbook AI';
 export const REGISTRY = 'iMEX Role Registry';
 export const RECORD = 'mirror-data/target-chat-chain.json';
 const NULL_CUSTOMER = '13814000-1dd2-11b2-8080-808080808080';
@@ -41,6 +44,9 @@ export async function serverChatChain(c, o, chain, say = console.log) {
   const keeper = (await c.all(`/api/ruleChains?textSearch=${encodeURIComponent(KEEPER_CHAIN)}`)).find((x) => x.name === KEEPER_CHAIN);
   if (!keeper) { say(`STOP: no rule chain "${KEEPER_CHAIN}": install the relay first (App UI relay.mjs --install), then run this`); return 1; }
   const guard = (await c.all(`/api/ruleChains?textSearch=${encodeURIComponent(GUARD_CHAIN)}`)).find((x) => x.name === GUARD_CHAIN);
+  // D-098: the Playbook AI hook (App UI pb-ai-chain.mjs) is part of OUR chain while "iMEX Playbook AI" exists, so the
+  // merge keeps it (before D-098 a record with the hook made the next run remove it)
+  const pb = (await c.all(`/api/ruleChains?textSearch=${encodeURIComponent(PB_CHAIN)}`)).find((x) => x.name === PB_CHAIN);
 
   // the LLM config asset the server's chain reads: store --UsesLlmConfig--> config
   const ap = (await c.all('/api/assetProfiles?textSearch=DashboardStore')).find((x) => x.name === 'DashboardStore');
@@ -81,6 +87,7 @@ export async function serverChatChain(c, o, chain, say = console.log) {
   }
 
   say(`chain "${RC_NAME}" ${rc.id.id}; keeper chain ${keeper.id.id}; role guard ${guard ? guard.id.id + ' (other store changes go there)' : 'NOT INSTALLED (store changes are not checked)'}`);
+  say(`Playbook AI: ${pb ? 'chain ' + pb.id.id + ': its hook (App UI pb-ai-chain.mjs) is part of our chain' : 'no chain "' + PB_CHAIN + '": no hook in our chain'}`);
   say(`LLM config asset: "${cfg.name}" (tenant-owned, linked from ${cfgStores.join(', ')}), key ${cfgAttrs.dbb_llm_api_key ? 'set' : 'EMPTY'}, models ${models} — read only, kept as it is`);
   if (others.length) say(`  note: ${others.map((n) => '"' + n + '"').join(', ')} exist(s) but no store uses it: left alone`);
   say(needRel.length ? `AI switches: relation UsesAppConfig to "System Configuration" missing from ${needRel.map((s) => s.name).join(', ')}: added with --go (without it the chat answers "could not read the AI switches")` : 'AI switches: the store(s) are linked to "System Configuration" (UsesAppConfig)');
@@ -89,7 +96,9 @@ export async function serverChatChain(c, o, chain, say = console.log) {
   // ---- the three versions
   const curMeta = await c.api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
   const server = normalise(curMeta);
-  const ours = normalise(chain({ llmConfigName: cfg.name }, keeper.id.id, { guardChainId: guard ? guard.id.id : null }));
+  // D-098: node 0 is the first node of DBB_CHAT_CHAIN (without it `first` was null, never the server's, so every run
+  // counted as a change and saved the same chain again)
+  const ours = normalise({ firstNodeIndex: 0, ...chain({ llmConfigName: cfg.name }, keeper.id.id, { guardChainId: guard ? guard.id.id : null, playbookChainId: pb ? pb.id.id : null, live: curMeta }) });
   let base = null, baseFrom = null;
   const baseFile = o.base || (existsSync(record) ? record : null);
   if (baseFile) {

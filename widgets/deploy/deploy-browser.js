@@ -39,6 +39,8 @@
 //      go on to the "iMEX Role guard" chain when it exists. A parsed reply
 //      is also metered (D-066): one llm_builder point on the tenant-only asset "iMEX Keeper", then the licence keeper
 //      chain recounts the month (when it exists: App UI scripts/relay.mjs).
+//      D-098: when the rule chain "iMEX Playbook AI" exists, the chain also carries its hook (App UI
+//      scripts/pb-ai-chain.mjs hookChat(), U-126) on "Is chat request"'s False branch (DBB_PLAYBOOK_HOOK below).
 //      A key pasted into the pre-D-021 "Call LLM" node is moved to the config asset (step 3b).
 //   3. Asset profile "DashboardStore" (must carry the POC marker if it exists) with the chat relay as its
 //      default rule chain; store asset `storeName` created if missing, assigned to the customer, and
@@ -617,7 +619,43 @@ window.DBB_CHAT_CHAIN = function (o, keeperChainId, more) {
   connections.push({ fromIndex: 9, toIndex: 35, type: 'Success' }, { fromIndex: 35, toIndex: 13, type: 'True' }, { fromIndex: 13, toIndex: 14, type: 'Success' }, { fromIndex: 14, toIndex: 15, type: 'Success' });
   if (keeperChainId) connections.push({ fromIndex: 15, toIndex: KI, type: 'Success' });
   if (guardChainId) connections.push({ fromIndex: 0, toIndex: GI, type: 'False' });
-  return { nodes, connections };
+  const out = { nodes, connections };
+  // D-098: the Playbook AI hook is part of the chain whenever its rule chain exists, so no deploy drops it
+  if (more && more.playbookChainId) window.DBB_PLAYBOOK_HOOK(out, more.playbookChainId, more.live);
+  return out;
+};
+
+// D-098: the Playbook AI hook (App UI scripts/pb-ai-chain.mjs, U-126; also the Control Centre installer's hookPbAi).
+// The playbook request (pb_ai_req on the store) arrives in this chain because the store's profile sends every store
+// change here; App UI pb-ai-chain.mjs --go hooks it off "Is chat request"'s False branch:
+//   Is chat request --False--> [Playbook AI request?] --True--> [iMEX Playbook AI] (rule chain input)
+//                                                    --False / Failure--> where the False branch went (the role guard)
+// The Builder owns the chain but not these two nodes: DBB_CHAT_CHAIN adds them (more.playbookChainId = the id of the
+// chain "iMEX Playbook AI", looked up by every deploy) with the same names, wiring, script and input configuration as
+// hookChat(), so a deploy keeps the hook and pb-ai-chain.mjs --check / --go find it "already hooked". The hook node's
+// configuration and both nodes' layout are taken from the chain as it is (more.live, the current metadata) when it has
+// them: the App UI script owns the hook's script. Without the Playbook AI chain nothing is added (as before D-098).
+window.DBB_PB_HOOK = { chain: 'iMEX Playbook AI', hookNode: 'Playbook AI request?', inputNode: 'iMEX Playbook AI', chatFilterNode: 'Is chat request', hookScript: "return msgType == 'ATTRIBUTES_UPDATED' && msg.pb_ai_req != null;" };
+/** In place on { nodes, connections } (the chat chain, no hook yet). Returns md. Pure. */
+window.DBB_PLAYBOOK_HOOK = function (md, pbChainId, live) {
+  const H = window.DBB_PB_HOOK;
+  const FILTER = 'org.thingsboard.rule.engine.filter.TbJsFilterNode', INPUT = 'org.thingsboard.rule.engine.flow.TbRuleChainInputNode';
+  const off = { failuresEnabled: false, allEnabled: false, allEnabledUntil: 0 };
+  const chatFilter = md.nodes.findIndex((n) => n.name === H.chatFilterNode);
+  if (chatFilter < 0 || md.nodes.some((n) => n.name === H.hookNode || n.name === H.inputNode)) throw new Error('DBB_PLAYBOOK_HOOK: not a chat chain without the hook');
+  const liveNodes = (live && live.nodes) || [];
+  const oldHook = liveNodes.find((n) => n.name === H.hookNode && n.type === FILTER && n.configuration && typeof n.configuration.tbelScript === 'string');
+  const oldInput = liveNodes.find((n) => n.name === H.inputNode && /RuleChainInput/.test(n.type));
+  const at = md.nodes[chatFilter].additionalInfo || { layoutX: 300, layoutY: 150 };
+  const hook = { type: FILTER, name: H.hookNode, configuration: oldHook ? oldHook.configuration : { scriptLang: 'TBEL', tbelScript: H.hookScript, jsScript: 'return false;' }, additionalInfo: (oldHook && oldHook.additionalInfo) || { layoutX: (at.layoutX || 300) - 250, layoutY: (at.layoutY || 150) + 500 }, debugSettings: off };
+  if (oldHook && oldHook.configurationVersion) hook.configurationVersion = oldHook.configurationVersion;
+  const input = { type: INPUT, name: H.inputNode, configurationVersion: (oldInput && oldInput.configurationVersion) || 1, configuration: { ruleChainId: pbChainId, forwardMsgToDefaultRuleChain: false }, additionalInfo: (oldInput && oldInput.additionalInfo) || { layoutX: (at.layoutX || 300) - 250, layoutY: (at.layoutY || 150) + 650 }, debugSettings: off };
+  const hi = md.nodes.push(hook) - 1, ii = md.nodes.push(input) - 1;
+  const was = md.connections.filter((x) => x.fromIndex === chatFilter && x.type === 'False').map((x) => x.toIndex);
+  md.connections = md.connections.filter((x) => !(x.fromIndex === chatFilter && x.type === 'False'));
+  md.connections.push({ fromIndex: chatFilter, toIndex: hi, type: 'False' }, { fromIndex: hi, toIndex: ii, type: 'True' });
+  for (const t of was) md.connections.push({ fromIndex: hi, toIndex: t, type: 'False' }, { fromIndex: hi, toIndex: t, type: 'Failure' });
+  return md;
 };
 
 // Returns {log, dashboardId, storeId, ruleChainId, bundleId}. Throws on the first failing REST call.
@@ -666,23 +704,13 @@ window.DBB_DEPLOY = async function (opts) {
   const keeperChain = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Licence keeper')}`)).find((x) => x.name === 'iMEX Licence keeper');
   // D-074: other store attribute changes go on to the role guard (App UI scripts/role-guard.mjs) when it is installed
   const guardChain = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Role guard')}`)).find((x) => x.name === 'iMEX Role guard');
-  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeperChain ? keeperChain.id.id : null, { guardChainId: guardChain ? guardChain.id.id : null });
-  // The Playbook AI hook (App UI scripts/pb-ai-chain.mjs, U-126) sits on "Is chat request"'s False branch: carry its two
-  // nodes over, wired the same way, so a deploy no longer drops it (it did on LOCAL before 6 Nov 2026).
-  const oldNodes = existingMeta.nodes || [];
-  const oldHook = oldNodes.find((n) => n.name === 'Playbook AI request?');
-  const oldInput = oldNodes.find((n) => n.name === 'iMEX Playbook AI' && /RuleChainInput/.test(n.type));
-  const chatFilter = nodes.findIndex((n) => n.name === 'Is chat request');
-  if (oldHook && oldInput && chatFilter >= 0) {
-    const copy = (n) => ({ type: n.type, name: n.name, configurationVersion: n.configurationVersion, configuration: n.configuration, additionalInfo: n.additionalInfo, debugSettings: n.debugSettings });
-    const hook = nodes.push(copy(oldHook)) - 1;
-    const input = nodes.push(copy(oldInput)) - 1;
-    const was = connections.filter((x) => x.fromIndex === chatFilter && x.type === 'False').map((x) => x.toIndex);
-    for (let i = connections.length - 1; i >= 0; i--) if (connections[i].fromIndex === chatFilter && connections[i].type === 'False') connections.splice(i, 1);
-    connections.push({ fromIndex: chatFilter, toIndex: hook, type: 'False' }, { fromIndex: hook, toIndex: input, type: 'True' });
-    for (const t of was) connections.push({ fromIndex: hook, toIndex: t, type: 'False' }, { fromIndex: hook, toIndex: t, type: 'Failure' });
-    say('Playbook AI hook kept');
-  }
+  // The Playbook AI hook (App UI scripts/pb-ai-chain.mjs, U-126) on "Is chat request"'s False branch: D-079 carried it
+  // over when it was there; D-098: it is part of the chain whenever the chain "iMEX Playbook AI" exists (DBB_PLAYBOOK_HOOK)
+  const pbChain = (await all(`/api/ruleChains?textSearch=${encodeURIComponent(window.DBB_PB_HOOK.chain)}`)).find((x) => x.name === window.DBB_PB_HOOK.chain);
+  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeperChain ? keeperChain.id.id : null, { guardChainId: guardChain ? guardChain.id.id : null, playbookChainId: pbChain ? pbChain.id.id : null, live: existingMeta });
+  const hadHook = (existingMeta.nodes || []).some((n) => n.name === window.DBB_PB_HOOK.hookNode);
+  if (pbChain) say(`Playbook AI hook ${hadHook ? 'kept' : 'added'} (chain "${pbChain.name}")`);
+  else if (hadHook) say(`Playbook AI hook taken out: no rule chain "${window.DBB_PB_HOOK.chain}"`);
   // Replaces all nodes and connections of the chain (passing the current version for optimistic locking).
   await api('POST', '/api/ruleChain/metadata', { ruleChainId: rc.id, version: existingMeta.version, firstNodeIndex: 0, nodes, connections, ruleChainConnections: null });
   say(`rule chain "${rcName}" written (Claude / OpenAI / Gemini, key read from ${o.llmConfigName})`);

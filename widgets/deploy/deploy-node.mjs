@@ -58,14 +58,28 @@ if (process.argv.includes('--chain-only')) {
   if (!rc) { console.error('no rule chain "DBB Chat relay (POC)": run the full deploy (--go) first'); process.exit(1); }
   const keeper = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Licence keeper')}`)).find((x) => x.name === 'iMEX Licence keeper');
   const guard = (await all(`/api/ruleChains?textSearch=${encodeURIComponent('iMEX Role guard')}`)).find((x) => x.name === 'iMEX Role guard');
-  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeper ? keeper.id.id : null, { guardChainId: guard ? guard.id.id : null });
+  // D-098: the Playbook AI hook (App UI pb-ai-chain.mjs) stays in the chain while the chain "iMEX Playbook AI" exists
+  const H = window.DBB_PB_HOOK;
+  const pb = (await all(`/api/ruleChains?textSearch=${encodeURIComponent(H.chain)}`)).find((x) => x.name === H.chain);
+  const cur = await api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
+  const { nodes, connections } = window.DBB_CHAT_CHAIN(o, keeper ? keeper.id.id : null, { guardChainId: guard ? guard.id.id : null, playbookChainId: pb ? pb.id.id : null, live: cur });
   const store = await api('GET', `/api/tenant/assets?assetName=${encodeURIComponent(o.storeName)}`, undefined, true);
   const appCfg = await api('GET', `/api/tenant/assets?assetName=${encodeURIComponent(o.appConfigName)}`, undefined, true);
+  const hadHook = (cur.nodes || []).some((n) => n.name === H.hookNode);
   console.log(`chain "${rc.name}": ${nodes.length} nodes / ${connections.length} links (key from ${o.llmConfigName}, AI switches from ${o.appConfigName}); store ${store ? store.name : 'MISSING'}`);
-  if (!process.argv.includes('--go')) { console.log('Dry run. Re-run with --chain-only --go.'); process.exit(0); }
-  const cur = await api('GET', `/api/ruleChain/${rc.id.id}/metadata`);
-  await api('POST', '/api/ruleChain/metadata', { ruleChainId: rc.id, version: cur.version, firstNodeIndex: 0, nodes, connections, ruleChainConnections: null });
-  console.log('rule chain written');
+  console.log(pb ? `Playbook AI hook: ${hadHook ? 'kept' : 'added'} (chain "${H.chain}")` : `Playbook AI hook: none (no chain "${H.chain}")${hadHook ? '; the one in the chain is taken out' : ''}`);
+  // the chain as it is vs as it would be written, by node name (ids, layout and debug settings are not compared)
+  const { normalise, canon } = await import('./chat-chain-merge.mjs');
+  const a = normalise(cur), b = normalise({ nodes, connections, firstNodeIndex: 0 });
+  // (a node with debug on is a change: debug is always switched off, D-066)
+  const debugOn = (cur.nodes || []).some((n) => n.debugSettings && (n.debugSettings.allEnabled || n.debugSettings.failuresEnabled || n.debugSettings.allEnabledUntil > Date.now()));
+  const same = !debugOn && canon([...a.cmp].sort()) === canon([...b.cmp].sort()) && canon([...a.links].sort()) === canon([...b.links].sort()) && a.first === b.first;
+  if (same) console.log('No change: the chain already is this chain.');
+  if (!process.argv.includes('--go')) { console.log(same ? 'Dry run.' : 'Dry run. Re-run with --chain-only --go.'); process.exit(0); }
+  if (!same) {
+    await api('POST', '/api/ruleChain/metadata', { ruleChainId: rc.id, version: cur.version, firstNodeIndex: 0, nodes, connections, ruleChainConnections: null });
+    console.log('rule chain written');
+  }
   if (store && appCfg) {
     const rel = { from: store.id, to: appCfg.id, type: 'UsesAppConfig', typeGroup: 'COMMON' };
     await api('POST', '/api/v2/relation', rel).catch(() => api('POST', '/api/relation', rel));

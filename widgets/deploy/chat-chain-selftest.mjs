@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { normalise, merge3, nodeDiff, lineDiff, metadataFromFile, canon } from './chat-chain-merge.mjs';
 import { serverChatChain, RC_NAME } from './chat-chain-server.mjs';
 
@@ -33,7 +33,7 @@ function load(fetchImpl) {
   return g;
 }
 const W = load();
-const chain = (o, keeperId) => W.DBB_CHAT_CHAIN(Object.assign({}, W.DBB_DEPLOY_DEFAULTS, o), keeperId);
+const chain = (o, keeperId, more) => W.DBB_CHAT_CHAIN(Object.assign({}, W.DBB_DEPLOY_DEFAULTS, o), keeperId, more);
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
 test('DBB_DEPLOY posts exactly DBB_CHAT_CHAIN', async () => {
@@ -52,6 +52,77 @@ test('DBB_DEPLOY posts exactly DBB_CHAT_CHAIN', async () => {
     const built = g.DBB_CHAT_CHAIN(Object.assign({}, g.DBB_DEPLOY_DEFAULTS, { llmConfigName: 'DBBLLM-CONFIG' }), withKeeper ? KEEPER : null);
     assert.deepEqual({ nodes: posted.nodes, connections: posted.connections }, built);
     assert.equal(posted.firstNodeIndex, 0);
+  }
+});
+
+// ---- D-098: the Playbook AI hook (App UI scripts/pb-ai-chain.mjs hookChat(), U-126) is part of our chain while the
+// chain "iMEX Playbook AI" exists, in every deploy path (DBB_DEPLOY, --chain-only, --target=server)
+const PB = '00000000-0000-4000-8000-0000000000pb';
+const PBH = W.DBB_PB_HOOK;
+const withPb = (pbId, live) => W.DBB_CHAT_CHAIN(Object.assign({}, W.DBB_DEPLOY_DEFAULTS, { llmConfigName: 'DBBLLM-CONFIG' }), KEEPER, { guardChainId: GUARD, playbookChainId: pbId, live });
+// the App UI's own module when this PC has the repo (the hook rules are written there; the installer copies them too)
+const APPUI_PB = join(process.env.IMEX_APPUI_DIR || 'D:/Claude Code/iMEX App UI', 'scripts', 'pb-ai-chain.mjs');
+
+test('D-098: with the Playbook AI chain the hook is in the chain, wired as hookChat() wires it; without it, no hook', () => {
+  const plain = withPb(null), h = withPb(PB);
+  assert.equal(h.nodes.length, plain.nodes.length + 2);
+  const L = linksOf(h);
+  const has = (f, t, to) => L.some((l) => l[0] === f && l[1] === t && l[2] === to);
+  assert.ok(has('Is chat request', 'False', PBH.hookNode) && !has('Is chat request', 'False', 'Role guard (store changes)'));
+  assert.ok(has(PBH.hookNode, 'True', PBH.inputNode) && has(PBH.hookNode, 'False', 'Role guard (store changes)') && has(PBH.hookNode, 'Failure', 'Role guard (store changes)'));
+  assert.ok(has('Is chat request', 'True', 'The store'), 'the chat request path is unchanged');
+  const node = (n) => h.nodes.find((x) => x.name === n);
+  assert.equal(node(PBH.hookNode).configuration.tbelScript, PBH.hookScript);
+  assert.deepEqual(node(PBH.inputNode).configuration, { ruleChainId: PB, forwardMsgToDefaultRuleChain: false });
+  for (const n of h.nodes) assert.deepEqual(n.debugSettings, { failuresEnabled: false, allEnabled: false, allEnabledUntil: 0 });
+  for (const n of h.nodes.map((x) => x.name)) { const outs = L.filter((l) => l[0] === n); assert.equal(new Set(outs.map((l) => l[1])).size, outs.length, n + ' has one link per type'); }
+  // the rest of the chain is ours unchanged
+  const rest = normalise({ ...h, nodes: h.nodes }), p = normalise({ ...plain, firstNodeIndex: 0 });
+  for (const n of p.order) assert.equal(rest.cmp.get(n), p.cmp.get(n), n);
+  // no Playbook AI chain: no hook, even when the chain has one now (it would point at a chain that is gone)
+  assert.deepEqual(withPb(null, h), plain);
+});
+
+test('D-098: the hook node as it is in the chain (script, layout) is kept; the input points at the chain found', () => {
+  const live = clone(withPb(PB));
+  const hk = live.nodes.find((n) => n.name === PBH.hookNode);
+  hk.configuration.tbelScript = "return msgType == 'ATTRIBUTES_UPDATED' && msg.pb_ai_req != null && true;"; hk.configurationVersion = 0; hk.additionalInfo = { layoutX: 1, layoutY: 2 };
+  live.nodes.find((n) => n.name === PBH.inputNode).configuration.ruleChainId = 'an-older-chain';
+  const h = withPb(PB, live);
+  assert.equal(h.nodes.find((n) => n.name === PBH.hookNode).configuration.tbelScript, hk.configuration.tbelScript, 'the App UI owns the hook script');
+  assert.deepEqual(h.nodes.find((n) => n.name === PBH.hookNode).additionalInfo, { layoutX: 1, layoutY: 2 });
+  assert.equal(h.nodes.find((n) => n.name === PBH.inputNode).configuration.ruleChainId, PB);
+  // built again from its own result: the same (idempotent)
+  assert.equal(canon(withPb(PB, h)), canon(h));
+});
+
+test('D-098: the hook equals App UI hookChat() (and hookChat finds it "already hooked")', { skip: !existsSync(APPUI_PB) && 'no App UI repo on this PC' }, async () => {
+  const A = await import(pathToFileURL(APPUI_PB).href);
+  assert.equal(A.S.hook, PBH.hookScript); assert.equal(A.HOOK, PBH.hookNode); assert.equal(A.HOOK_INPUT, PBH.inputNode); assert.equal(A.CHAIN, PBH.chain);
+  const plain = { ...withPb(null), firstNodeIndex: 0 };
+  const theirs = A.hookChat(plain, PB), ours = { ...withPb(PB), firstNodeIndex: 0 };
+  const a = normalise(theirs), b = normalise(ours);
+  assert.equal(canon([...a.cmp].sort()), canon([...b.cmp].sort()));
+  assert.equal(canon([...a.links].sort()), canon([...b.links].sort()));
+  assert.equal(A.hookChat(ours, PB), null, 'pb-ai-chain.mjs --go would say "already hooked"');
+});
+
+test('D-098: DBB_DEPLOY posts the chain with the hook when "iMEX Playbook AI" exists (kept or added), without it when not', async () => {
+  for (const [pb, liveHook] of [[true, true], [true, false], [false, true]]) {
+    let posted = null;
+    const live = liveHook ? withPb(PB) : withPb(null);
+    const g = load(async (url, init) => {
+      const u = String(url), m = (init && init.method) || 'GET';
+      const res = (b) => ({ ok: true, status: 200, text: async () => JSON.stringify(b) });
+      if (u.startsWith('/api/tenant/customers')) return res({ id: { id: 'cust' } });
+      if (u.startsWith('/api/ruleChains')) return res({ data: [{ name: RC_NAME, id: { id: 'rc' } }, { name: 'iMEX Licence keeper', id: { id: KEEPER } }, { name: 'iMEX Role guard', id: { id: GUARD } }, ...(pb ? [{ name: PBH.chain, id: { id: PB } }] : [])], hasNext: false });
+      if (u === '/api/ruleChain/rc/metadata') return res({ version: 3, ...live });
+      if (u === '/api/ruleChain/metadata' && m === 'POST') { posted = JSON.parse(init.body); throw new Error('CAPTURED'); }
+      throw new Error(`unexpected ${m} ${u}`);
+    });
+    await assert.rejects(g.DBB_DEPLOY({ llmConfigName: 'DBBLLM-CONFIG' }), /CAPTURED/);
+    assert.deepEqual({ nodes: posted.nodes, connections: posted.connections }, pb ? withPb(PB, live) : withPb(null));
+    assert.equal(posted.nodes.some((n) => n.name === PBH.hookNode), pb);
   }
 });
 
@@ -201,13 +272,14 @@ test('printing: line diff, masking, the file formats', () => {
 // ---- the server mode against an in-memory server
 function fakeServer(meta0, opt = {}) {
   let meta = clone(meta0); meta.version = 7;
+  if (meta.firstNodeIndex == null) meta.firstNodeIndex = 0;   // ThingsBoard always returns it (D-098)
   meta.nodes.forEach((n, i) => { n.id = { id: 'n' + i }; n.ruleChainId = { id: 'rc' }; n.singletonMode = false; n.queueName = null; n.debugSettings = n.debugSettings || { failuresEnabled: false, allEnabled: false, allEnabledUntil: 0 }; });
   const writes = [];
   let reads = 0;
   const cfgs = opt.cfgs || [{ id: 'cfg1', name: 'DBBLLM-CONFIG', customer: NULL_CUSTOMER, from: ['store1'] }];
   const stores = opt.stores || [{ id: { id: 'store1' }, name: 'DashboardStore', assetProfileId: { id: 'ap' }, customerId: { id: 'ithena' } }];
   const assets = [...stores, ...cfgs.map((x) => ({ id: { id: x.id }, name: x.name, assetProfileId: { id: 'default' }, customerId: { id: x.customer } })), { id: { id: 'z' }, name: 'DBB-LLM-CONFIG', assetProfileId: { id: 'default' }, customerId: { id: NULL_CUSTOMER } }, { id: { id: 'sc' }, name: 'System Configuration', assetProfileId: { id: 'default' }, customerId: { id: 'ithena' } }, ...(opt.noRegistry ? [] : [{ id: { id: 'reg' }, name: 'iMEX Role Registry', assetProfileId: { id: 'default' }, customerId: { id: NULL_CUSTOMER } }])];
-  const chains = [{ name: RC_NAME, id: { id: 'rc' } }, ...(opt.noKeeper ? [] : [{ name: 'iMEX Licence keeper', id: { id: KEEPER } }])];
+  const chains = [{ name: RC_NAME, id: { id: 'rc' } }, ...(opt.noKeeper ? [] : [{ name: 'iMEX Licence keeper', id: { id: KEEPER } }]), ...(opt.guard ? [{ name: 'iMEX Role guard', id: { id: GUARD } }] : []), ...(opt.pb ? [{ name: 'iMEX Playbook AI', id: { id: PB } }] : [])];
   const page = (data) => data;
   const api = async (method, path, body) => {
     if (method !== 'GET') {
@@ -356,4 +428,37 @@ test('the chain reads the AI switches first and the gate stops the request when 
   const sw = OURS.nodes[at('Read AI switches')].configuration;
   assert.deepEqual(sw.dataMapping, { imexLlm: 'llmSw' }); assert.equal(sw.relationsQuery.filters[0].relationType, 'UsesAppConfig');
   assert.ok(link('Save the meter point', 'Recount (licence keeper)', 'Success'), 'the keeper link follows the renumbering');
+});
+
+// D-098: the 19 Nov 2026 server release. The record (base) holds the hook (pb-ai-chain.mjs had added it before), the
+// server holds it: before D-098 ours had no hook, so the merge read "unchanged on the server -> ours" and removed it
+test('D-098 server mode: the Playbook AI hook in the record and on the server stays; a missing one is put back once', async () => {
+  const H = withPb(PB);
+  const dir = mkdtempSync(join(tmpdir(), 'chat-chain-pb-'));
+  // 1. the record and the server both have it: no change, nothing written
+  const srv = fakeServer(H, { guard: true, pb: true });
+  const base = await writeBase(dir, H);
+  const r1 = await run(srv, { base, go: true });
+  assert.equal(r1.code, 0, r1.text); assert.deepEqual(srv.writes, []);
+  assert.match(r1.text, /Playbook AI: chain .*part of our chain/);
+  assert.match(r1.text, /No change: the server chain already is the merged chain/);
+  assert.doesNotMatch(r1.text, /remove +Playbook AI request\?/);
+  // 2. the server has it, the record not (hooked after our last deploy): no change either
+  const r2 = await run(fakeServer(H, { guard: true, pb: true }), { base: await writeBase(mkdtempSync(join(tmpdir(), 'chat-chain-pb2-')), withPb(null)), go: true });
+  assert.equal(r2.code, 0, r2.text); assert.match(r2.text, /No change/);
+  // 3. a deploy before D-098 dropped it (server and record without it): put back with --go, then no change
+  const bare = fakeServer(withPb(null), { guard: true, pb: true });
+  const b3dir = mkdtempSync(join(tmpdir(), 'chat-chain-pb3-'));
+  const b3 = await writeBase(b3dir, withPb(null));
+  const r3 = await run(bare, { base: b3, go: true });
+  assert.equal(r3.code, 0, r3.text); assert.deepEqual(bare.writes, [['POST', '/api/ruleChain/metadata']]);
+  assert.match(r3.text, /add +Playbook AI request\?/); assert.match(r3.text, /\+ link Is chat request -False-> Playbook AI request\?/);
+  const after = normalise(bare.meta());
+  assert.ok(after.links.has(JSON.stringify(['Playbook AI request?', 'True', 'iMEX Playbook AI'])) && after.links.has(JSON.stringify(['Playbook AI request?', 'False', 'Role guard (store changes)'])));
+  const again = await run(bare, { base: join(r3.dir, 'record.json') });
+  assert.equal(again.code, 0); assert.match(again.text, /No change/); assert.equal(bare.writes.length, 1);
+  // 4. no Playbook AI chain: as before D-098 (no hook in ours; the chain without it is left as it is)
+  const none = fakeServer(withPb(null), { guard: true });
+  const r4 = await run(none, { base: b3, go: true });
+  assert.equal(r4.code, 0, r4.text); assert.deepEqual(none.writes, []); assert.match(r4.text, /no chain "iMEX Playbook AI": no hook in our chain/);
 });
