@@ -620,7 +620,8 @@ export async function previewApply(ctx: UserContext, doc: Dashboard, t: ApplyTar
   }
 
   // per-device: current resolution + key availability
-  const usedKeys = [...new Set(doc.widgets.filter((w) => w.binding.mode === 'current').flatMap((w) => w.keys))];
+  // D-096: the computed properties (Current shift, On shift: ...) are no readings a machine sends
+  const usedKeys = [...new Set(doc.widgets.filter((w) => w.binding.mode === 'current').flatMap((w) => w.keys))].filter((k) => !k.startsWith('@'));
   const missing = new Map<string, string[]>();
   // D-080: the key lists are one call per machine, so at most PARALLEL_READS at once, and none when no widget needs them
   const [resolved, keyLists] = await Promise.all([

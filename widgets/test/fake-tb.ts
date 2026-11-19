@@ -29,7 +29,9 @@ export class FakeTB {
   urls: string[] = [];
   /** Active alarms for /api/alarmsQuery/find. */
   alarms: { originator: string; type: string }[] = [];
-  me = { id: { id: 'u1' }, customerId: { id: 'c1' }, email: 'admin@x', authority: 'CUSTOMER_USER', firstName: 'Asha', lastName: 'Admin' };
+  /** D-096: the customer's people for GET /api/users and /api/customer/{id}/users. */
+  users: { id: string; firstName?: string; lastName?: string; email: string }[] = [];
+  me ={ id: { id: 'u1' }, customerId: { id: 'c1' }, email: 'admin@x', authority: 'CUSTOMER_USER', firstName: 'Asha', lastName: 'Admin' };
   failNext: { match: RegExp; status: number } | null = null;
   /** Serve relation infos like ThingsBoard 4.3 (path form only), see the relations/info route below (D-035). */
   relInfoPaths = false;
@@ -137,6 +139,17 @@ export class FakeTB {
       const kind = m[2] === 'assets' ? 'ASSET' : 'DEVICE';
       const data = [...this.entities.values()].filter((e) => e.entityType === kind && (!type || e.type === type)).map((e) => ({ id: { id: e.id }, name: e.name, label: e.label, type: e.type }));
       return resp(200, { data, hasNext: false });
+    }
+    // D-096: the people of the customer (a customer user: its own customer; a tenant administrator: by customer id)
+    if ((p === '/api/users' || /^\/api\/customer\/[\w-]+\/users$/.test(p)) && method === 'GET') {
+      const size = Number(u.searchParams.get('pageSize') ?? 100);
+      const page = Number(u.searchParams.get('page') ?? 0);
+      const all = this.users.map((x) => ({ id: { id: x.id, entityType: 'USER' }, firstName: x.firstName, lastName: x.lastName, email: x.email }));
+      return resp(200, { data: all.slice(page * size, (page + 1) * size), hasNext: all.length > (page + 1) * size, totalElements: all.length });
+    }
+    if ((m = /^\/api\/asset\/([\w-]+)$/.exec(p)) && method === 'GET') {
+      const e = this.entities.get(m[1]);
+      return e && e.entityType === 'ASSET' ? resp(200, { id: { id: e.id }, name: e.name, type: e.type, customerId: { id: 'c1' } }) : resp(404, { message: 'not found' });
     }
     if (/^\/api\/v2\/alarm\//.test(p)) return resp(200, { data: [], hasNext: false });
     if ((p === '/api/relations' || p === '/api/relations/info') && method === 'POST') {

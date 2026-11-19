@@ -105,6 +105,8 @@ import { effectiveRules, matchRule, thresholdLines, stateLabel, valueType, asBoo
 import { sanitizeHtml, fillPlaceholders, placeholderKeys } from './rich';
 import { icon, ICON_SVG } from './icons';
 import { friendlyError } from '../core/usermsg';
+import * as shiftcrew from '../core/shiftcrew';
+import { offset as tzOffset } from '../core/shiftcal';
 
 /** Everything a widget needs from its surroundings to draw. One env is shared by all widgets of a grid. */
 export interface RenderEnv {
@@ -186,6 +188,8 @@ export function resolveBinding(env: RenderEnv, b: Binding): BoundDevices {
  * Keys missing from the catalogue still work: they get the key as name, no unit, 1 decimal, range 0-100.
  */
 export function keyMeta(ctx: UserContext, profile: string, key: string): KeyMeta {
+  // D-096: Current shift and On shift: <crew role> are worked out, not read (core/shiftcrew.ts)
+  if (shiftcrew.isComputed(key)) return shiftcrew.computedMeta(key);
   const m = ctx.profileKeys[profile]?.find((k) => k.key === key);
   return m ?? { key, displayName: key, unit: '', decimals: 1, min: 0, max: 100 };
 }
@@ -729,6 +733,7 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
     return undefined;
   }
   if (w.type === 'link') return drawLink(body, w, env);
+  if (w.type === 'shiftinfo') return drawShift(body, w, env);
 
   // ---- data widgets: common checks, device resolution and time window ----
   const cap = WIDGET_CAPS[w.type];
@@ -796,6 +801,8 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
   // Single-value widgets: one key of one device, latest value (+ a series for the KPI trend).
   if (w.type === 'value' || w.type === 'gauge' || w.type === 'status' || w.type === 'progress' || w.type === 'kpi') {
     const key = w.keys[0];
+    // D-096: a computed property (Current shift, On shift: <crew role>) on a value card or a status indicator
+    if (shiftcrew.isComputed(key)) return drawComputed(body, w, env, d0, key, ended ? endTs : Date.now());
     const meta = keyMeta(ctx, d0.profile, key);
     const lv = (await valuesOf(d0.id, [key]))[key];
     if (!lv) return void placeholder(body, ended ? `No ${meta.displayName} value before the end of this time window` : `Not available for this machine (${d0.label} doesn't report ${meta.displayName})`);
@@ -893,10 +900,21 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
   }
 
   if (w.type === 'multivalue') {
-    const lv = await valuesOf(d0.id, w.keys);
+    // D-096: the computed properties are worked out (core/shiftcrew.ts), the others read
+    const read = w.keys.filter((k) => !shiftcrew.isComputed(k));
+    const lv: Awaited<ReturnType<typeof valuesOf>> = read.length ? await valuesOf(d0.id, read) : {};
+    const comp = new Map<string, shiftcrew.Computed>();
+    await Promise.all(w.keys.filter(shiftcrew.isComputed).map(async (k) => comp.set(k, await shiftcrew.computedValue(ctx, k, d0.id, ended ? endTs : Date.now(), zoneTime))));
     body.innerHTML = `<div class="dbb-mv">${w.keys
       .map((k) => {
         const meta = keyMeta(ctx, d0.profile, k);
+        const cv = comp.get(k);
+        if (cv) {
+          const txt = 'message' in cv ? '—' : cv.text;
+          const tip = 'message' in cv ? cv.message : [cv.text, cv.sub].filter(Boolean).join(' · ');
+          const r = 'message' in cv ? null : matchRule(rules, cv.text, k);
+          return `<div class="dbb-mv-row"><span class="dbb-dot" style="background:${r?.color ?? 'var(--grid)'}"></span><span class="k" title="${esc(meta.displayName)}">${esc(meta.displayName)}</span><span class="v txt${'message' in cv || cv.muted ? ' mut' : ''}" title="${esc(tip)}">${esc(r?.label ?? txt)}</span></div>`;
+        }
         const x = lv[k];
         const r = x ? matchRule(rules, x.value, k) : null;
         const vt = valueType(meta, x?.value);
@@ -1238,6 +1256,118 @@ async function draw(body: HTMLElement, w: Widget, env: RenderEnv): Promise<Color
  * locations in that context. Feeds {{machines}} and {{locations}}, so a banner never counts equipment the viewer
  * cannot see.
  */
+// ---------- D-096: the Current shift card and the computed properties ----------
+
+/** A time in the site's zone, in the app's format. */
+const zoneTime = (ts: number, tz: string) => {
+  try {
+    return fmt.time(ts, { tz });
+  } catch {
+    return fmt.time(ts);
+  }
+};
+/** " (New York time)" when the browser is in another zone than the site at that moment, else ''. */
+function zoneNote(ts: number, tz: string): string {
+  try {
+    if (-new Date(ts).getTimezoneOffset() !== tzOffset(ts, tz)) return ` (${tz.split('/').pop()!.replace(/_/g, ' ')} time)`;
+  } catch {
+    /* no note */
+  }
+  return '';
+}
+
+/**
+ * The "Current shift" card (D-096): the shift now in the site's zone with its times, the time left (a meter of the shift
+ * so far), the next shift, or "Between shifts" / "No shifts set up"; with settings.showCrew, who is on shift (crew role
+ * and names, core/shiftcrew.ts). For the dashboard's machine, a chosen machine (binding fixed) or a chosen site (binding
+ * nodeQuery). Nothing is read per machine: the calendar and the roster are cached per page. Always the present: the
+ * page's time window does not move it.
+ */
+async function drawShift(body: HTMLElement, w: Widget, env: RenderEnv): Promise<undefined> {
+  const { ctx } = env;
+  const b = w.binding;
+  let id: string;
+  let where = '';
+  let site: { id: string; name: string } | null;
+  if (b.mode === 'nodeQuery') {
+    const n = ctx.nodes.get(b.nodeId);
+    if (!n) return void placeholder(body, 'No data in your scope');
+    id = n.id;
+    site = { id: n.id, name: n.label };
+    where = n.label;
+  } else {
+    const bound = resolveBinding(env, b.mode === 'siblings' || b.mode === 'nearest' ? { mode: 'current' } : b);
+    if (bound.problem) return void placeholder(body, bound.problem);
+    const d = bound.devices[0];
+    if (!d) return void placeholder(body, bound.hidden ? 'No data in your scope' : 'Choose a machine in the widget settings.');
+    id = d.id;
+    site = shiftcrew.siteOf(ctx, d.id);
+    where = b.mode === 'current' ? '' : d.label;
+  }
+  const now = Date.now();
+  const [s, c] = await Promise.all([shiftcrew.shiftNow(ctx, id, now), w.settings.showCrew ? shiftcrew.crewNow(ctx, site?.id ?? null, now) : Promise.resolve(null)]);
+  const t = (ts: number) => zoneTime(ts, s.tz);
+  const z = s.cal ? zoneNote(now, s.tz) : '';
+  let head: string;
+  if (!s.cal) {
+    head = `<div class="v mut">No shifts set up</div><div class="s">An administrator sets them in Settings › Shifts &amp; holidays.</div>`;
+  } else if (!s.cur) {
+    head = `<div class="v mut">Between shifts</div>${s.prev && now - s.prev.end < 12 * 3600e3 ? `<div class="s">${esc(s.prev.name)} ended at ${esc(t(s.prev.end))}${esc(z)}</div>` : ''}`;
+  } else {
+    const pct = Math.max(0, Math.min(100, ((now - s.cur.start) / (s.cur.end - s.cur.start || 1)) * 100));
+    head = `<div class="v" title="${esc(s.cur.name)}">${esc(s.cur.name)}</div><div class="s">${esc(`${t(s.cur.start)} – ${t(s.cur.end)}${z}`)}${s.cur.inBreak ? ' · <b>On a break</b>' : ''}</div>
+      <div class="imx-meter dbb-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct.toFixed(0)}" aria-label="${esc(`Shift so far: ${fmtNum(pct, 0)}%`)}" style="--m:var(--accent);--m2:color-mix(in srgb, var(--accent) 62%, #ffffff)"><span class="tr"><i style="--v:${pct.toFixed(1)}%"></i></span></div>
+      <div class="left">${esc(shiftcrew.duration(s.cur.end - now))} left</div>`;
+  }
+  const next = s.cal && s.next ? `<div class="nx"><span class="k">Next</span><span>${esc(s.next.name)} at ${esc(t(s.next.start))}${s.next.start - now < 24 * 3600e3 ? ` <span class="mut">(in ${esc(shiftcrew.duration(s.next.start - now))})</span>` : ''}</span></div>` : '';
+  let crewHtml = '';
+  if (c) {
+    const line = (txt: string) => `<div class="cr-msg">${esc(txt)}</div>`;
+    let inner: string;
+    if (c.state === 'noSite') inner = line('This machine is not at a site.');
+    else if (c.state === 'noRoster') inner = line('No crew roster for this site yet. An administrator plans it in Settings › Crew roster.');
+    else if (c.state === 'noShifts' || c.state === 'noShift') inner = line('Nobody is on shift now.');
+    else {
+      const by = new Map<string, string[]>();
+      for (const r of c.rows) by.set(r.role, [...(by.get(r.role) ?? []), r.name]);
+      inner = c.roles
+        .filter((r) => by.has(r.id) || c.roles.length <= 6)
+        .map((r) => {
+          // the user list could not be read: the roles that have someone say so, without names
+          const who = by.has(r.id) && c.named === false ? shiftcrew.NO_NAMES : (by.get(r.id) ?? ['Nobody planned']).join(', ');
+          return `<div class="cr"><span class="k" title="${esc(r.name)}">${esc(r.name)}</span><span class="n${by.has(r.id) && c.named !== false ? '' : ' mut'}" title="${esc(who)}">${esc(who)}</span></div>`;
+        })
+        .join('');
+      inner = inner ? `<div class="crg">${inner}</div>` : line('Nobody is planned on this shift.');
+    }
+    crewHtml = `<div class="crew"><div class="ch">On shift${site && b.mode !== 'nodeQuery' ? ` · ${esc(site.name)}` : ''}</div>${inner}</div>`;
+  }
+  // the machine or site under the title, unless the title already says it
+  if (where && (w.title || '').includes(where)) where = '';
+  body.innerHTML = `<div class="dbb-shift">${where ? `<div class="wh">${esc(where)}</div>` : ''}<div class="now">${head}</div>${next}${crewHtml}</div>`;
+  return undefined;
+}
+
+/**
+ * D-096: a value card or a status indicator on a computed property (Current shift, On shift: <crew role>) of machine
+ * `d`, at `at` (now, or the end of a time window that has ended). Colour rules on text (equals, contains) apply.
+ */
+async function drawComputed(body: HTMLElement, w: Widget, env: RenderEnv, d: Node, key: string, at: number): Promise<ColorRule | null | undefined> {
+  const r = await shiftcrew.computedValue(env.ctx, key, d.id, at, zoneTime);
+  if ('message' in r) return void placeholder(body, r.message);
+  const rules = effectiveRules(w.settings);
+  const rule = matchRule(rules, r.text, key);
+  const sub = [w.binding.mode !== 'current' ? d.label : '', r.sub ?? ''].filter(Boolean).join(' · ');
+  if (w.type === 'status') {
+    const color = rule?.color ?? (r.muted ? STATUS.neutral : 'var(--accent)');
+    body.innerHTML = `<div class="dbb-value"><div class="dbb-pill" style="--pill:${color}"><span class="dbb-dot"></span><span class="pt">${esc(rule?.label ?? r.text)}</span></div>${sub ? `<div class="s" style="margin-top:8px">${esc(sub)}</div>` : ''}</div>`;
+    return w.settings.colorTarget && w.settings.colorTarget !== 'value' ? ({ op: 'eq', value: '', color } as ColorRule) : null;
+  }
+  body.innerHTML = `<div class="dbb-value"><div class="vl"><span class="v txt${r.muted ? ' mut' : ''}" title="${esc(r.text)}">${esc(rule?.label ?? r.text)}</span></div>${sub ? `<div class="s">${esc(sub)}</div>` : ''}</div>`;
+  return rule;
+}
+
+
 export function fleetCounts(env: RenderEnv, widgets: Widget[]): { machines: number; locations: number } {
   const machines = new Set<string>();
   const sites = new Set<string>();

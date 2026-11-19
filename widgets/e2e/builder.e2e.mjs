@@ -153,11 +153,11 @@ test('rename, time range realtime/historic, undo and redo (buttons and keys)', a
 
 // ------------------------------------------------------------------ palette and widgets
 
-const ALL_TYPES = ['value', 'kpi', 'gauge', 'progress', 'status', 'multivalue', 'summary', 'line', 'area', 'bar', 'donut', 'timeline', 'heatmap', 'table', 'alarms', 'text', 'image', 'link', 'embed'];
+const ALL_TYPES = ['value', 'kpi', 'gauge', 'progress', 'status', 'multivalue', 'summary', 'shiftinfo', 'line', 'area', 'bar', 'donut', 'timeline', 'heatmap', 'table', 'alarms', 'text', 'image', 'link', 'embed'];
 
 test('every palette widget type adds, renders without errors, and deletes', async (t) => {
   const tiles = await t.b(() => [...document.querySelectorAll('.dbb-left .dbb-pal')].map((p) => p.dataset.t));
-  eq(tiles.slice().sort(), ALL_TYPES.slice().sort(), 'palette lists the 19 widget types');
+  eq(tiles.slice().sort(), ALL_TYPES.slice().sort(), 'palette lists the 20 widget types');
   for (const type of ALL_TYPES) {
     const blocked = await t.b((ty) => document.querySelector(`.dbb-pal[data-t="${ty}"]`).classList.contains('off'), type);
     if (blocked) continue; // not possible for Compressor; covered by the next test
@@ -203,7 +203,7 @@ test('palette search filters tiles', async (t) => {
 test('10-widget limit: tiles grey out, extra add and duplicate refused', async (t) => {
   for (let i = 0; i < 10; i++) await t.addWidget('value');
   eq((await t.draft()).widgets.length, 10, '10 added');
-  ok(await t.b(() => document.querySelectorAll('.dbb-left .dbb-pal.off').length === 19), 'all tiles off');
+  ok(await t.b(() => document.querySelectorAll('.dbb-left .dbb-pal.off').length === 20), 'all tiles off');
   ok(/10 \/ 10/.test(await t.page.textContent('.dbb-count')), 'counter');
   await t.page.click('.dbb-left .dbb-pal[data-t="kpi"]', { force: true });
   eq((await t.draft()).widgets.length, 10, 'no 11th widget');
@@ -2500,6 +2500,138 @@ test('D-092: standard deviation: offered on a line chart, drawn as "Std. deviati
   // the platform is never asked for a standard deviation
   eq(await t.b(() => window.__tb.urls.filter((u) => /[?&]agg=SD\b/.test(u))), [], 'no agg=SD request');
 });
+
+// ------------------------------------------------------------------ D-096 Current shift card, crew on shift
+
+const SHIFT_NAME = /Morning|Afternoon|Night/;
+const PUN_ID = 'a0000000-0000-4000-8000-000000000003';
+const cardText = (t, id) => t.b((x) => document.querySelector(`.dbb-canvas .dbb-gbox[data-id="${x}"] .dbb-card-b`)?.textContent ?? '', id);
+const selectedId = (t) => t.b(() => window.__b.selected);
+
+test('D-096 Current shift card: palette, the shift now, the next one, who is on shift, a site, no shifts', async (t) => {
+  await t.page.close();
+  Object.assign(t, await open('page=builder&dev=pc&crew=1'));
+  ok(await t.page.$('.dbb-left .dbb-pal[data-t="shiftinfo"]'), 'in the palette');
+  await t.addWidget('shiftinfo');
+  await t.idle(700);
+  const id = await selectedId(t);
+  const w = (await t.draft()).widgets.find((x) => x.id === id);
+  eq([w.type, w.title, w.binding.mode, w.keys], ['shiftinfo', 'Current shift', 'current', []], 'added for this machine, no property');
+  let txt = await cardText(t, id);
+  ok(SHIFT_NAME.test(txt) && /left/.test(txt) && /Next/.test(txt), `shift, time left and next shift: ${txt}`);
+  ok(!/Primary operator/.test(txt), 'no crew until asked');
+  ok(await t.b(() => !!document.querySelector('.dbb-canvas .dbb-shift .imx-meter')), 'the shift-so-far meter');
+  // no Colours tab, no property section
+  const tabs = await t.b(() => [...document.querySelectorAll('.dbb-right .dbb-tab')].map((x) => x.textContent));
+  ok(tabs.includes('Widget') && tabs.includes('Style') && !tabs.includes('Colours'), `no Colours tab: ${tabs}`);
+  ok(!(await t.page.$('.dbb-right [data-pk="keys"]')), 'no property picker');
+  // who is on shift
+  await t.page.check('.dbb-right [data-ap="showCrew"]');
+  await t.idle(700);
+  txt = await cardText(t, id);
+  ok(/Primary operator\s*Ravi Kumar/.test(txt) && /Shift manager\s*Sunita Rao/.test(txt) && /Secondary operator\s*Nobody planned/.test(txt), `crew rows: ${txt}`);
+  ok(/On shift · Pune/.test(txt), 'the site named over the crew');
+  const w2 = (await t.draft()).widgets.find((x) => x.id === id);
+  ok(w2.settings.showCrew === true && w2.h >= 5, 'stored, taller');
+  // a site
+  await t.source('nodeQuery');
+  await t.idle(300);
+  const opts = await t.b(() => [...document.querySelectorAll('.dbb-right [data-s="node"] option')].map((o) => o.textContent));
+  ok(opts.length === 2 && opts.every((o) => /Richmond|Pune/.test(o)), `sites only: ${opts}`);
+  await t.page.selectOption('.dbb-right [data-s="node"]', PUN_ID);
+  await t.idle(700);
+  const b = (await t.draft()).widgets.find((x) => x.id === id).binding;
+  eq([b.mode, b.nodeId, b.profile], ['nodeQuery', PUN_ID, ''], 'bound to the site');
+  txt = await cardText(t, id);
+  ok(/^Pune/.test(txt.trim()) && /Ravi Kumar/.test(txt), `the site's shift and crew: ${txt}`);
+  // a machine at a site without shifts or roster
+  await t.source('fixed');
+  await t.pick('dev', ['rc']);
+  await t.idle(700);
+  txt = await cardText(t, id);
+  ok(/No shifts set up/.test(txt) && /Settings › Shifts & holidays/.test(txt), `no shifts: ${txt}`);
+  ok(/No crew roster for this site yet/.test(txt), `no roster: ${txt}`);
+  eq(await t.cardErrors(), [], 'no card errors');
+  // dark: still readable (the card's own tokens)
+  await t.b(() => document.documentElement.classList.add('imx-dark'));
+  await t.page.waitForTimeout(200);
+  ok(!(await t.b(() => [...document.querySelectorAll('.dbb-canvas .dbb-shift [style*="border-left"]')].length)), 'no left-edge accent');
+});
+
+test('D-096 value card: Current shift and On shift: <role> in the picker; the old calendar-month Shift is not offered', async (t) => {
+  await t.page.close();
+  Object.assign(t, await open('page=builder&dev=pc&crew=1'));
+  await t.idle(600);
+  await t.addWidget('value');
+  await t.idle(500);
+  const id = await selectedId(t);
+  await t.page.click('.dbb-right [data-pk="keys"] .dbb-pk-trig .car');
+  await t.page.waitForTimeout(200);
+  const rows = await t.b(() => [...document.querySelectorAll('.dbb-right [data-pk="keys"] .dbb-pk-row')].map((r) => [r.dataset.v, r.querySelector('.l').textContent, r.querySelector('.sub')?.textContent ?? '']));
+  const keys = rows.map((r) => r[0]);
+  ok(['@shift', '@crew:op1', '@crew:op2', '@crew:mgr'].every((k) => keys.includes(k)), `computed entries: ${keys}`);
+  ok(!keys.includes('shift'), 'the old calendar-month Shift is not offered');
+  eq(keys.slice(0, 4), ['@shift', '@crew:op1', '@crew:op2', '@crew:mgr'], 'first in the list');
+  ok(!(await t.draft()).widgets.find((x) => x.id === id).keys[0].startsWith('@'), 'a new card still starts on a reading');
+  eq(rows.find((r) => r[0] === '@crew:op1').slice(1), ['On shift: Primary operator', 'from the crew roster'], 'named by the roster role');
+  await t.page.keyboard.press('Escape');
+  await t.pick('keys', ['@crew:op1']);
+  await t.idle(700);
+  let w = (await t.draft()).widgets.find((x) => x.id === id);
+  eq([w.keys, w.title], [['@crew:op1'], 'On shift: Primary operator'], 'bound and titled');
+  ok(/Ravi Kumar/.test(await cardText(t, id)), 'the name on the card');
+  await t.pick('keys', ['@shift']);
+  await t.idle(700);
+  ok(SHIFT_NAME.test(await cardText(t, id)) && /left/.test(await cardText(t, id)), 'Current shift: name and time left');
+  // a status indicator takes them too; a gauge does not
+  await t.page.selectOption('.dbb-right [data-s="type"]', 'status');
+  await t.idle(700);
+  w = (await t.draft()).widgets.find((x) => x.id === id);
+  eq(w.keys, ['@shift'], 'kept on a status indicator');
+  ok(SHIFT_NAME.test(await cardText(t, id)), 'shown as a pill');
+  await t.page.selectOption('.dbb-right [data-s="type"]', 'multivalue');
+  await t.idle(500);
+  await t.pick('keys', ['@crew:mgr', 'dischargePressure']);
+  await t.idle(800);
+  const mv = await cardText(t, id);
+  ok(SHIFT_NAME.test(mv) && /Sunita Rao/.test(mv) && /Discharge pressure/.test(mv), `multi-value mixes both: ${mv}`);
+  // a dashboard that already shows the old value keeps it
+  await t.b((x) => window.__b.updateWidget(x, (y) => { y.type = 'value'; y.keys = ['shift']; }), id);
+  await t.idle(700);
+  ok(/November/.test(await cardText(t, id)), 'the old value still drawn');
+  await t.page.click('.dbb-right [data-pk="keys"] .dbb-pk-trig .car');
+  await t.page.waitForTimeout(200);
+  ok(await t.b(() => !!document.querySelector('.dbb-right [data-pk="keys"] .dbb-pk-row[data-v="shift"]')), 'and stays in its own picker');
+  eq(await t.cardErrors(), [], 'no card errors');
+});
+
+test('D-096 machine page: a Viewer (Crew roster Hidden) sees the shift and the names (Akshay 19 Nov, Option 1)', async (t) => {
+  await t.page.close();
+  Object.assign(t, await open('dev=pc&role=Viewer&crew=1'));
+  await t.b(() => {
+    const now = Date.now();
+    const d = { schemaVersion: 1, id: 'sc1', name: 'Shift board', kind: 'device', profile: 'Compressor', version: 1, ownerId: 'u1', ownerName: 'A', updatedBy: 'u1', updatedAt: now, timeRange: 'realtime', copiedFrom: null,
+      widgets: [
+        { id: 's1', type: 'shiftinfo', title: 'SHIFT', x: 0, y: 0, w: 6, h: 5, binding: { mode: 'current' }, keys: [], settings: { showCrew: true } },
+        { id: 'o1', type: 'value', title: 'OPERATOR', x: 6, y: 0, w: 6, h: 2, binding: { mode: 'current' }, keys: ['@crew:op1'], settings: {} },
+      ] };
+    window.__tb.setAttrs('ASSET', 'store', { dbb_d_sc1: d });
+    window.__tb.setAttrs('DEVICE', 'pc', { dbb_assign: { dashboardId: 'sc1', mode: 'linked', by: 'u1', at: now } });
+    window.__tb.setAttrs('ASSET', 'store', { dbb_assign_rev: 'v' + now });
+    window.dispatchEvent(new Event('imex-dbb:changed'));
+  });
+  await t.page.waitForFunction(() => /SHIFT/.test(document.querySelector('.dbb-rbody')?.textContent ?? '') && /Morning|Afternoon|Night/.test(document.querySelector('.dbb-rbody')?.textContent ?? ''), null, { timeout: 8000 });
+  await t.page.waitForTimeout(800);
+  const txt = await t.b(() => document.querySelector('.dbb-rbody').textContent);
+  ok(/Primary operator\s*Ravi Kumar/.test(txt) && /Shift manager\s*Sunita Rao/.test(txt), `names on the card: ${txt}`);
+  ok(/OPERATOR\s*Ravi Kumar/.test(txt), `name on the value card: ${txt}`);
+  ok(!/Your role does not allow this/.test(txt), 'no role wording');
+  ok(await t.b(() => window.__tb.calls.some((c) => c === 'GET /api/users')), 'the names read the app’s own way');
+  // the page bar never waits for data that no card reads (hidden, or the machine's own status reading)
+  ok(await t.b(() => { const u = document.querySelector('.dbb-upd'); return !!u && (u.hidden || !/Waiting for data/.test(u.textContent)); }), 'no "Waiting for data…" for computed cards');
+});
+
+
 
 // ------------------------------------------------------------------ run
 

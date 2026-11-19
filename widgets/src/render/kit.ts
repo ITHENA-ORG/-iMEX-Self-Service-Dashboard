@@ -278,6 +278,7 @@ export function cardSkeleton(type: string): string {
     case 'table':
     case 'alarms':
     case 'multivalue':
+    case 'shiftinfo':
       inner = skeletonRows(4, type === 'multivalue' ? 2 : 3);
       break;
     case 'summary':

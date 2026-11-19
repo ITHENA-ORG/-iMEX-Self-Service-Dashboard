@@ -36,6 +36,8 @@ export type PropKind = 'number' | 'boolean' | 'string' | 'coded';
  * @param sample optional current value to help the inference.
  */
 export function propKind(meta: Partial<KeyMeta> | null | undefined, sample?: unknown): PropKind {
+  // D-096: the computed properties (Current shift, On shift: <role>) are text
+  if (meta?.key && /^@(?:shift|crew:)/.test(meta.key)) return 'string';
   const t = valueType(meta, sample);
   if (t === 'number' && meta?.states && Object.keys(meta.states).length) return 'coded';
   return t;
@@ -67,6 +69,7 @@ export const ACCEPTS: Record<WidgetType, readonly PropKind[]> = {
   status: STATE,
   multivalue: ALL,
   summary: NUM,
+  shiftinfo: [], // D-096: no property (the shift and the crew are worked out, not read)
   line: NUM,
   area: NUM,
   bar: NUM,
@@ -111,7 +114,7 @@ export interface Compat {
  * @returns `{ok: true}` or `{ok: false, reason}` with a sentence naming the widget and property.
  */
 export function compatible(type: WidgetType, meta: Partial<KeyMeta> | null | undefined, o: { donutMode?: 'state' | 'devices'; sample?: unknown } = {}): Compat {
-  if (CONTENT_TYPES.has(type) || type === 'alarms') return { ok: true };
+  if (CONTENT_TYPES.has(type) || type === 'alarms' || type === 'shiftinfo') return { ok: true };
   const kind = propKind(meta, o.sample);
   const name = meta?.displayName ?? meta?.key ?? 'This property';
   let accepts = ACCEPTS[type];

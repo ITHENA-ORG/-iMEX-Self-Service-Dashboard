@@ -112,6 +112,45 @@ if (BENCH) {
   }
   (window as any).WebSocket = FakeWs;
 }
+// ?crew=1 (D-096): shifts at Pune (3 x 8, Asia/Kolkata; continuous, so a shift always runs), a crew roster on System
+// Configuration (Ravi = Primary operator and Sunita = Shift manager on every shift at Pune, Anil off) and the people
+if (new URLSearchParams(location.search).has('crew')) {
+  tb.add({ id: 'sys', entityType: 'ASSET', name: 'System Configuration', type: 'Config' });
+  const T38 = [
+    { id: 'a', name: 'Morning', start: '06:00', end: '14:00' },
+    { id: 'b', name: 'Afternoon', start: '14:00', end: '22:00' },
+    { id: 'c', name: 'Night', start: '22:00', end: '06:00' },
+  ];
+  tb.setAttrs('ASSET', 'pun', { imexShifts: { v: 1, versions: [{ id: 'v1', from: null, shifts: T38 }] }, imexTimeZone: 'Asia/Kolkata' });
+  const PUN_ID = 'a0000000-0000-4000-8000-000000000003';
+  tb.setAttrs('ASSET', 'sys', {
+    imexCrew: JSON.stringify({
+      v: 2,
+      roles: [
+        { id: 'op1', name: 'Primary operator', need: 1 },
+        { id: 'op2', name: 'Secondary operator', need: 1 },
+        { id: 'mgr', name: 'Shift manager', need: 1 },
+      ],
+      team: [
+        { site: PUN_ID, user: 'u-ravi', role: 'op1' },
+        { site: PUN_ID, user: 'u-anil', role: 'op2' },
+        { site: PUN_ID, user: 'u-sunita', role: 'mgr' },
+      ],
+      entries: [
+        { site: PUN_ID, user: 'u-ravi', from: '2026-01-01', to: '2030-12-31', shifts: ['a', 'b', 'c'] },
+        { site: PUN_ID, user: 'u-anil', from: '2026-01-01', to: '2030-12-31', shifts: [] },
+        { site: PUN_ID, user: 'u-sunita', from: '2026-01-01', to: '2030-12-31', shifts: ['a', 'b', 'c'] },
+      ],
+    }),
+  });
+  // the old shift rule chain's value (the calendar month): no longer offered in the pickers
+  tb.telemetry.set('pc', { ...tb.telemetry.get('pc'), shift: [{ ts: now, value: 'November' }] });
+  tb.users = [
+    { id: 'u-ravi', firstName: 'Ravi', lastName: 'Kumar', email: 'ravi@example.com' },
+    { id: 'u-anil', firstName: 'Anil', lastName: 'Shah', email: 'anil@example.com' },
+    { id: 'u-sunita', firstName: 'Sunita', lastName: 'Rao', email: 'sunita@example.com' },
+  ];
+}
 const role = new URLSearchParams(location.search).get('role') ?? 'Admin';
 asUser(tb, 'u1', role, [role === 'Viewer' ? 'pun' : role === 'Manager' ? 'ric' : 'root']);
 localStorage.setItem('jwt_token', 'x');

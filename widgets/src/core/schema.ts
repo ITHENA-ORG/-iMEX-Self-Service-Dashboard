@@ -55,7 +55,7 @@ export const GRID_COLS = 12;
 
 /** Every widget type (D-019). Adding one means updating every Record<WidgetType, …> below and in core/compat.ts, plus a renderer. */
 export const WIDGET_TYPES = [
-  'value', 'kpi', 'gauge', 'progress', 'status', 'multivalue', 'summary',
+  'value', 'kpi', 'gauge', 'progress', 'status', 'multivalue', 'summary', 'shiftinfo',
   'line', 'area', 'bar', 'donut', 'timeline', 'heatmap',
   'table', 'alarms',
   'text', 'image', 'link', 'embed',
@@ -71,6 +71,7 @@ export const WIDGET_LABELS: Record<WidgetType, string> = {
   status: 'Status indicator',
   multivalue: 'Multi-value card',
   summary: 'Min / avg / max',
+  shiftinfo: 'Current shift',
   line: 'Line chart',
   area: 'Area chart',
   bar: 'Bar chart',
@@ -87,7 +88,7 @@ export const WIDGET_LABELS: Record<WidgetType, string> = {
 
 /** Palette groups in the builder. */
 export const WIDGET_GROUPS: { title: string; types: WidgetType[] }[] = [
-  { title: 'Values', types: ['value', 'kpi', 'gauge', 'progress', 'status', 'multivalue', 'summary'] },
+  { title: 'Values', types: ['value', 'kpi', 'gauge', 'progress', 'status', 'multivalue', 'summary', 'shiftinfo'] },
   { title: 'Charts', types: ['line', 'area', 'bar', 'donut', 'timeline', 'heatmap'] },
   { title: 'Lists', types: ['table', 'alarms'] },
   { title: 'Content', types: ['text', 'image', 'link', 'embed'] },
@@ -106,6 +107,8 @@ export const WIDGET_CAPS: Record<WidgetType, { keys: [number, number]; multiDevi
   status: { keys: [1, 1], multiDevice: false, needsData: true },
   multivalue: { keys: [1, MAX_KEYS], multiDevice: false, needsData: true },
   summary: { keys: [1, 1], multiDevice: false, needsData: true },
+  // D-096: no property; the shift (and who is on shift) of a machine or a site
+  shiftinfo: { keys: [0, 0], multiDevice: false, needsData: true },
   line: { keys: [1, MAX_KEYS], multiDevice: true, needsData: true },
   area: { keys: [1, MAX_KEYS], multiDevice: true, needsData: true },
   bar: { keys: [1, 1], multiDevice: true, needsData: true },
@@ -129,6 +132,7 @@ export const DEFAULT_SIZE: Record<WidgetType, { w: number; h: number }> = {
   status: { w: 3, h: 2 },
   multivalue: { w: 4, h: 3 },
   summary: { w: 4, h: 2 },
+  shiftinfo: { w: 4, h: 3 },
   line: { w: 12, h: 4 },
   area: { w: 12, h: 4 },
   bar: { w: 6, h: 4 },
@@ -311,6 +315,8 @@ export const WidgetSettings = z
     linkDevice: z.string().max(60).optional(),
     buttonStyle: z.enum(['filled', 'outline', 'card']).optional(),
     buttonColor: Color.optional(),
+    // shiftinfo (D-096): also list who is on shift now (name and crew role)
+    showCrew: z.boolean().optional(),
   })
   .strict();
 export type WidgetSettings = z.infer<typeof WidgetSettings>;

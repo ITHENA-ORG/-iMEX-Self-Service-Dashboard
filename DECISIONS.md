@@ -1670,3 +1670,75 @@ Findings W-38, W-14, S-09, W-22, R-07 (Builder widgets) and S-01, S-02, D-08 (th
   `push-widgets-target.mjs --only=imex_dbb_*` (dry run first, backup `backups/2026-11-18/`), then the App UI's
   `dbb-version-set.mjs` (store stamp 2026-11-16T20:07:41.778Z -> 2026-11-18T06:21:26.632Z, dry run first).
 - Help: the Dashboards guide and question ("Not available for this machine"), App UI repo.
+
+### D-096 The "Current shift" card and the crew on shift; "Current shift" / "On shift: <crew role>" in the value cards (19 Nov 2026; Akshay: "Lets include in this iteration ... showing Operator from Crew roster on the dashboard and providing that provision in the dropdown on property selection for widgets like value card"; App UI U-218; LOCAL only)
+
+What a dashboard can show now, all worked out in the browser (nothing stored, no server load):
+
+- **New widget type `shiftinfo` ("Current shift", Values group).** For the dashboard's machine (`current`), one chosen
+  machine (`fixed`) or a chosen site (`nodeQuery` with the site asset and profile `''`; the builder offers only the assets
+  that directly contain machines, `Builder.sites()`). It shows the shift running now with its start and end in the site's
+  zone (a "(New York time)" note when the browser is elsewhere), a meter of the shift so far, the time left and the next
+  shift; "Between shifts" (with the shift that ended last) and "No shifts set up" ("An administrator sets them in
+  Settings › Shifts & holidays."). Option **Show who is on shift** (`settings.showCrew`): every crew role of the roster
+  with the names of the people on shift now at the site ("Nobody planned" for a role without anyone). No property, no
+  Colours tab; Style works (value size, colour, alignment). The page's time window does not move it (always the present).
+  Checklist (render/widgets.ts header): schema (WIDGET_TYPES, LABELS, GROUPS, CAPS, DEFAULT_SIZE, `showCrew`), compat
+  (ACCEPTS `[]`, always compatible), the draw branch `drawShift`, builder defaults (title "Current shift", "This machine",
+  or the first site on a standalone dashboard) and the Settings fields, palette icon, the chat prompt (type, binding,
+  machineType "ALL" for a site). Also: the phone minimum height, the design pass height (5 rows with the crew), the
+  skeleton, the Style tab, the palette help text.
+- **Computed properties in the property list** of the value card, the status indicator and the multi-value card (the cards
+  that show text of one machine), FIRST in the list: **Current shift** (key `@shift`, "from the shifts") and one
+  **On shift: <crew role>** per role of the roster (key `@crew:<roleId>`, "from the crew roster"), named after the roster's
+  own roles. Worked out for the card's machine (its site for the crew), at the end of a time window that has ended,
+  else now. A role removed from the roster keeps the card working ("This crew role is no longer in the roster"). The
+  builder never picks one by itself (fixKeys / a new card start on a reading). The computed keys are never read as
+  readings: not sent to the platform, not given to the Analyzer button, not checked in the apply preview; the chat's
+  catalogue lists them (`computedKeys`) and its validation accepts them on those three types only.
+- **The old "Shift" property is no longer offered** (`scope.NOT_OFFERED`: `shift`, the calendar month the developers' old
+  shift chain writes, and NOT_A_PROPERTY also where the catalogue names it, e.g. the OEE chain's `Current_Shift`, which
+  the computed "Current shift" replaces). A widget that already shows one keeps it: drawn as before and still in its own
+  property list. Pickers, the chat catalogue and the new-card default use the filter; `ctx.profileKeys` is unchanged.
+- **The crew core in TypeScript** (`core/crew.ts`): the reading half of the App UI's `widgets/_shared/crew.js` (parse with
+  the version 1 migration, planOf, roleOf, team, people, crewOn, coverage, the shift meaning / reassign (M-6), onShift,
+  sameShift, isManager, abbr), line-by-line; the editing half stays in the app. Contract: the new shared
+  `widgets/test/crew-vectors.json` (6 cases, 78 queries, byte-identical with the App UI's `tests/crew-vectors.json`,
+  source `tests/crew-vectors.src.mjs` there, expectations written by hand). Cross-check on LOCAL's real roster: both
+  cores give the same people for 290 instants (Mumbai and Pune, ±72 h, 0 differences).
+- **Browser side** (`core/shiftcrew.ts`): the roster (`imexCrew` on System Configuration, `api.systemConfigCrew`, at most
+  every 2 min per page), the calendar (`core/shifts.ts`, 5 min), the names (5 min). The site of a machine = the asset that
+  directly contains it (as the app's crew core); a site's crew uses the site's calendar and chain.
+- **Names, and who sees them.** The names come the app's own way (Settings › Crew, Users & roles, Losses): a customer
+  user `GET /api/users` (its own customer's people; checked on LOCAL 4.3.1.5: 200 for the Admin and the Viewer, 14
+  users), a tenant administrator `GET /api/customer/{id}/users` (the launcher's customer, else the customer of System
+  Configuration). No new privilege, no relay. **Akshay 19 Nov chose names visible to all dashboard viewers ("Option
+  1")**: everyone who can open the dashboard sees who is on shift, whatever their role's Crew roster level (the built-in
+  Viewer and the Operator template included); the Crew roster permission still guards only the app's Settings › Crew
+  roster page. (The first build of this entry hid names from Crew = Hidden roles; removed.) A person missing from the
+  list shows "Name not available"; when the list cannot be read at all the crew parts say "Names not available" (not a
+  role sentence), and the next update asks again (a failed read is not kept).
+- **The page bar** of a dashboard whose cards read no machine data (only Current shift / computed / text cards) no
+  longer says "Waiting for data…" for ever: the "Updated" indicator is hidden (`renderer.ts readsData`).
+
+Files: `widgets/src/core/crew.ts` (new), `core/shiftcrew.ts` (new), `core/api.ts` (systemConfigCrew, assetCustomer,
+customerPeople), `core/schema.ts`, `core/compat.ts`, `core/scope.ts` (NOT_OFFERED), `core/chat.ts`, `core/chat-prompt.ts`,
+`core/design.ts`, `core/store.ts`, `render/widgets.ts` (drawShift, drawComputed, keyMeta, multi-value), `render/theme.ts`
+(`.dbb-shift`), `render/icons.ts`, `render/kit.ts`, `render/grid.ts`, `builder/builder.ts`, `builder/editors.ts`,
+`entries/renderer.ts`; tests `widgets/test/crew.test.ts` (new), `crew-vectors.json` (new, copy), `shiftcrew.test.ts`
+(new), `fake-tb.ts` (users, asset), `widgets/harness/harness.ts` (`?crew=1`), `widgets/e2e/builder.e2e.mjs` (3 new
+scenarios, the palette lists 20 types); `scripts/shiftcrew-local.mjs` (LOCAL check with screenshots).
+
+Checks: `tsc` clean; vitest 576 passed (553 + crew vectors 10 + shiftcrew 13); `npm run test:e2e` all passed (85);
+`npm run build:widgets`; deployed to LOCAL from the worktree (`deploy-node.mjs --go`, the chat relay chain rewritten for
+the new prompt; backup `backups/2026-11-19-shiftcrew/`); `node scripts/shiftcrew-local.mjs`: the LOCAL overview
+dashboard **"Shift and crew"** (id `dshiftcrew1`, shared, kept): Current shift cards for Mumbai and Pune with the crew,
+value cards "On shift: Primary operator", "On shift: Shift manager" (Neha Kapoor) and "Current shift" on Moulding
+Machine 1; light, dark, phone (no sideways scroll), the builder's property list, the Viewer (Vera Viewer: the names on
+the Pune card, no role wording). Not on the server: the release needs the three widget types and the chat relay chain (server mode of
+`deploy-node.mjs`, the prompt changed).
+- Help: App UI U-218 (guide "Show the current shift and who is on shift", two questions; clip
+  `dashboard-builder-shift-crew` for the end batch). The script's Help check fails on LOCAL at the moment: another
+  session (App UI worktree `wt-delivery-appui`) pushed its own Help build over it minutes later; after both branches are
+  merged the App UI's help-build / help-content-push / push-widgets --only=imex_help put it back (not pushed from here:
+  the coordinator builds Help after the merge).

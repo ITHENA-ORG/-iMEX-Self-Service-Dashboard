@@ -1,0 +1,1739 @@
+{
+ "about": "iMEX crew roster core test vectors (App UI widgets/_shared/crew.js, Builder core/crew.ts; source tests/crew-vectors.src.mjs, U-218). Timestamps: ISO-8601, compare as instants. A case calendar is shifts.js / shiftcal.ts calendar({ chain, tz }); its chain is also the shift meaning chain unless a query says \"meaning\": false.",
+ "cases": [
+  {
+   "name": "parse: defaults and cleaning",
+   "queries": [
+    {
+     "fn": "parse",
+     "raw": null,
+     "expect": {
+      "v": 2,
+      "rev": 0,
+      "at": 0,
+      "by": "",
+      "roles": [
+       {
+        "id": "op1",
+        "name": "Primary operator",
+        "need": 1
+       },
+       {
+        "id": "op2",
+        "name": "Secondary operator",
+        "need": 1
+       },
+       {
+        "id": "mgr",
+        "name": "Shift manager",
+        "need": 1
+       }
+      ],
+      "team": [],
+      "entries": []
+     }
+    },
+    {
+     "fn": "parse",
+     "raw": "{not json",
+     "expect": {
+      "v": 2,
+      "rev": 0,
+      "at": 0,
+      "by": "",
+      "roles": [
+       {
+        "id": "op1",
+        "name": "Primary operator",
+        "need": 1
+       },
+       {
+        "id": "op2",
+        "name": "Secondary operator",
+        "need": 1
+       },
+       {
+        "id": "mgr",
+        "name": "Shift manager",
+        "need": 1
+       }
+      ],
+      "team": [],
+      "entries": []
+     }
+    },
+    {
+     "fn": "parse",
+     "raw": [],
+     "expect": {
+      "v": 2,
+      "rev": 0,
+      "at": 0,
+      "by": "",
+      "roles": [
+       {
+        "id": "op1",
+        "name": "Primary operator",
+        "need": 1
+       },
+       {
+        "id": "op2",
+        "name": "Secondary operator",
+        "need": 1
+       },
+       {
+        "id": "mgr",
+        "name": "Shift manager",
+        "need": 1
+       }
+      ],
+      "team": [],
+      "entries": []
+     }
+    },
+    {
+     "fn": "parse",
+     "raw": "{\"v\":2,\"rev\":4,\"at\":-1,\"by\":5,\"roles\":[{\"id\":\"op1\",\"name\":\"  Lead   hand \",\"need\":2.4},{\"id\":\"op1\",\"name\":\"dup\"},{\"id\":\"bad id\",\"name\":\"x\"},{\"id\":\"x2\",\"name\":\"\"},{\"id\":\"op2\",\"name\":\"Helper\",\"need\":99},{\"id\":\"op3\",\"name\":\"Setter\",\"need\":\"two\"}],\"team\":[{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"role\":\"op1\"},{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"role\":\"op2\"},{\"site\":\"site-pune\",\"user\":\"\",\"role\":\"op1\"},{\"site\":\"site-pune\",\"user\":\"u-anil\",\"role\":\"op2\",\"left\":\"2026-12-01\"},{\"site\":\"site-pune\",\"user\":\"u-meera\",\"role\":\"bad id\"},{\"site\":\"site-pune\",\"user\":\"u-sunita\",\"role\":\"mgr\",\"left\":\"2026-02-30\"}],\"entries\":[{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"from\":\"2026-10-01\",\"to\":\"2026-10-31\",\"shifts\":[\"a\"]},{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"from\":\"2026-10-31\",\"to\":\"2026-10-01\",\"shifts\":[\"a\"]},{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"from\":\"2026-02-30\",\"to\":\"2026-03-01\",\"shifts\":[\"a\"]},{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"from\":\"2026-10-01\",\"to\":\"2026-10-02\",\"days\":[],\"shifts\":[\"a\"]},{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"from\":\"2026-10-01\",\"to\":\"2026-10-02\",\"days\":[1,2,3,4,5,6,7],\"shifts\":[\"a\"]},{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"from\":\"2026-10-01\",\"to\":\"2026-10-02\",\"days\":[1,1,9,\"x\",3],\"shifts\":\"b\"},{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"from\":\"2026-10-01\",\"to\":\"2026-10-02\",\"shifts\":[\"a\",\"a\",\"b\",\"c\",\"d\",\"e\"]},{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"from\":\"2026-10-01\",\"to\":\"2026-10-02\"},{\"site\":\"site-pune\",\"user\":\"u-ravi\",\"from\":\"2026-10-01\",\"to\":\"2026-10-02\",\"shifts\":5},{\"site\":\"site-pune\",\"user\":\"u-anil\",\"from\":\"2026-10-01\",\"to\":\"2026-10-31\",\"cycle\":{\"start\":\"2026-10-01\",\"seq\":[[\"a\"],\"b\",[],null]}},{\"site\":\"site-pune\",\"user\":\"u-anil\",\"from\":\"2026-10-01\",\"to\":\"2026-10-31\",\"cycle\":{\"start\":\"2026-10-01\",\"seq\":[]}},{\"site\":\"site-pune\",\"user\":\"u-anil\",\"from\":\"2026-10-01\",\"to\":\"2026-10-31\",\"cycle\":{\"start\":\"2026-10-01\",\"seq\":[5]}},{\"site\":\"site-pune\",\"user\":\"u-anil\",\"from\":\"2026-10-01\",\"to\":\"2026-10-31\",\"shifts\":[],\"role\":\"bad id\"},{\"site\":\"site-pune\",\"user\":\"u-anil\",\"from\":\"2026-10-01\",\"to\":\"2026-10-31\",\"shifts\":[],\"role\":\"op2\"},{\"site\":\"\",\"user\":\"u-anil\",\"from\":\"2026-10-01\",\"to\":\"2026-10-31\",\"shifts\":[]}]}",
+     "expect": {
+      "v": 2,
+      "rev": 4,
+      "at": 0,
+      "by": "",
+      "roles": [
+       {
+        "id": "op1",
+        "name": "Lead hand",
+        "need": 2
+       },
+       {
+        "id": "op2",
+        "name": "Helper",
+        "need": 20
+       },
+       {
+        "id": "op3",
+        "name": "Setter",
+        "need": 1
+       }
+      ],
+      "team": [
+       {
+        "site": "site-pune",
+        "user": "u-ravi",
+        "role": "op1"
+       },
+       {
+        "site": "site-pune",
+        "user": "u-anil",
+        "role": "op2",
+        "left": "2026-12-01"
+       },
+       {
+        "site": "site-pune",
+        "user": "u-sunita",
+        "role": "mgr"
+       }
+      ],
+      "entries": [
+       {
+        "site": "site-pune",
+        "user": "u-ravi",
+        "from": "2026-10-01",
+        "to": "2026-10-31",
+        "shifts": [
+         "a"
+        ]
+       },
+       {
+        "site": "site-pune",
+        "user": "u-ravi",
+        "from": "2026-10-01",
+        "to": "2026-10-02",
+        "shifts": [
+         "a"
+        ]
+       },
+       {
+        "site": "site-pune",
+        "user": "u-ravi",
+        "from": "2026-10-01",
+        "to": "2026-10-02",
+        "days": [
+         1,
+         3
+        ],
+        "shifts": [
+         "b"
+        ]
+       },
+       {
+        "site": "site-pune",
+        "user": "u-ravi",
+        "from": "2026-10-01",
+        "to": "2026-10-02",
+        "shifts": [
+         "a",
+         "b",
+         "c",
+         "d"
+        ]
+       },
+       {
+        "site": "site-pune",
+        "user": "u-ravi",
+        "from": "2026-10-01",
+        "to": "2026-10-02",
+        "shifts": null
+       },
+       {
+        "site": "site-pune",
+        "user": "u-anil",
+        "from": "2026-10-01",
+        "to": "2026-10-31",
+        "cycle": {
+         "start": "2026-10-01",
+         "seq": [
+          [
+           "a"
+          ],
+          [
+           "b"
+          ],
+          [],
+          null
+         ]
+        }
+       },
+       {
+        "site": "site-pune",
+        "user": "u-anil",
+        "from": "2026-10-01",
+        "to": "2026-10-31",
+        "shifts": []
+       },
+       {
+        "site": "site-pune",
+        "user": "u-anil",
+        "from": "2026-10-01",
+        "to": "2026-10-31",
+        "shifts": [],
+        "role": "op2"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "one site: plans, later entries win, cycles, the roster, crew on a shift",
+   "tz": "Asia/Kolkata",
+   "chain": [
+    {
+     "v": 1,
+     "versions": [
+      {
+       "id": "v1",
+       "from": null,
+       "inherit": false,
+       "shifts": [
+        {
+         "id": "a",
+         "name": "Morning",
+         "start": "06:00",
+         "end": "14:00"
+        },
+        {
+         "id": "b",
+         "name": "Afternoon",
+         "start": "14:00",
+         "end": "22:00"
+        },
+        {
+         "id": "c",
+         "name": "Night",
+         "start": "22:00",
+         "end": "06:00"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "doc": {
+    "v": 2,
+    "rev": 7,
+    "roles": [
+     {
+      "id": "op1",
+      "name": "Primary operator",
+      "need": 1
+     },
+     {
+      "id": "op2",
+      "name": "Secondary operator",
+      "need": 2
+     },
+     {
+      "id": "mgr",
+      "name": "Shift manager",
+      "need": 1
+     }
+    ],
+    "team": [
+     {
+      "site": "site-pune",
+      "user": "u-ravi",
+      "role": "op1"
+     },
+     {
+      "site": "site-pune",
+      "user": "u-anil",
+      "role": "op2"
+     },
+     {
+      "site": "site-pune",
+      "user": "u-meera",
+      "role": "op2",
+      "left": "2026-11-20"
+     },
+     {
+      "site": "site-pune",
+      "user": "u-sunita",
+      "role": "mgr"
+     }
+    ],
+    "entries": [
+     {
+      "site": "site-pune",
+      "user": "u-ravi",
+      "from": "2026-11-02",
+      "to": "2026-11-30",
+      "days": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ],
+      "shifts": [
+       "a"
+      ]
+     },
+     {
+      "site": "site-pune",
+      "user": "u-ravi",
+      "from": "2026-11-18",
+      "to": "2026-11-18",
+      "shifts": []
+     },
+     {
+      "site": "site-pune",
+      "user": "u-anil",
+      "from": "2026-11-01",
+      "to": "2026-12-31",
+      "cycle": {
+       "start": "2026-11-02",
+       "seq": [
+        [
+         "a"
+        ],
+        [
+         "a"
+        ],
+        [
+         "b"
+        ],
+        [
+         "b"
+        ],
+        [],
+        null
+       ]
+      }
+     },
+     {
+      "site": "site-pune",
+      "user": "u-meera",
+      "from": "2026-11-01",
+      "to": "2026-11-30",
+      "shifts": [
+       "a"
+      ]
+     },
+     {
+      "site": "site-pune",
+      "user": "u-meera",
+      "from": "2026-11-19",
+      "to": "2026-11-19",
+      "shifts": [
+       "a"
+      ],
+      "role": "mgr"
+     },
+     {
+      "site": "site-pune",
+      "user": "u-sunita",
+      "from": "2026-11-01",
+      "to": "2026-11-30",
+      "shifts": [
+       "a",
+       "b"
+      ]
+     },
+     {
+      "site": "site-pune",
+      "user": "u-ghost",
+      "from": "2026-11-19",
+      "to": "2026-11-19",
+      "shifts": [
+       "c"
+      ]
+     },
+     {
+      "site": "site-pune",
+      "user": "u-anil",
+      "from": "2026-11-25",
+      "to": "2026-11-25",
+      "shifts": null
+     },
+     {
+      "site": "site-ny",
+      "user": "u-john",
+      "from": "2026-11-01",
+      "to": "2026-11-30",
+      "shifts": [
+       "a"
+      ]
+     }
+    ]
+   },
+   "queries": [
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-ravi",
+     "day": "2026-11-19",
+     "expect": {
+      "shifts": [
+       "a"
+      ],
+      "off": false,
+      "role": "op1",
+      "cycle": false,
+      "anchor": "2026-11-02"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-ravi",
+     "day": "2026-11-18",
+     "expect": {
+      "shifts": [],
+      "off": true,
+      "role": "op1",
+      "cycle": false,
+      "anchor": "2026-11-18"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-ravi",
+     "day": "2026-11-21",
+     "expect": null
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-ravi",
+     "day": "2026-11-01",
+     "expect": null
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-ravi",
+     "day": "2026-11-31",
+     "expect": null
+    },
+    {
+     "fn": "planOf",
+     "site": "site-ny",
+     "user": "u-ravi",
+     "day": "2026-11-19",
+     "expect": null
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-anil",
+     "day": "2026-11-01",
+     "expect": null
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-anil",
+     "day": "2026-11-02",
+     "expect": {
+      "shifts": [
+       "a"
+      ],
+      "off": false,
+      "role": "op2",
+      "cycle": true,
+      "anchor": "2026-11-01"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-anil",
+     "day": "2026-11-04",
+     "expect": {
+      "shifts": [
+       "b"
+      ],
+      "off": false,
+      "role": "op2",
+      "cycle": true,
+      "anchor": "2026-11-01"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-anil",
+     "day": "2026-11-06",
+     "expect": {
+      "shifts": [],
+      "off": true,
+      "role": "op2",
+      "cycle": true,
+      "anchor": "2026-11-01"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-anil",
+     "day": "2026-11-19",
+     "expect": null
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-anil",
+     "day": "2026-11-20",
+     "expect": {
+      "shifts": [
+       "a"
+      ],
+      "off": false,
+      "role": "op2",
+      "cycle": true,
+      "anchor": "2026-11-01"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-anil",
+     "day": "2026-11-25",
+     "expect": null
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-anil",
+     "day": "2026-11-26",
+     "expect": {
+      "shifts": [
+       "a"
+      ],
+      "off": false,
+      "role": "op2",
+      "cycle": true,
+      "anchor": "2026-11-01"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-meera",
+     "day": "2026-11-19",
+     "expect": {
+      "shifts": [
+       "a"
+      ],
+      "off": false,
+      "role": "mgr",
+      "cycle": false,
+      "anchor": "2026-11-19"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "site-pune",
+     "user": "u-ghost",
+     "day": "2026-11-19",
+     "expect": {
+      "shifts": [
+       "c"
+      ],
+      "off": false,
+      "role": "op1",
+      "cycle": false,
+      "anchor": "2026-11-19"
+     }
+    },
+    {
+     "fn": "roleOf",
+     "site": "site-pune",
+     "user": "u-anil",
+     "expect": "op2"
+    },
+    {
+     "fn": "roleOf",
+     "site": "site-pune",
+     "user": "u-ghost",
+     "expect": null
+    },
+    {
+     "fn": "team",
+     "site": "site-pune",
+     "expect": [
+      {
+       "user": "u-ravi",
+       "role": "op1",
+       "left": null
+      },
+      {
+       "user": "u-anil",
+       "role": "op2",
+       "left": null
+      },
+      {
+       "user": "u-meera",
+       "role": "op2",
+       "left": "2026-11-20"
+      },
+      {
+       "user": "u-sunita",
+       "role": "mgr",
+       "left": null
+      }
+     ]
+    },
+    {
+     "fn": "team",
+     "site": "site-pune",
+     "day": "2026-11-19",
+     "expect": [
+      {
+       "user": "u-ravi",
+       "role": "op1",
+       "left": null
+      },
+      {
+       "user": "u-anil",
+       "role": "op2",
+       "left": null
+      },
+      {
+       "user": "u-meera",
+       "role": "op2",
+       "left": "2026-11-20"
+      },
+      {
+       "user": "u-sunita",
+       "role": "mgr",
+       "left": null
+      }
+     ]
+    },
+    {
+     "fn": "team",
+     "site": "site-pune",
+     "day": "2026-11-20",
+     "expect": [
+      {
+       "user": "u-ravi",
+       "role": "op1",
+       "left": null
+      },
+      {
+       "user": "u-anil",
+       "role": "op2",
+       "left": null
+      },
+      {
+       "user": "u-sunita",
+       "role": "mgr",
+       "left": null
+      }
+     ]
+    },
+    {
+     "fn": "team",
+     "site": "site-ny",
+     "expect": []
+    },
+    {
+     "fn": "people",
+     "site": "site-pune",
+     "expect": [
+      "u-ravi",
+      "u-anil",
+      "u-meera",
+      "u-sunita",
+      "u-ghost"
+     ]
+    },
+    {
+     "fn": "people",
+     "site": "site-ny",
+     "expect": [
+      "u-john"
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "2026-11-19",
+     "shift": "a",
+     "expect": [
+      {
+       "user": "u-ravi",
+       "role": "op1"
+      },
+      {
+       "user": "u-meera",
+       "role": "mgr"
+      },
+      {
+       "user": "u-sunita",
+       "role": "mgr"
+      }
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "2026-11-19",
+     "shift": "c",
+     "expect": [
+      {
+       "user": "u-ghost",
+       "role": "op1"
+      }
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "2026-11-20",
+     "shift": "a",
+     "expect": [
+      {
+       "user": "u-ravi",
+       "role": "op1"
+      },
+      {
+       "user": "u-anil",
+       "role": "op2"
+      },
+      {
+       "user": "u-meera",
+       "role": "op2"
+      },
+      {
+       "user": "u-sunita",
+       "role": "mgr"
+      }
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "2026-11-20",
+     "shift": "b",
+     "expect": [
+      {
+       "user": "u-sunita",
+       "role": "mgr"
+      }
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "not a day",
+     "shift": "a",
+     "expect": []
+    },
+    {
+     "fn": "coverage",
+     "site": "site-pune",
+     "day": "2026-11-19",
+     "shift": "a",
+     "expect": [
+      {
+       "role": "op1",
+       "name": "Primary operator",
+       "need": 1,
+       "have": [
+        "u-ravi"
+       ]
+      },
+      {
+       "role": "op2",
+       "name": "Secondary operator",
+       "need": 2,
+       "have": []
+      },
+      {
+       "role": "mgr",
+       "name": "Shift manager",
+       "need": 1,
+       "have": [
+        "u-meera",
+        "u-sunita"
+       ]
+      }
+     ]
+    },
+    {
+     "fn": "onShift",
+     "site": "site-pune",
+     "ts": "2026-11-19T10:00:00+05:30",
+     "expect": [
+      {
+       "role": "op1",
+       "roleName": "Primary operator",
+       "userId": "u-ravi",
+       "shiftId": "a",
+       "shiftName": "Morning",
+       "productionDay": "2026-11-19",
+       "start": "2026-11-19T00:30:00Z",
+       "end": "2026-11-19T08:30:00Z"
+      },
+      {
+       "role": "mgr",
+       "roleName": "Shift manager",
+       "userId": "u-meera",
+       "shiftId": "a",
+       "shiftName": "Morning",
+       "productionDay": "2026-11-19",
+       "start": "2026-11-19T00:30:00Z",
+       "end": "2026-11-19T08:30:00Z"
+      },
+      {
+       "role": "mgr",
+       "roleName": "Shift manager",
+       "userId": "u-sunita",
+       "shiftId": "a",
+       "shiftName": "Morning",
+       "productionDay": "2026-11-19",
+       "start": "2026-11-19T00:30:00Z",
+       "end": "2026-11-19T08:30:00Z"
+      }
+     ]
+    },
+    {
+     "fn": "onShift",
+     "site": "site-pune",
+     "ts": "2026-11-20T03:00:00+05:30",
+     "expect": [
+      {
+       "role": "op1",
+       "roleName": "Primary operator",
+       "userId": "u-ghost",
+       "shiftId": "c",
+       "shiftName": "Night",
+       "productionDay": "2026-11-19",
+       "start": "2026-11-19T16:30:00Z",
+       "end": "2026-11-20T00:30:00Z"
+      }
+     ]
+    },
+    {
+     "fn": "onShift",
+     "site": "site-empty",
+     "ts": "2026-11-19T10:00:00+05:30",
+     "expect": []
+    },
+    {
+     "fn": "onShift",
+     "site": "",
+     "ts": "2026-11-19T10:00:00+05:30",
+     "expect": []
+    }
+   ]
+  },
+  {
+   "name": "shift meaning: a plan names the shift its id meant on its first day",
+   "tz": "Asia/Kolkata",
+   "chain": [
+    {
+     "v": 1,
+     "versions": [
+      {
+       "id": "v1",
+       "from": null,
+       "shifts": [
+        {
+         "id": "a",
+         "name": "Morning",
+         "start": "06:00",
+         "end": "14:00"
+        },
+        {
+         "id": "b",
+         "name": "Afternoon",
+         "start": "14:00",
+         "end": "22:00"
+        },
+        {
+         "id": "c",
+         "name": "Night",
+         "start": "22:00",
+         "end": "06:00"
+        }
+       ]
+      },
+      {
+       "id": "v2",
+       "from": "2026-11-10",
+       "shifts": [
+        {
+         "id": "a",
+         "name": "Early",
+         "start": "05:00",
+         "end": "13:00"
+        },
+        {
+         "id": "b",
+         "name": "Late",
+         "start": "14:00",
+         "end": "22:00"
+        },
+        {
+         "id": "d",
+         "name": "Night",
+         "start": "22:00",
+         "end": "05:00"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "doc": {
+    "v": 2,
+    "team": [
+     {
+      "site": "site-pune",
+      "user": "u-ravi",
+      "role": "op1"
+     },
+     {
+      "site": "site-pune",
+      "user": "u-anil",
+      "role": "op2"
+     },
+     {
+      "site": "site-pune",
+      "user": "u-sunita",
+      "role": "mgr"
+     },
+     {
+      "site": "site-pune",
+      "user": "u-meera",
+      "role": "op1"
+     }
+    ],
+    "entries": [
+     {
+      "site": "site-pune",
+      "user": "u-ravi",
+      "from": "2026-11-01",
+      "to": "2026-11-30",
+      "shifts": [
+       "a"
+      ]
+     },
+     {
+      "site": "site-pune",
+      "user": "u-anil",
+      "from": "2026-11-01",
+      "to": "2026-11-30",
+      "shifts": [
+       "b"
+      ]
+     },
+     {
+      "site": "site-pune",
+      "user": "u-sunita",
+      "from": "2026-11-01",
+      "to": "2026-11-30",
+      "shifts": [
+       "c"
+      ]
+     },
+     {
+      "site": "site-pune",
+      "user": "u-meera",
+      "from": "2026-11-10",
+      "to": "2026-11-30",
+      "shifts": [
+       "a"
+      ]
+     }
+    ]
+   },
+   "queries": [
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "2026-11-05",
+     "shift": "a",
+     "expect": [
+      {
+       "user": "u-ravi",
+       "role": "op1"
+      }
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "2026-11-12",
+     "shift": "a",
+     "expect": [
+      {
+       "user": "u-meera",
+       "role": "op1"
+      }
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "2026-11-12",
+     "shift": "a",
+     "meaning": false,
+     "expect": [
+      {
+       "user": "u-ravi",
+       "role": "op1"
+      },
+      {
+       "user": "u-meera",
+       "role": "op1"
+      }
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "2026-11-12",
+     "shift": "b",
+     "expect": [
+      {
+       "user": "u-anil",
+       "role": "op2"
+      }
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "site-pune",
+     "day": "2026-11-12",
+     "shift": "c",
+     "expect": []
+    },
+    {
+     "fn": "reassign",
+     "site": "site-pune",
+     "user": "u-ravi",
+     "day": "2026-11-05",
+     "expect": []
+    },
+    {
+     "fn": "reassign",
+     "site": "site-pune",
+     "user": "u-ravi",
+     "day": "2026-11-12",
+     "expect": [
+      {
+       "id": "a",
+       "was": {
+        "name": "Morning",
+        "start": "06:00",
+        "end": "14:00"
+       },
+       "now": {
+        "name": "Early",
+        "start": "05:00",
+        "end": "13:00"
+       },
+       "since": "2026-11-01"
+      }
+     ]
+    },
+    {
+     "fn": "reassign",
+     "site": "site-pune",
+     "user": "u-sunita",
+     "day": "2026-11-12",
+     "expect": [
+      {
+       "id": "c",
+       "was": {
+        "name": "Night",
+        "start": "22:00",
+        "end": "06:00"
+       },
+       "now": null,
+       "since": "2026-11-01"
+      }
+     ]
+    },
+    {
+     "fn": "reassign",
+     "site": "site-pune",
+     "user": "u-anil",
+     "day": "2026-11-12",
+     "expect": []
+    },
+    {
+     "fn": "reassign",
+     "site": "site-pune",
+     "user": "u-meera",
+     "day": "2026-11-12",
+     "expect": []
+    },
+    {
+     "fn": "reassign",
+     "site": "site-pune",
+     "user": "u-ravi",
+     "day": "2026-11-12",
+     "meaning": false,
+     "expect": []
+    },
+    {
+     "fn": "onShift",
+     "site": "site-pune",
+     "ts": "2026-11-12T10:00:00+05:30",
+     "expect": [
+      {
+       "role": "op1",
+       "roleName": "Primary operator",
+       "userId": "u-meera",
+       "shiftId": "a",
+       "shiftName": "Early",
+       "productionDay": "2026-11-12",
+       "start": "2026-11-11T23:30:00Z",
+       "end": "2026-11-12T07:30:00Z"
+      }
+     ]
+    },
+    {
+     "fn": "onShift",
+     "site": "site-pune",
+     "ts": "2026-11-12T10:00:00+05:30",
+     "meaning": false,
+     "expect": [
+      {
+       "role": "op1",
+       "roleName": "Primary operator",
+       "userId": "u-ravi",
+       "shiftId": "a",
+       "shiftName": "Early",
+       "productionDay": "2026-11-12",
+       "start": "2026-11-11T23:30:00Z",
+       "end": "2026-11-12T07:30:00Z"
+      },
+      {
+       "role": "op1",
+       "roleName": "Primary operator",
+       "userId": "u-meera",
+       "shiftId": "a",
+       "shiftName": "Early",
+       "productionDay": "2026-11-12",
+       "start": "2026-11-11T23:30:00Z",
+       "end": "2026-11-12T07:30:00Z"
+      }
+     ]
+    },
+    {
+     "fn": "onShift",
+     "site": "site-pune",
+     "ts": "2026-11-12T13:30:00+05:30",
+     "expect": []
+    },
+    {
+     "fn": "onShift",
+     "site": "site-pune",
+     "ts": "2026-11-12T16:00:00+05:30",
+     "expect": [
+      {
+       "role": "op2",
+       "roleName": "Secondary operator",
+       "userId": "u-anil",
+       "shiftId": "b",
+       "shiftName": "Late",
+       "productionDay": "2026-11-12",
+       "start": "2026-11-12T08:30:00Z",
+       "end": "2026-11-12T16:30:00Z"
+      }
+     ]
+    },
+    {
+     "fn": "onShift",
+     "site": "site-pune",
+     "ts": "2026-11-12T23:00:00+05:30",
+     "expect": []
+    }
+   ]
+  },
+  {
+   "name": "New York 2 x 12: a night shift across the end of summer time, a holiday",
+   "tz": "America/New_York",
+   "chain": [
+    {
+     "v": 1,
+     "versions": [
+      {
+       "id": "v1",
+       "from": null,
+       "inherit": false,
+       "shifts": [
+        {
+         "id": "d",
+         "name": "Day",
+         "start": "07:00",
+         "end": "19:00"
+        },
+        {
+         "id": "n",
+         "name": "Night",
+         "start": "19:00",
+         "end": "07:00"
+        }
+       ]
+      }
+     ],
+     "holidays": [
+      "2026-11-26"
+     ]
+    }
+   ],
+   "doc": {
+    "v": 2,
+    "team": [
+     {
+      "site": "site-ny",
+      "user": "u-john",
+      "role": "op1"
+     },
+     {
+      "site": "site-ny",
+      "user": "u-mary",
+      "role": "op2"
+     }
+    ],
+    "entries": [
+     {
+      "site": "site-ny",
+      "user": "u-john",
+      "from": "2026-10-28",
+      "to": "2026-11-30",
+      "shifts": [
+       "n"
+      ]
+     },
+     {
+      "site": "site-ny",
+      "user": "u-mary",
+      "from": "2026-10-28",
+      "to": "2026-11-30",
+      "shifts": [
+       "d"
+      ]
+     }
+    ]
+   },
+   "queries": [
+    {
+     "fn": "onShift",
+     "site": "site-ny",
+     "ts": "2026-11-01T05:00:00-05:00",
+     "expect": [
+      {
+       "role": "op1",
+       "roleName": "Primary operator",
+       "userId": "u-john",
+       "shiftId": "n",
+       "shiftName": "Night",
+       "productionDay": "2026-10-31",
+       "start": "2026-10-31T23:00:00Z",
+       "end": "2026-11-01T12:00:00Z"
+      }
+     ]
+    },
+    {
+     "fn": "onShift",
+     "site": "site-ny",
+     "ts": "2026-11-25T12:00:00-05:00",
+     "expect": [
+      {
+       "role": "op2",
+       "roleName": "Secondary operator",
+       "userId": "u-mary",
+       "shiftId": "d",
+       "shiftName": "Day",
+       "productionDay": "2026-11-25",
+       "start": "2026-11-25T12:00:00Z",
+       "end": "2026-11-26T00:00:00Z"
+      }
+     ]
+    },
+    {
+     "fn": "onShift",
+     "site": "site-ny",
+     "ts": "2026-11-26T10:00:00-05:00",
+     "expect": []
+    },
+    {
+     "fn": "onShift",
+     "site": "site-ny",
+     "ts": "2026-11-27T03:00:00-05:00",
+     "expect": []
+    },
+    {
+     "fn": "onShift",
+     "site": "site-ny",
+     "ts": "2026-11-27T10:00:00-05:00",
+     "expect": [
+      {
+       "role": "op2",
+       "roleName": "Secondary operator",
+       "userId": "u-mary",
+       "shiftId": "d",
+       "shiftName": "Day",
+       "productionDay": "2026-11-27",
+       "start": "2026-11-27T12:00:00Z",
+       "end": "2026-11-28T00:00:00Z"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "version 1 roster: read and turned into version 2",
+   "doc": {
+    "roles": [
+     {
+      "id": "op1",
+      "name": "Operator"
+     },
+     {
+      "id": "mgr",
+      "name": "Lead"
+     }
+    ],
+    "entries": [
+     {
+      "site": "s1",
+      "from": "2040-01-02",
+      "to": "2040-01-13",
+      "days": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ],
+      "shift": "a",
+      "role": "op1",
+      "user": "u1"
+     },
+     {
+      "site": "s1",
+      "from": "2040-01-02",
+      "to": "2040-01-13",
+      "days": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ],
+      "shift": "a",
+      "role": "mgr",
+      "user": "u2"
+     },
+     {
+      "site": "s1",
+      "from": "2040-01-09",
+      "to": "2040-01-09",
+      "shift": "a",
+      "role": "op1",
+      "user": "u3"
+     }
+    ]
+   },
+   "queries": [
+    {
+     "fn": "parse",
+     "raw": {
+      "roles": [
+       {
+        "id": "op1",
+        "name": "Operator"
+       },
+       {
+        "id": "mgr",
+        "name": "Lead"
+       }
+      ],
+      "entries": [
+       {
+        "site": "s1",
+        "from": "2040-01-02",
+        "to": "2040-01-13",
+        "days": [
+         1,
+         2,
+         3,
+         4,
+         5
+        ],
+        "shift": "a",
+        "role": "op1",
+        "user": "u1"
+       },
+       {
+        "site": "s1",
+        "from": "2040-01-02",
+        "to": "2040-01-13",
+        "days": [
+         1,
+         2,
+         3,
+         4,
+         5
+        ],
+        "shift": "a",
+        "role": "mgr",
+        "user": "u2"
+       },
+       {
+        "site": "s1",
+        "from": "2040-01-09",
+        "to": "2040-01-09",
+        "shift": "a",
+        "role": "op1",
+        "user": "u3"
+       }
+      ]
+     },
+     "expect": {
+      "v": 2,
+      "rev": 0,
+      "at": 0,
+      "by": "",
+      "roles": [
+       {
+        "id": "op1",
+        "name": "Operator",
+        "need": 1
+       },
+       {
+        "id": "mgr",
+        "name": "Lead",
+        "need": 1
+       }
+      ],
+      "team": [
+       {
+        "site": "s1",
+        "user": "u2",
+        "role": "mgr"
+       },
+       {
+        "site": "s1",
+        "user": "u1",
+        "role": "op1"
+       },
+       {
+        "site": "s1",
+        "user": "u3",
+        "role": "op1"
+       }
+      ],
+      "entries": [
+       {
+        "site": "s1",
+        "user": "u2",
+        "from": "2040-01-02",
+        "to": "2040-01-13",
+        "shifts": [
+         "a"
+        ],
+        "days": [
+         1,
+         2,
+         3,
+         4,
+         5
+        ]
+       },
+       {
+        "site": "s1",
+        "user": "u1",
+        "from": "2040-01-02",
+        "to": "2040-01-06",
+        "shifts": [
+         "a"
+        ]
+       },
+       {
+        "site": "s1",
+        "user": "u1",
+        "from": "2040-01-10",
+        "to": "2040-01-13",
+        "shifts": [
+         "a"
+        ]
+       },
+       {
+        "site": "s1",
+        "user": "u3",
+        "from": "2040-01-09",
+        "to": "2040-01-09",
+        "shifts": [
+         "a"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "s1",
+     "user": "u1",
+     "day": "2040-01-09",
+     "expect": null
+    },
+    {
+     "fn": "planOf",
+     "site": "s1",
+     "user": "u3",
+     "day": "2040-01-09",
+     "expect": {
+      "shifts": [
+       "a"
+      ],
+      "off": false,
+      "role": "op1",
+      "cycle": false,
+      "anchor": "2040-01-09"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "s1",
+     "user": "u2",
+     "day": "2040-01-12",
+     "expect": {
+      "shifts": [
+       "a"
+      ],
+      "off": false,
+      "role": "mgr",
+      "cycle": false,
+      "anchor": "2040-01-02"
+     }
+    },
+    {
+     "fn": "planOf",
+     "site": "s1",
+     "user": "u2",
+     "day": "2040-01-07",
+     "expect": null
+    },
+    {
+     "fn": "crewOn",
+     "site": "s1",
+     "day": "2040-01-09",
+     "shift": "a",
+     "expect": [
+      {
+       "user": "u3",
+       "role": "op1"
+      },
+      {
+       "user": "u2",
+       "role": "mgr"
+      }
+     ]
+    },
+    {
+     "fn": "crewOn",
+     "site": "s1",
+     "day": "2040-01-10",
+     "shift": "a",
+     "expect": [
+      {
+       "user": "u1",
+       "role": "op1"
+      },
+      {
+       "user": "u2",
+       "role": "mgr"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "helpers: the same shift, the shift manager rule, short role labels",
+   "queries": [
+    {
+     "fn": "sameShift",
+     "a": {
+      "name": " Morning "
+     },
+     "b": {
+      "name": "morning"
+     },
+     "expect": true
+    },
+    {
+     "fn": "sameShift",
+     "a": {
+      "name": "A",
+      "start": "06:00",
+      "end": "14:00"
+     },
+     "b": {
+      "name": "B",
+      "start": "06:00",
+      "end": "14:00"
+     },
+     "expect": true
+    },
+    {
+     "fn": "sameShift",
+     "a": {
+      "name": "A",
+      "start": "06:00",
+      "end": "14:00"
+     },
+     "b": {
+      "name": "B",
+      "start": "06:00",
+      "end": "15:00"
+     },
+     "expect": false
+    },
+    {
+     "fn": "sameShift",
+     "a": null,
+     "b": {
+      "name": "A"
+     },
+     "expect": false
+    },
+    {
+     "fn": "sameShift",
+     "a": {
+      "name": "",
+      "start": "",
+      "end": ""
+     },
+     "b": {
+      "name": "",
+      "start": "",
+      "end": ""
+     },
+     "expect": false
+    },
+    {
+     "fn": "isManager",
+     "r": "Shift manager",
+     "expect": true
+    },
+    {
+     "fn": "isManager",
+     "r": {
+      "id": "lead",
+      "name": "Floor"
+     },
+     "expect": true
+    },
+    {
+     "fn": "isManager",
+     "r": {
+      "id": "sup1",
+      "name": "Area Supervisor"
+     },
+     "expect": true
+    },
+    {
+     "fn": "isManager",
+     "r": {
+      "id": "op1",
+      "name": "Primary operator"
+     },
+     "expect": false
+    },
+    {
+     "fn": "isManager",
+     "r": null,
+     "expect": false
+    },
+    {
+     "fn": "abbr",
+     "roles": [
+      {
+       "id": "op1",
+       "name": "Primary operator"
+      },
+      {
+       "id": "op2",
+       "name": "Primary oiler"
+      },
+      {
+       "id": "mgr",
+       "name": "Shift manager"
+      },
+      {
+       "id": "x",
+       "name": "Q"
+      }
+     ],
+     "expect": {
+      "op1": "PO",
+      "op2": "PO2",
+      "mgr": "SM",
+      "x": "Q"
+     }
+    },
+    {
+     "fn": "abbr",
+     "roles": null,
+     "expect": {
+      "op1": "PO",
+      "op2": "SO",
+      "mgr": "SM"
+     }
+    }
+   ]
+  }
+ ]
+}

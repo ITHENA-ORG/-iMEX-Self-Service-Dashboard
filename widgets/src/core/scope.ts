@@ -732,6 +732,13 @@ export const LIVE_KEYS_CACHE_MS = 5 * 60 * 1000;
 /** Keys that are not properties: AI Insights outputs, the pre-aggregated copies of a value, and (D-077, App UI U-137) the
  * OEE chain's shift record and shift name and the stop-reason store (core/oee-values.ts NOT_A_VALUE). */
 export const NOT_A_PROPERTY = new RegExp(`^aiml_|_(2min|5min|30min|2hrs|6hrs|1day)$|${NOT_A_VALUE.source}`);
+/**
+ * D-096: what the property pickers (and the chat's catalogue) do not offer: NOT_A_PROPERTY, also when the catalogue
+ * names it (the OEE chain's Current_Shift: the computed "Current shift" replaces it), and `shift`, the value the old shift
+ * rule chain writes (the calendar month, not a work shift; App UI U-218). A widget that already shows one of them keeps
+ * it: it is drawn as before and stays in its own picker.
+ */
+export const NOT_OFFERED = new RegExp(`${NOT_A_PROPERTY.source}|^shift$`);
 
 /** Readable name for a key without a catalogue entry: "dischargePressure" / "discharge_pressure" -> "Discharge Pressure" / "Discharge pressure". */
 export function readableKey(key: string): string {

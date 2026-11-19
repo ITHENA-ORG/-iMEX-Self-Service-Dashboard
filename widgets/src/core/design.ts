@@ -133,6 +133,9 @@ export function sizeWidget(ctx: UserContext, w: Widget) {
     case 'gauge':
       h = Math.max(h, 3);
       break;
+    case 'shiftinfo': // D-096: the crew list needs room
+      h = Math.max(h, w.settings.showCrew ? 5 : 3);
+      break;
     case 'text': {
       const len = textOf(w.settings.html ?? '').length;
       const lines = Math.ceil(len / Math.max(20, w.w * 9)) + ((w.settings.html ?? '').match(/<(h[1-3]|p|li|div)\b/g)?.length ?? 1);

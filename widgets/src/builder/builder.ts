@@ -66,6 +66,7 @@ import { audit } from '../core/audit';
 import * as lic from '../core/licence';
 import * as sd from '../core/sd';
 import { compatible, metaLookup, propKind } from '../core/compat';
+import * as shiftcrew from '../core/shiftcrew';
 import type { KeyMeta } from '../core/types';
 import * as dfmt from '../core/datefmt';
 
@@ -189,6 +190,7 @@ const HELP: Record<WidgetType, string> = {
   status: 'Running / stopped / fault pill',
   multivalue: 'Several properties of one machine in one card',
   summary: 'Min, average, max and current over the time range',
+  shiftinfo: 'The shift now, its times and time left, the next shift; optionally who is on shift (crew roster)',
   line: 'Trends of up to 4 properties, with threshold lines',
   area: 'Filled trend; can stack series',
   bar: 'Every 15 minutes, per hour or machine-by-machine bars',
@@ -445,6 +447,8 @@ class Builder {
     else if (this.deviceId) void this.selectMachine(this.deviceId);
     else this.renderAll();
     if (this.o.startNew) void this.newDashboardDialog();
+    // D-096: the crew roster's roles become the "On shift: <role>" properties of the value cards
+    void shiftcrew.loadRoles().then((r) => r.length && this.root?.isConnected && this.keysLoaded());
   }
 
   /** D-059: the Chat tab and "Describe it in chat" are on: the host's setting chatEnabled and the licence's builder.ai. */
@@ -754,14 +758,15 @@ class Builder {
     if (this.draft.widgets.length >= MAX_WIDGETS) return toast(this.root, `A dashboard can have at most ${MAX_WIDGETS} widgets.`, 'warn');
     const size = DEFAULT_SIZE[type];
     const profile = this.draft.profile ?? (this.deviceId ? this.ctx.nodes.get(this.deviceId)?.profile ?? null : null);
-    const metas = profile ? this.ctx.profileKeys[profile] ?? [] : [];
+    // D-096: not the properties the pickers do not offer (the old calendar-month shift, the OEE chain's records)
+    const metas = (profile ? this.ctx.profileKeys[profile] ?? [] : []).filter((k) => !scope.NOT_OFFERED.test(k.key));
     const keys = metas.map((k) => k.key);
     const content = CONTENT_TYPES.has(type);
     // A new donut starts in "time in each state" mode.
     const mode = type === 'donut' ? 'state' : undefined;
     const ok = metas.filter((m) => compatible(type, m, { donutMode: mode }).ok);
     // With no catalogue for the profile we can't judge, so allow it.
-    if (!content && type !== 'alarms' && profile && metas.length && !ok.length) return toast(this.root, this.paletteBlock(type) ?? `No property of ${profile} fits this widget.`, 'warn');
+    if (!content && type !== 'alarms' && type !== 'shiftinfo' && profile && metas.length && !ok.length) return toast(this.root, this.paletteBlock(type) ?? `No property of ${profile} fits this widget.`, 'warn');
     // Prefer a live property over running-hours counters.
     const firstKey = (ok.find((m) => !/hours/i.test(m.key)) ?? ok[0])?.key;
     const statusKey = ok.find((m) => compatible('status', m).ok)?.key;
@@ -773,7 +778,7 @@ class Builder {
       y: 0,
       w: size.w,
       h: size.h,
-      binding: content ? { mode: 'none' } : this.deviceId ? { mode: 'current' } : { mode: 'none' },
+      binding: content ? { mode: 'none' } : this.deviceId ? { mode: 'current' } : type === 'shiftinfo' && this.sites()[0] ? { mode: 'nodeQuery', nodeId: this.sites()[0].id, profile: '' } : { mode: 'none' },
       keys: WIDGET_CAPS[type].keys[1] === 0 || !firstKey || !this.deviceId ? [] : type === 'multivalue' ? keys.slice(0, MAX_KEYS) : [firstKey],
       settings:
         type === 'text'
@@ -821,6 +826,16 @@ class Builder {
   }
 
   /** Removes widget `id` (one undo step) and clears the selection if it was selected. */
+  /**
+   * D-096: the sites the user sees: the assets that directly contain a machine (the crew roster and the app's shift
+   * directory call these sites), by path.
+   */
+  sites() {
+    return [...this.ctx.nodes.values()]
+      .filter((n) => n.entityType === 'ASSET' && n.children.some((c) => this.ctx.nodes.get(c)?.entityType === 'DEVICE'))
+      .sort((a, b) => scope.pathLabel(this.ctx, a.id).localeCompare(scope.pathLabel(this.ctx, b.id)));
+  }
+
   removeWidget(id: string) {
     this.mutate((d) => (d.widgets = d.widgets.filter((w) => w.id !== id)));
     if (this.selected === id) this.selected = null;
@@ -1291,8 +1306,8 @@ class Builder {
     const chatOn = this.chatOn();
     const w = this.draft.widgets.find((x) => x.id === this.selected);
     if (!w && (this.tab === 'style' || this.tab === 'rules')) this.tab = 'settings';
-    // Content widgets and alarms have no values to colour.
-    const dataW = w && !CONTENT_TYPES.has(w.type) && w.type !== 'alarms';
+    // Content widgets, alarms and the Current shift card (D-096) have no values to colour.
+    const dataW = w && !CONTENT_TYPES.has(w.type) && w.type !== 'alarms' && w.type !== 'shiftinfo';
     if (w && this.tab === 'rules' && !dataW) this.tab = 'settings';
     const tabs: [string, string][] = w
       ? [
@@ -1472,7 +1487,12 @@ class Builder {
             }`;
 
     // Data source modes this widget type offers (D-033: a dropdown instead of radios).
-    const SRC: [string, string, string, boolean][] = [
+    const SRC: [string, string, string, boolean][] = w.type === 'shiftinfo' ? [
+      // D-096: the Current shift card shows one machine's or one site's shift
+      ['current', 'This machine', "The shift of whichever machine the dashboard is opened for (its own shifts or its site's).", !!(this.deviceId || this.draft.profile)],
+      ['fixed', 'A specific machine', 'Pick one machine.', true],
+      ['nodeQuery', 'A site', 'The shifts (and the crew) of one site.', true],
+    ] : [
       ['current', 'This machine', 'Whichever machine the dashboard is opened for.', !!(this.deviceId || this.draft.profile)],
       ['fixed', 'Specific machines', cap.multiDevice ? `Pick up to ${MAX_DEVICES} machines.` : 'Pick one machine.', true],
       ['siblings', "Same-type machines at this machine's location", 'Machines of a type at the location of the machine the dashboard is opened for.', cap.multiDevice && !!this.deviceId],
@@ -1519,7 +1539,11 @@ class Builder {
           }
           ${b.mode === 'siblings' || b.mode === 'nearest' ? `<label class="dbb-field"><span>Machine type</span>${profSel(b.profile, 'sprof')}</label>` : ''}
           ${
-            b.mode === 'nodeQuery'
+            b.mode === 'nodeQuery' && w.type === 'shiftinfo'
+              ? `<label class="dbb-field"><span>Site</span><select data-s="node">${this.sites().some((n) => n.id === b.nodeId) ? '' : '<option value="" selected disabled>Choose a site…</option>'}${this.sites()
+                  .map((n) => `<option value="${n.id}" ${n.id === b.nodeId ? 'selected' : ''}>${esc(scope.pathLabel(this.ctx, n.id))}</option>`)
+                  .join('')}</select></label>`
+              : b.mode === 'nodeQuery'
               ? `<label class="dbb-field"><span>Machine type</span>${profSel(b.profile, 'sprof')}</label><label class="dbb-field"><span>Under location</span><select data-s="node">${nodes
                   .map((n) => `<option value="${n.id}" ${n.id === b.nodeId ? 'selected' : ''}>${esc(scope.pathLabel(this.ctx, n.id))}</option>`)
                   .join('')}</select></label>`
@@ -1529,7 +1553,7 @@ class Builder {
         ${cap.keys[1] > 0 ? `<div class="dbb-sec">2 · Properties</div>${keyRows}` : ''}
         <div class="dbb-sec">3 · Options</div>
         ${this.appearanceFields(w)}
-        ${w.type !== 'alarms' ? `<div class="dbb-tip-row">Colours by value are in the <a href="#" data-go="rules">Colours</a> tab; fonts, icons and card look in <a href="#" data-go="style">Style</a>.</div>` : ''}`
+        ${w.type !== 'alarms' && w.type !== 'shiftinfo' ? `<div class="dbb-tip-row">Colours by value are in the <a href="#" data-go="rules">Colours</a> tab; fonts, icons and card look in <a href="#" data-go="style">Style</a>.</div>` : ''}`
         }
         <div class="dbb-row" data-nosec style="margin-top:14px">
           <button class="dbb-btn" data-s="dup">Duplicate</button>
@@ -1587,6 +1611,8 @@ class Builder {
         if (mode === 'nearest') x.binding = { mode: 'nearest', profile: allProfiles.find((p) => p !== curProf) ?? curProf };
         // D-050: the first location the user holds in full ('all' grant), else the first visible top
         if (mode === 'nodeQuery') x.binding = { mode: 'nodeQuery', nodeId: this.ctx.allRoots[0] ?? this.ctx.rootIds[0] ?? nodes[0]?.id, profile: curProf };
+        // D-096: the Current shift card's "A site": the first site (the asset that directly contains machines)
+        if (mode === 'nodeQuery' && x.type === 'shiftinfo') x.binding = { mode: 'nodeQuery', nodeId: this.sites()[0]?.id ?? nodes[0]?.id, profile: '' };
         this.fixKeys(x);
       }),
     );
@@ -1623,7 +1649,8 @@ class Builder {
         name: 'keys',
         items: metas.map((m) => {
           const c = this.fits(w.type, m, w);
-          return { value: m.key, label: m.displayName, sub: m.unit || undefined, disabled: !c.ok, why: c.reason, tag: c.ok ? undefined : this.kindWord(m), calc: m.calc ? `Calculated: ${m.displayName} = ${m.calc}` : undefined };
+          // D-096: the computed properties say where they come from
+          return { value: m.key, label: m.displayName, sub: shiftcrew.isComputed(m.key) ? (m.key === shiftcrew.SHIFT_KEY ? 'from the shifts' : 'from the crew roster') : m.unit || undefined, disabled: !c.ok, why: c.reason, tag: c.ok ? undefined : this.kindWord(m), calc: m.calc ? `Calculated: ${m.displayName} = ${m.calc}` : undefined };
         }),
         selected: w.keys.filter((k) => metas.some((m) => m.key === k)),
         multi: multiKey,
@@ -1822,6 +1849,12 @@ class Builder {
       f.push(`<div class="dbb-row">${sel('alarmStatus', 'Status', [['ANY', 'Any'], ['ACTIVE', 'Active'], ['CLEARED', 'Cleared']], s.alarmStatus ?? 'ANY', true)}${num('maxRows', 'Max rows', s.maxRows, '20')}</div>`);
     }
     if (w.type === 'status') f.push(`<div class="dbb-hint">Set the labels and colours for each value in the <b>Colours</b> tab.</div>`);
+    // D-096: the Current shift card can list who is on shift (the crew roster of the site)
+    if (w.type === 'shiftinfo')
+      f.push(
+        chk('showCrew', 'Show who is on shift', !!s.showCrew),
+        `<div class="dbb-hint">The people on shift now and their crew role, from the crew roster of the site. Everyone who can open the dashboard sees the names.</div>`,
+      );
     return f.join('') || '<div class="dbb-hint">No options for this widget.</div>';
   }
 
@@ -1853,7 +1886,7 @@ class Builder {
           } else if (a === 'showLegend' || a === 'sparkline' || a === 'upIsGood') {
             if (v) delete s[a];
             else s[a] = false;
-          } else if (a === 'smooth' || a === 'stacked') {
+          } else if (a === 'smooth' || a === 'stacked' || a === 'showCrew') {
             if (v) s[a] = true;
             else delete s[a];
           } else if (v === '') delete s[a];
@@ -1861,6 +1894,8 @@ class Builder {
           // "Share by machine" needs several machines: move "This machine" to same-type machines at its location.
           if (a === 'donutMode' && v === 'devices' && x.binding.mode === 'current') x.binding = this.deviceId ? { mode: 'siblings', profile: this.ctx.nodes.get(this.deviceId)!.profile } : x.binding;
           if (a === 'donutMode') this.fixKeys(x);
+          // D-096: the crew list needs room
+          if (a === 'showCrew' && v) x.h = Math.max(x.h, 5);
         }),
       ),
     );
@@ -1883,7 +1918,16 @@ class Builder {
    */
   metasFor(w: Widget): KeyMeta[] {
     const seen = new Map<string, KeyMeta>();
-    for (const p of this.profilesForBinding(w)) for (const k of this.ctx.profileKeys[p] ?? []) if (!seen.has(k.key)) seen.set(k.key, k);
+    // D-096: the computed properties (Current shift, On shift: <crew role>) first, on the cards that show text of one
+    // machine (fixKeys never picks one by itself)
+    const own = this.profilesForBinding(w).some((p) => (this.ctx.profileKeys[p] ?? []).length);
+    if (shiftcrew.COMPUTED_TYPES.has(w.type) && own) {
+      for (const m of shiftcrew.computedMetas()) seen.set(m.key, m);
+      for (const k of w.keys) if (shiftcrew.isComputed(k) && !seen.has(k)) seen.set(k, shiftcrew.computedMeta(k));
+    }
+    // D-096: what the pickers do not offer stays out (scope.NOT_OFFERED), unless this widget already shows it
+    for (const p of this.profilesForBinding(w))
+      for (const k of this.ctx.profileKeys[p] ?? []) if (!seen.has(k.key) && (w.keys.includes(k.key) || !scope.NOT_OFFERED.test(k.key))) seen.set(k.key, k);
     return [...seen.values()];
   }
 
@@ -1931,7 +1975,8 @@ class Builder {
     }
     x.keys = x.keys.filter((k) => metas.some((m) => m.key === k && this.fits(x.type, m, x).ok)).slice(0, Math.min(MAX_KEYS, cap.keys[1]));
     if (!x.keys.length && cap.keys[0] > 0) {
-      const ok = metas.filter((m) => this.fits(x.type, m, x).ok);
+      // D-096: never a computed property by itself (a reading of the machine first)
+      const ok = metas.filter((m) => this.fits(x.type, m, x).ok && !shiftcrew.isComputed(m.key));
       const first = ok.find((m) => !/hours/i.test(m.key)) ?? ok[0];
       if (first) x.keys = [first.key];
     }

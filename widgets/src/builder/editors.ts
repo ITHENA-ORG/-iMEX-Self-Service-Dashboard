@@ -503,9 +503,9 @@ export function styleEditor(host: HTMLElement, o: StyleEditorOptions) {
   const w = o.widget;
   // Local working copy; each change emits the whole cleaned object.
   const st: CardStyle = { ...(w.settings.style ?? {}) };
-  const isValue = ['value', 'kpi', 'progress', 'summary', 'multivalue', 'gauge'].includes(w.type);
+  const isValue = ['value', 'kpi', 'progress', 'summary', 'multivalue', 'gauge', 'shiftinfo'].includes(w.type);
   /** Widgets whose values/labels can be aligned (charts and tables lay themselves out). */
-  const hasLayout = ['value', 'kpi', 'progress', 'summary', 'multivalue', 'status'].includes(w.type);
+  const hasLayout = ['value', 'kpi', 'progress', 'summary', 'multivalue', 'status', 'shiftinfo'].includes(w.type);
   /** Segmented button group for a style field; `def` is highlighted when the field is unset. */
   const seg = (f: keyof CardStyle, opts: [string, string][], cur: string | undefined, def: string) =>
     `<div class="dbb-seg sm">${opts.map(([v, l]) => `<button data-seg="${f}" data-v="${v}" class="${(cur ?? def) === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;

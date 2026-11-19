@@ -77,6 +77,8 @@ export const WIDGET_ICON: Record<string, string> = {
   status: S('<circle cx="8" cy="12" r="3.5" fill="currentColor"/><path d="M14 12h6"/>'),
   multivalue: S('<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 9h4M7 13h4M7 17h4M15 9h2M15 13h2M15 17h2"/>'),
   summary: S('<path d="M5 18V9M12 18V5M19 18v-6"/><path d="M3 18h18"/>'),
+  // D-096: a clock with a person (the shift and who is on it)
+  shiftinfo: S('<circle cx="10" cy="11" r="7"/><path d="M10 7v4l2.5 1.5"/><circle cx="18.5" cy="15.5" r="2"/><path d="M15 21a3.5 3.5 0 0 1 7 0"/>'),
   line: S('<path d="M3 17l5-6 4 3 5-7 4 4"/>'),
   area: S('<path d="M3 18l5-7 4 3 5-7 4 4v7z" fill="currentColor" fill-opacity=".18"/><path d="M3 18l5-7 4 3 5-7 4 4"/>'),
   bar: S('<path d="M5 19V11M10 19V6M15 19v-5M20 19V9" stroke-width="2.6"/>'),
