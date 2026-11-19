@@ -189,51 +189,76 @@ const SHADOWS: Record<string, string> = {
 };
 const PADS: Record<string, string> = { compact: '6px', normal: '10px', roomy: '16px' };
 
-// Font name -> Google Fonts css2 `family` parameter. Only these are loaded (schema FONTS minus Roboto, which ships with ThingsBoard).
-const GOOGLE_FONTS: Record<string, string> = {
-  Inter: 'Inter:wght@400;500;600;700',
-  Poppins: 'Poppins:wght@400;500;600;700',
-  Montserrat: 'Montserrat:wght@400;500;600;700',
-  'Source Serif 4': 'Source+Serif+4:wght@400;600;700',
-  'JetBrains Mono': 'JetBrains+Mono:wght@400;600',
+// D-097 (offline first): the fonts the Builder offers besides Roboto (which ships with the platform). They come ONLY from
+// the platform's resource library (the iMEX app's copies, App UI vendor/manifest.json, U-116): no Google Fonts address
+// anywhere, so a plant without internet never makes an outside request. name -> [the app's font id, the platform key].
+// A new font version in the App UI manifest needs the key here too (the app's loader table wins when it is present).
+const APP_FONTS: Record<string, [string, string]> = {
+  Inter: ['inter', 'imex-lib-font-inter-v20.css'],
+  Poppins: ['poppins', 'imex-lib-font-poppins-v24.css'],
+  Montserrat: ['montserrat', 'imex-lib-font-montserrat-v31.css'],
+  'Source Serif 4': ['source-serif-4', 'imex-lib-font-source-serif-4-v15.css'],
+  'JetBrains Mono': ['jetbrains-mono', 'imex-lib-font-jetbrains-mono-v24.css'],
 };
+/** How long loadFont waits for the app's library loader (window.imxLibs) before it reads the platform copy itself. */
+export const FONT_LOADER_WAIT_MS = 4000;
 
-// D-075: font name -> the iMEX app's font id (App UI vendor/manifest.json, U-116)
-const APP_FONT_IDS: Record<string, string> = {
-  Inter: 'inter', Poppins: 'poppins', Montserrat: 'montserrat', 'Source Serif 4': 'source-serif-4', 'JetBrains Mono': 'jetbrains-mono',
-};
+/** The platform copy of a font's CSS (fonts inlined), read with the user's own token; tenant scope, then system. */
+async function platformFontCss(key: string): Promise<string> {
+  let t = '';
+  try { t = localStorage.getItem('jwt_token') || ''; } catch { t = ''; }
+  const k = encodeURIComponent(key);
+  for (const scope of ['tenant', 'system']) {
+    const r = await fetch(`/api/resource/js_module/${scope}/${k}`, t ? { headers: { 'X-Authorization': 'Bearer ' + t } } : {});
+    if (r.ok) return r.text();
+  }
+  throw new Error('no platform copy of ' + key);
+}
 
 /**
- * Loads a font once (Roboto ships with ThingsBoard).
- * D-075: on an iMEX app page the app's library loader (window.imxLibs, App UI U-116) brings the font from the
- * platform's resource library, so it works without internet. Otherwise (or when the platform has no copy):
- * appends <link rel="stylesheet" href="https://fonts.googleapis.com/css2?..."> to <head>.
- * Keyed by an element id so repeated calls do nothing. Unknown names and non-browser runs are ignored.
+ * Loads a font once (Roboto ships with the platform).
+ * D-075 / D-097: the font always comes from the platform's resource library, never from the internet.
+ * On an iMEX app page the app's library loader (window.imxLibs, App UI U-116) brings it. A Builder widget can start
+ * before the side menu has installed that loader (seen on the spc, alarm_grouping and crew pages), so loadFont waits
+ * for it (up to FONT_LOADER_WAIT_MS) and then reads the platform copy itself. When there is no copy the CSS font stack
+ * falls back to the system fonts. Keyed by an element id so repeated calls do nothing. Unknown names and non-browser
+ * runs are ignored.
  */
 export function loadFont(name?: string | null) {
-  if (!name || !GOOGLE_FONTS[name] || typeof document === 'undefined') return;
+  if (!name || !APP_FONTS[name] || typeof document === 'undefined') return;
   const id = `dbb-font-${name.replace(/\W/g, '')}`;
   if (document.getElementById(id)) return;
-  const google = () => {
-    const old = document.getElementById(id);
-    if (old && old.tagName === 'LINK') return;
-    if (old) old.remove();
-    const l = document.createElement('link');
-    l.id = id;
-    l.rel = 'stylesheet';
-    l.href = `https://fonts.googleapis.com/css2?family=${GOOGLE_FONTS[name]}&display=swap`;
-    document.head.appendChild(l);
+  const [fid, key] = APP_FONTS[name];
+  const mark = document.createElement('meta');
+  mark.id = id;
+  document.head.appendChild(mark);
+  const libsNow = (): any => {
+    const l = typeof window !== 'undefined' ? (window as any).imxLibs : null;
+    return l && l.table && l.table.fonts && l.table.fonts[fid] ? l : null;
   };
-  const libs = typeof window !== 'undefined' ? (window as any).imxLibs : null;
-  const fid = APP_FONT_IDS[name];
-  if (libs && libs.table && libs.table.fonts && fid && libs.table.fonts[fid]) {
-    const mark = document.createElement('meta');
-    mark.id = id;
-    document.head.appendChild(mark);
-    Promise.resolve(libs.font(null, fid)).catch(google);
-    return;
-  }
-  google();
+  const direct = () => {
+    // the app's loader may have put the same file in meanwhile
+    if (document.querySelector(`style[data-imx-lib="${key}"]`)) return Promise.resolve();
+    return platformFontCss(key).then((css) => {
+      if (document.querySelector(`style[data-imx-lib="${key}"]`)) return;
+      const st = document.createElement('style');
+      st.setAttribute('data-imx-lib', key);
+      st.textContent = css;
+      document.head.appendChild(st);
+    });
+  };
+  const viaLibs = (l: any) => Promise.resolve(l.font(null, fid)).catch(direct);
+  const quiet = (p: Promise<unknown>) => p.catch(() => { /* system font stack */ });
+  const now = libsNow();
+  if (now) { quiet(viaLibs(now)); return; }
+  const t0 = Date.now();
+  const tick = () => {
+    const l = libsNow();
+    if (l) quiet(viaLibs(l));
+    else if (Date.now() - t0 >= FONT_LOADER_WAIT_MS) quiet(direct());
+    else setTimeout(tick, 100);
+  };
+  setTimeout(tick, 100);
 }
 
 /** Default font of the app (user decision 28 Sep 2026: Inter, the standard on the other iMEX pages). */

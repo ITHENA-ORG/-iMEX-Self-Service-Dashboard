@@ -1746,3 +1746,23 @@ the Pune card, no role wording). Not on the server: the release needs the three 
   all passed (85); `npm run build:widgets` from the merged tree (only the build stamp and esbuild path comments differ)
   and deployed to LOCAL (`deploy-node.mjs --go`: the three widget types, the chat relay chain rewritten); the App UI's
   merged Help on LOCAL (the guide found); `node scripts/shiftcrew-local.mjs` all pass. Not on the server.
+
+### D-097 Offline first: the Builder's fonts never come from Google (19 Nov 2026; Akshay's standing rule "iMEX must work without internet"; air-gap audit B3 / P4; App UI U-225)
+- **Found:** with the internet blocked, `spc`, `alarm_grouping` and `crew` asked `fonts.googleapis.com` for Inter once per
+  load: a Builder widget (launcher / listing / renderer) can start before the side menu has installed the app's library
+  loader (`window.imxLibs`, App UI U-116), and D-075's `loadFont` then fell back to Google at once.
+- **Now (`widgets/src/render/theme.ts`):** no Google address at all. `APP_FONTS` maps the five offered fonts to the app's
+  font id and its platform key (`imex-lib-font-inter-v20.css` …, App UI `vendor/manifest.json`). `loadFont` uses the loader
+  when it is there; otherwise it waits for it (every 100 ms, up to `FONT_LOADER_WAIT_MS` = 4 s) and then reads the platform
+  copy itself (`/api/resource/js_module/tenant/<key>`, then `system`, with the user's token) into a `<style data-imx-lib>`
+  (skipped when the loader already put the same file in). No copy anywhere: nothing is added, the CSS font stack shows the
+  system font. A new font version in the App UI manifest needs the key here too.
+- **Tests:** `widgets/test/offline-font.test.ts` (5: loader present, late loader, platform copy tenant -> system with the
+  token, no copy, and no Google Fonts / public CDN address in `src/` or `dist/`). The e2e harness used to download Inter
+  from Google (two tests measured its metrics and failed without it): it now installs a stub of the app loader that serves
+  the same platform file from `widgets/harness/fonts/imex-lib-font-inter-v20.css` (sha256 = the App UI manifest's, OFL-1.1),
+  and `builder.e2e.mjs` fails any test whose page asks Google Fonts or a public CDN. tsc clean, vitest 581, e2e all passed.
+- **Other addresses left (checked 19 Nov 2026, all repos):** in the Builder only `scripts/mirror/cdn-map.mjs` (a mirroring
+  script, never in the app) and the Gemini address of the chat relay chain (an LLM: online by nature).
+- LOCAL: `npm run build:widgets`, `deploy-node.mjs --go` (the three widget types, chat relay chain as before). Server: not
+  pushed. No UI change: no Help change. Next: D-098.

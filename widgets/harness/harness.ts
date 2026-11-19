@@ -154,6 +154,21 @@ if (new URLSearchParams(location.search).has('crew')) {
 const role = new URLSearchParams(location.search).get('role') ?? 'Admin';
 asUser(tb, 'u1', role, [role === 'Viewer' ? 'pun' : role === 'Manager' ? 'ric' : 'root']);
 localStorage.setItem('jwt_token', 'x');
+// D-097: the iMEX app's library loader (App UI U-116) as the side menu installs it: the Builder's Inter comes from the
+// platform copy (here the same file, harness/fonts/, OFL-1.1), never from Google. Font metrics matter to some tests.
+const realFetch = window.fetch.bind(window);
+(window as any).imxLibs = {
+  table: { fonts: { inter: 'imex-lib-font-inter-v20.css' } },
+  font: (_ctx: unknown, id: string) => {
+    if (id !== 'inter' || document.querySelector('style[data-imx-lib="imex-lib-font-inter-v20.css"]')) return Promise.resolve();
+    return realFetch('/fonts/imex-lib-font-inter-v20.css').then((r) => r.text()).then((css) => {
+      const st = document.createElement('style');
+      st.setAttribute('data-imx-lib', 'imex-lib-font-inter-v20.css');
+      st.textContent = css;
+      document.head.appendChild(st);
+    });
+  },
+};
 // Chat relay stub (E2E): when the builder writes dbb_chat_req, answer with the next scripted tool input
 // from window.__chatQueue (or an error string) as the rule chain would, in dbb_chat_resp on the user (D-074).
 (window as any).__chatQueue = [] as any[];
