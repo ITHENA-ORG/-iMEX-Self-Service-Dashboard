@@ -1755,10 +1755,63 @@ the Pune card, no role wording). Not on the server: the release needs the three 
   Playbook AI" (pb-ai-chain.mjs, added on the server) kept, the LLM config asset untouched. Checks: the server's types =
   this dist (a0d9082); as ai@ the palette offers "Current shift" and a value card on Compressor 3 lists Current shift,
   On shift: Primary operator / Secondary operator / Shift manager first (nothing saved).
-- **Found, not changed (next server run of `deploy-node.mjs --target=server`):** the record
-  `mirror-data/target-chat-chain.json` (the base of the next run) is the MERGED chain, so it now holds the App UI's
-  playbook hook; the next dry run (checked right after) says `remove Playbook AI request?` / `remove iMEX Playbook AI`,
-  because our build does not have them (`merge3`: server = base, so ours wins; `--keep-server` is only read for a
-  conflict and does not help here). Until the merge treats nodes that only the server ever had as theirs: after any later
-  `deploy-node.mjs --target=server --go`, run the App UI's `on-server.mjs pb-ai-chain.mjs` (dry run, then `--go`) to
-  hook the playbook AI in again, or drop the two nodes and their links from the record before the run.
+- **Found (replaced by D-098):** the record `mirror-data/target-chat-chain.json` (the base of the next run) is the MERGED
+  chain with the App UI's playbook hook, so the next server run would have removed `Playbook AI request?` / `iMEX Playbook
+  AI` (the advice here was to re-run the App UI's `pb-ai-chain.mjs` after it). D-098 makes every chat deploy keep the hook:
+  no re-run is needed.
+
+### D-097 Offline first: the Builder's fonts never come from Google (19 Nov 2026; Akshay's standing rule "iMEX must work without internet"; air-gap audit B3 / P4; App UI U-225)
+- **Found:** with the internet blocked, `spc`, `alarm_grouping` and `crew` asked `fonts.googleapis.com` for Inter once per
+  load: a Builder widget (launcher / listing / renderer) can start before the side menu has installed the app's library
+  loader (`window.imxLibs`, App UI U-116), and D-075's `loadFont` then fell back to Google at once.
+- **Now (`widgets/src/render/theme.ts`):** no Google address at all. `APP_FONTS` maps the five offered fonts to the app's
+  font id and its platform key (`imex-lib-font-inter-v20.css` …, App UI `vendor/manifest.json`). `loadFont` uses the loader
+  when it is there; otherwise it waits for it (every 100 ms, up to `FONT_LOADER_WAIT_MS` = 4 s) and then reads the platform
+  copy itself (`/api/resource/js_module/tenant/<key>`, then `system`, with the user's token) into a `<style data-imx-lib>`
+  (skipped when the loader already put the same file in). No copy anywhere: nothing is added, the CSS font stack shows the
+  system font. A new font version in the App UI manifest needs the key here too.
+- **Tests:** `widgets/test/offline-font.test.ts` (5: loader present, late loader, platform copy tenant -> system with the
+  token, no copy, and no Google Fonts / public CDN address in `src/` or `dist/`). The e2e harness used to download Inter
+  from Google (two tests measured its metrics and failed without it): it now installs a stub of the app loader that serves
+  the same platform file from `widgets/harness/fonts/imex-lib-font-inter-v20.css` (sha256 = the App UI manifest's, OFL-1.1),
+  and `builder.e2e.mjs` fails any test whose page asks Google Fonts or a public CDN. tsc clean, vitest 581, e2e all passed.
+- **Other addresses left (checked 19 Nov 2026, all repos):** in the Builder only `scripts/mirror/cdn-map.mjs` (a mirroring
+  script, never in the app) and the Gemini address of the chat relay chain (an LLM: online by nature).
+- LOCAL: `npm run build:widgets`, `deploy-node.mjs --go` (the three widget types, chat relay chain as before). Server: not
+  pushed. No UI change: no Help change. Next: D-098.
+
+### D-098 The chat deploy keeps the Playbook AI hook (19 Nov 2026; found in the server release: the coordinator re-ran App UI `pb-ai-chain.mjs --go` after every chat deploy; App UI U-126, Control Centre CC-041)
+- **Found:** App UI `scripts/pb-ai-chain.mjs` hooks Playbooks › Then › "Ask AI" into "DBB Chat relay (POC)" ("Is chat
+  request" --False--> "Playbook AI request?" --True--> input "iMEX Playbook AI"; its False / Failure go where the False
+  branch went, the role guard). Our deploys build the chain from `DBB_CHAT_CHAIN`, which had no hook: `--chain-only`
+  (LOCAL) dropped it every time; `--target=server` dropped it from the second run on: the record
+  (`mirror-data/target-chat-chain.json`, the base) holds the hook since 19 Nov, so "unchanged on the server since the base,
+  missing in ours" read as ours = remove. Only the full `DBB_DEPLOY` kept it (D-079, copied when it was there).
+- **Now:** the hook is part of OUR chain while the rule chain "iMEX Playbook AI" exists. `DBB_CHAT_CHAIN(o, keeper,
+  { guardChainId, playbookChainId, live })` adds it through `window.DBB_PLAYBOOK_HOOK` (`deploy-browser.js`): the same
+  names, wiring, hook script and input configuration as App UI `hookChat()` (and the installer's `hookPbAi`); the hook
+  node's configuration and both layouts are taken from the chain as it is (`live`), so the App UI keeps owning the hook
+  script; the input always points at the chain found. Every path looks the chain up: `DBB_DEPLOY` (replaces D-079's copy),
+  `deploy-node.mjs --chain-only` and `chat-chain-server.mjs` (`--target=server`). No "iMEX Playbook AI" = no hook, as
+  before D-098 (a hook left in the chain would point at a chain that is gone: taken out, and said so).
+- **Idempotent:** `--chain-only` compares the chain as it is with what it would write (by node name, `normalise`) and writes
+  nothing when they are the same ("No change"). Server mode: `ours` now has `firstNodeIndex: 0`; before, `ours.first` was
+  null, never the server's, so every run counted as a change and saved the same chain again.
+- **Tests:** `chat-chain-selftest.mjs` +5 (hook wiring, no hook without the chain, live script / layout kept, equal to App UI
+  `hookChat()` and "already hooked" there when the App UI repo is on the PC, `DBB_DEPLOY` posts it; server mode: record and
+  server with the hook = no change, server with / record without = no change, dropped = put back once then no change, no
+  Playbook AI chain = as before). The fake server now returns `firstNodeIndex` like ThingsBoard. Two failures there are
+  older than D-098 (they look for "key on DBBLLM-CONFIG." in the Error reply, which D-088 replaced with plain sentences).
+- **LOCAL (19 Nov):** chain backed up (`backups/2026-11-19/local-chat-chain-before-D098.json`); `--chain-only --go` with the
+  hook = "kept", no change (version 111 unchanged); the pre-D-098 code `--chain-only --go` dropped it (38 nodes / 68 links);
+  D-098 `--chain-only --go` put it back (40 / 71, "added"), again = "No change"; App UI `pb-ai-chain.mjs --check`
+  "hooked"; server-mode merge pointed at LOCAL (dry) with the hook in the base = "No change" (before D-098: remove both
+  nodes). A Builder chat request and a Playbook AI request through the chain each got their reply on the user
+  (`dbb_chat_resp` / `pb_ai_resp`, both AI_OFF on LOCAL: no AI call); reply attributes and counters restored.
+- **Installer (Control Centre):** no re-export for D-098: `export-package.mjs` strips the hook from the packaged chat chain
+  and the installer puts it back with `hookPbAi`, which gives the same nodes and links as `DBB_PLAYBOOK_HOOK` (checked on
+  the 5.0 package). The 5.0 package's chat chain is older than D-096 ("Build LLM request": prompt and tool); a re-export
+  is due for D-096, not for this.
+- Server: not run. The coordinator: `node widgets/deploy/deploy-node.mjs --target=server --go-ahead="iMEX - AI Features"`
+  (dry run: the hook "same", "No change" expected), then the same with `--go` only if it shows a change. No UI change: no
+  Help change. Next: D-099.

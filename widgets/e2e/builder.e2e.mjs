@@ -42,11 +42,13 @@ async function open(query = 'page=builder&dev=pc') {
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   page.on('console', (m) => {
-    // Google Fonts can't load in the sandbox; that is not a widget error. The harness has no WebSocket server, so
+    // The harness has no WebSocket server, so
     // the live socket fails and REST takes over (as in production with the socket down); since D-035 that is a
     // ws:// handshake error on this http: page instead of an ERR_SSL one.
     if (m.type() === 'error' && !/fonts\.googleapis|ERR_|Failed to load resource|WebSocket connection to .* failed/.test(m.text())) errors.push('console: ' + m.text());
   });
+  // D-097 (offline first): the Builder never asks Google Fonts or a public CDN for anything
+  page.on('request', (r) => { if (/fonts\.googleapis|fonts\.gstatic|cdnjs\.cloudflare|cdn\.jsdelivr|unpkg\.com/.test(r.url())) errors.push('outside request: ' + r.url()); });
   page.on('dialog', (d) => {
     errors.push('native dialog: ' + d.message());
     void d.dismiss();
