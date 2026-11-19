@@ -1746,3 +1746,17 @@ the Pune card, no role wording). Not on the server: the release needs the three 
   all passed (85); `npm run build:widgets` from the merged tree (only the build stamp and esbuild path comments differ)
   and deployed to LOCAL (`deploy-node.mjs --go`: the three widget types, the chat relay chain rewritten); the App UI's
   merged Help on LOCAL (the guide found); `node scripts/shiftcrew-local.mjs` all pass. Not on the server.
+- **Server "iMEX - AI Features" (19 Nov 2026, afternoon; Akshay: "Go all"; backups in the App UI's
+  `backups/round-19nov-pm/` and this repo's `backups/2026-11-19/`):** `push-widgets-target.mjs
+  --only=imex_dbb_launcher,imex_dbb_renderer,imex_dbb_listing --go` (v20 -> v21 each; no hand edits since the 18 Nov push);
+  the App UI's `dbb-version-set.mjs --go` (store stamp 2026-11-18T06:21:26.632Z -> 2026-11-19T08:23:03.299Z = the three
+  types); `deploy-node.mjs --target=server --go` ("DBB Chat relay (POC)" v9 -> v10, 40 nodes / 71 links, every node
+  started): Build LLM request, Parse LLM reply and Error reply updated, the App UI's hook "Playbook AI request?" -> "iMEX
+  Playbook AI" (pb-ai-chain.mjs, added on the server) kept, the LLM config asset untouched. Checks: the server's types =
+  this dist (a0d9082); as ai@ the palette offers "Current shift" and a value card on Compressor 3 lists Current shift,
+  On shift: Primary operator / Secondary operator / Shift manager first (nothing saved).
+- **Found, not changed (next server run of `deploy-node.mjs --target=server`):** the record
+  `mirror-data/target-chat-chain.json` (the base of the next run) is the MERGED chain, so it now holds the App UI's
+  playbook hook; the next dry run (checked right after) says `remove Playbook AI request?` / `remove iMEX Playbook AI`,
+  because our build does not have them. Run it with `--keep-server="Playbook AI request?,iMEX Playbook AI"` (or run the
+  App UI's `pb-ai-chain.mjs --go` again afterwards) until the merge treats nodes that only the server ever had as theirs.
