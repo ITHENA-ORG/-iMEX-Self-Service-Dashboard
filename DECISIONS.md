@@ -1815,3 +1815,13 @@ the Pune card, no role wording). Not on the server: the release needs the three 
 - Server: not run. The coordinator: `node widgets/deploy/deploy-node.mjs --target=server --go-ahead="iMEX - AI Features"`
   (dry run: the hook "same", "No change" expected), then the same with `--go` only if it shows a change. No UI change: no
   Help change. Next: D-099.
+- **Server "iMEX - AI Features" (19 Nov 2026, evening, final 5.0 packaging; Akshay: "Go all"; backups in the App UI's
+  `backups/round-19nov-final/` and this repo's `backups/2026-11-19/server-widget-types-1795093898878.json`):** merged into
+  `data-summaries` (4d8194f; the D-096 "re-run pb-ai-chain" note replaced by a pointer to D-098); tsc clean, vitest 581,
+  `chat-chain-selftest` 18 / 2 (the two older D-088 wording failures noted above). `push-widgets-target.mjs
+  --only=imex_dbb_launcher,imex_dbb_renderer,imex_dbb_listing` (with the App UI's eight types in the same run; no hand edit)
+  v21 -> v22 each (D-097); the App UI's `dbb-version-set.mjs --go` (store stamp 2026-11-19T08:23:03.299Z ->
+  2026-11-19T09:04:48.553Z). `deploy-node.mjs --target=server --go-ahead="iMEX - AI Features"` dry run: "Playbook AI: ...
+  its hook (App UI pb-ai-chain.mjs) is part of our chain", server vs base no edit, 40 nodes same, "No change: the server chain
+  already is the merged chain" -> no `--go` needed (chain stays v10); App UI `pb-ai-chain.mjs --check` on the server: hooked.
+  The Control Centre package carries this chat chain (export of LOCAL, hook left out for `hookPbAi`).
