@@ -4,7 +4,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// node_modules/zod/v3/external.js
+// ../iMEX Self Service/imex-repo/node_modules/zod/v3/external.js
 var external_exports = {};
 __export(external_exports, {
   BRAND: () => BRAND,
@@ -116,7 +116,7 @@ __export(external_exports, {
   void: () => voidType
 });
 
-// node_modules/zod/v3/helpers/util.js
+// ../iMEX Self Service/imex-repo/node_modules/zod/v3/helpers/util.js
 var util;
 (function(util2) {
   util2.assertEqual = (_) => {
@@ -250,7 +250,7 @@ var getParsedType = (data) => {
   }
 };
 
-// node_modules/zod/v3/ZodError.js
+// ../iMEX Self Service/imex-repo/node_modules/zod/v3/ZodError.js
 var ZodIssueCode = util.arrayToEnum([
   "invalid_type",
   "invalid_literal",
@@ -368,7 +368,7 @@ ZodError.create = (issues) => {
   return error;
 };
 
-// node_modules/zod/v3/locales/en.js
+// ../iMEX Self Service/imex-repo/node_modules/zod/v3/locales/en.js
 var errorMap = (issue, _ctx) => {
   let message;
   switch (issue.code) {
@@ -471,7 +471,7 @@ var errorMap = (issue, _ctx) => {
 };
 var en_default = errorMap;
 
-// node_modules/zod/v3/errors.js
+// ../iMEX Self Service/imex-repo/node_modules/zod/v3/errors.js
 var overrideErrorMap = en_default;
 function setErrorMap(map) {
   overrideErrorMap = map;
@@ -480,7 +480,7 @@ function getErrorMap() {
   return overrideErrorMap;
 }
 
-// node_modules/zod/v3/helpers/parseUtil.js
+// ../iMEX Self Service/imex-repo/node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
   const { data, path, errorMaps, issueData } = params;
   const fullPath = [...path, ...issueData.path || []];
@@ -590,14 +590,14 @@ var isDirty = (x) => x.status === "dirty";
 var isValid = (x) => x.status === "valid";
 var isAsync = (x) => typeof Promise !== "undefined" && x instanceof Promise;
 
-// node_modules/zod/v3/helpers/errorUtil.js
+// ../iMEX Self Service/imex-repo/node_modules/zod/v3/helpers/errorUtil.js
 var errorUtil;
 (function(errorUtil2) {
   errorUtil2.errToObj = (message) => typeof message === "string" ? { message } : message || {};
   errorUtil2.toString = (message) => typeof message === "string" ? message : message?.message;
 })(errorUtil || (errorUtil = {}));
 
-// node_modules/zod/v3/types.js
+// ../iMEX Self Service/imex-repo/node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
   constructor(parent, value, path, key) {
     this._cachedPath = [];
@@ -4060,6 +4060,7 @@ var WIDGET_TYPES = [
   "status",
   "multivalue",
   "summary",
+  "shiftinfo",
   "line",
   "area",
   "bar",
@@ -4209,7 +4210,9 @@ var WidgetSettings = external_exports.object({
   linkState: external_exports.string().max(60).optional(),
   linkDevice: external_exports.string().max(60).optional(),
   buttonStyle: external_exports.enum(["filled", "outline", "card"]).optional(),
-  buttonColor: Color.optional()
+  buttonColor: Color.optional(),
+  // shiftinfo (D-096): also list who is on shift now (name and crew role)
+  showCrew: external_exports.boolean().optional()
 }).strict();
 var Widget = external_exports.object({
   id: Id,
@@ -4306,7 +4309,7 @@ function promptTemplate() {
     "MACHINES OF DIFFERENT TYPES:",
     '- One widget shows the SAME property keys for all its machines. Different machine types have different keys, so for several types either add one widget per machine type, or use a key that every chosen type has (CATALOG "sharedKeys" lists keys that several types have). Never put a key on a widget whose machines do not all have it.',
     '- A "table" with binding nodeQuery (node + machineType) lists every machine of that type under the node as rows, with the keys as columns: the best way to show many machines. A "fixed" binding holds at most ' + MAX_DEVICES + " machines; single-machine widget types (value, kpi, gauge, progress, status, multivalue, summary) take exactly one.",
-    '- machineType "ALL" (every type under a node) works only for the alarm list.',
+    '- machineType "ALL" (every type under a node) works only for the alarm list, and for a shiftinfo card bound to a site (nodeQuery on that node).',
     "",
     "Rules:",
     "- Use only machines, nodes, machine types and property keys from the CATALOG. If the user names something not in the catalog, say it is not available in their access and list what is. Never hint that other sites or machines exist.",
@@ -4321,6 +4324,8 @@ function promptTemplate() {
     '- Time range (setTimeRange or settings.timeRange): "realtime" = latest values, updated every 10 s, charts show a rolling last hour; or historic "1h" | "2h" | "4h" | "8h"; or "shift" (the current shift so far) | "prevshift" (the previous shift), from the shift settings of the site of the machine. Nothing longer than 8 hours exists; if asked for more, use "8h" and say so. For "this shift", "since the shift started" or "last shift" use the shift ranges.',
     // continuation of the widget-type list above (placed after the limits lines)
     "  table (keys as columns, machines as rows), alarms (severities, alarmStatus, maxRows),",
+    '  shiftinfo (no keys: the current shift of a machine or a site with its times, the time left and the next shift; settings.showCrew true also lists who is on shift and their crew role; binding "current", "fixed" with one machine, or "nodeQuery" with a site node and machineType "ALL"),',
+    '- Computed properties (CATALOG "computedKeys", kind string, valid for every machine type but only on value, status and multivalue): "@shift" = the name of the shift now; "@crew:<role id>" = the people on shift now in that crew role. Use them for "who is on shift", "current operator" or "which shift" requests.',
     '  text (settings.html: simple HTML with <h1>-<h3>, <p>, <b>, <i>, <u>, <ul>/<li>, <span style="color:#hex;font-size:18px;font-family:Inter">; live values as {{propertyKey}}, {{machine}}, {{location}}, {{time}}; counts of the machines and locations on the dashboard as {{machines}}, {{locations}}, never as typed numbers), image (settings.url https://), link (button: title = label; settings.linkKind "state"|"url", linkState "default"(map)|"listing"|"machine", linkDevice "current"|"location"|"none", url, buttonStyle filled|outline|card, buttonColor), embed (settings.url https://). Content widgets use binding {"mode":"none"} and no keys.',
     '- Value-based colours: settings.colorRules = [{op, value, value2?, color:"#hex", label?, key?}] \u2014 op gt|gte|lt|lte|between|eq|neq for numbers, isTrue|isFalse for on/off values (e.g. runStatus 1/0), eq|neq|contains for text. First match wins; put the most severe first. Use status colours: good #0ca30c, warning #fab219, serious #ec835a, critical #d03b3b, neutral #8a8983. settings.colorTarget "background"|"accent"|"value"|"icon" chooses what a card colours; charts draw number rules as threshold lines; tables colour cells (use rule.key per column).',
     `- Card look: settings.style = {bg, gradient, border none|thin|thick, borderColor, accentBar, radius 0-28, shadow none|soft|strong, padding compact|normal|roomy, hideTitle, titleColor, titleSize, titleWeight "400"-"700", titleAlign left|center|right, titlePos top|bottom, titleFont, icon (${ICONS.join("|")}), iconColor, valueSize 12-72, valueColor, valueFont, align left|center|right (values and labels), valign top|middle|bottom}. settings.description = help text (simple HTML) shown as an (i) tooltip; settings.footer = short note. Fonts: ${FONTS.join(", ")}.`,

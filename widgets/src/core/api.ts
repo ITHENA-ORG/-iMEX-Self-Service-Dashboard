@@ -1138,3 +1138,58 @@ export async function systemConfigRoles(): Promise<{ id: string; raw: unknown } 
   const v = hit.latest?.SERVER_ATTRIBUTE?.imexRoles;
   return { id: hit.entityId.id, raw: v && v.ts > 0 && v.value !== '' ? v.value : null };
 }
+
+// ---------- crew roster and people's names (D-096) ----------
+
+/**
+ * D-096: the crew roster (`imexCrew` of the configuration asset, written by the app's Settings › Crew): the side menu's
+ * asset when it is on the page (one attribute read), else the asset named "System Configuration" with the attribute in
+ * ONE Entity Data Query. `raw` is the stored value (object or JSON text; core/crew.ts parse reads both), null when the
+ * asset has none. Resolves to null when the user can see no configuration asset; rejects when the request fails.
+ */
+export async function systemConfigCrew(): Promise<{ id: string; raw: unknown } | null> {
+  const app = typeof window !== 'undefined' ? (window as any).__imexApp?.asset : null;
+  if (app?.id) {
+    const id = typeof app.id === 'string' ? app.id : app.id.id;
+    const a = await getAttrs({ id, entityType: 'ASSET' }, ['imexCrew']);
+    return { id, raw: a.imexCrew ?? null };
+  }
+  const r = await post<any>('/api/entitiesQuery/find', {
+    entityFilter: { type: 'entityName', entityType: 'ASSET', entityNameFilter: 'System Configuration' },
+    pageLink: { page: 0, pageSize: 10 },
+    entityFields: [{ type: 'ENTITY_FIELD', key: 'name' }],
+    latestValues: [{ type: 'SERVER_ATTRIBUTE', key: 'imexCrew' }],
+  });
+  const hit = (r?.data ?? []).find((d: any) => d?.latest?.ENTITY_FIELD?.name?.value === 'System Configuration');
+  if (!hit) return null;
+  const v = hit.latest?.SERVER_ATTRIBUTE?.imexCrew;
+  return { id: hit.entityId.id, raw: v && v.ts > 0 && v.value !== '' ? v.value : null };
+}
+
+/** D-096: the customer an asset is assigned to ('' when none). */
+export async function assetCustomer(assetId: string): Promise<string> {
+  const a = await get<any>(`/api/asset/${assetId}`);
+  const c = a?.customerId?.id;
+  return c && c !== '13814000-1dd2-11b2-8080-808080808080' ? c : '';
+}
+
+/**
+ * D-096: the people of the app's customer as { id, name } (name = first and last name, else the email), the way the
+ * app's Settings › Crew and Users & roles read them: a customer user GET /api/users (its own customer's people), a
+ * tenant administrator GET /api/customer/{customerId}/users. At most 20 pages of 100.
+ */
+export async function customerPeople(customerId: string | null): Promise<{ id: string; name: string }[]> {
+  const base = customerId ? `/api/customer/${customerId}/users` : '/api/users';
+  const out: { id: string; name: string }[] = [];
+  for (let page = 0; page < 20; page++) {
+    const r = await get<any>(`${base}?pageSize=100&page=${page}`);
+    for (const u of r?.data ?? []) {
+      const id = u?.id?.id;
+      if (!id) continue;
+      const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email || '';
+      out.push({ id, name });
+    }
+    if (!r?.hasNext) break;
+  }
+  return out;
+}

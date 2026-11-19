@@ -51,7 +51,7 @@ export const PHONE_COLS = 2;
  * room for axes and rows; value tiles two rows for title, value and the line under it. Types not listed keep their height.
  */
 export const PHONE_MIN_H: Record<string, number> = {
-  value: 2, kpi: 3, gauge: 2, progress: 2, multivalue: 2, summary: 2,
+  value: 2, kpi: 3, gauge: 2, progress: 2, multivalue: 2, summary: 2, shiftinfo: 3,
   line: 3, area: 3, bar: 3, donut: 3, timeline: 3, heatmap: 3, table: 3, alarms: 3,
 };
 

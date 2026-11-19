@@ -89,6 +89,7 @@ html.imx-menu-shift .dbb-rend .dbb-rhead .dbb-rbtn.locked:hover{background:rgba(
 .dbb-tw .v{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--ink);background:var(--grid);border-radius:999px;padding:3px 10px}
 .dbb-tw .v.live::before{content:"";width:7px;height:7px;border-radius:50%;background:#0ca30c;box-shadow:0 0 0 3px rgba(12,163,12,.2);animation:dbb-pulse 2s ease-in-out infinite}
 .dbb-upd{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums;cursor:default}
+.dbb-upd[hidden]{display:none !important}
 .dbb-upd b{font-weight:600;color:var(--ink-2)}
 .dbb-upd .d{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
 .dbb-upd.fresh .d{background:#0ca30c}
@@ -213,6 +214,11 @@ export function windowTip(range: string, view: ViewWindow | null, own = 0): stri
   const cards = own ? ` ${own} card${own > 1 ? 's have their' : ' has its'} own window (marked on the card).` : '';
   return `${what} (the dashboard's window).${cards} Click to show another period.`;
 }
+/** D-096: some card reads machine data (not only text, the Current shift card or computed properties). */
+export function readsData(ws: Widget[]): boolean {
+  return ws.some((w) => !CONTENT_TYPES.has(w.type) && w.type !== 'shiftinfo' && (w.type === 'alarms' || w.keys.some((k) => !k.startsWith('@'))));
+}
+
 /**
  * Storyboard round (12 Oct 2026): the properties the Analyzer opens with from the machine page bar. The keys the
  * dashboard's widgets show for this machine (bound to the page's machine, to it by name, or to its machine type),
@@ -224,7 +230,8 @@ export function analyzerKeys(widgets: Widget[], deviceId: string, profile: strin
     const b: any = w.binding;
     const mine = b.mode === 'current' || (b.mode === 'fixed' && (b.deviceIds ?? []).includes(deviceId)) || ((b.mode === 'siblings' || b.mode === 'nearest') && b.profile === profile);
     if (!mine) continue;
-    for (const k of w.keys ?? []) if (k && !out.includes(k)) out.push(k);
+    // D-096: a computed property (Current shift, On shift: ...) is no reading the Analyzer can show
+    for (const k of w.keys ?? []) if (k && !k.startsWith('@') && !out.includes(k)) out.push(k);
   }
   if (out.length) return out.slice(0, 15);
   for (const m of catalogue) if (m.type !== 'string' && m.type !== 'boolean' && !m.states && !out.includes(m.key)) out.push(m.key);
@@ -528,6 +535,8 @@ export function init(tbCtx: any) {
     status?: string;
     /** The theme of the dashboard shown (D-056: applied again when the app switches light / dark). */
     theme?: Dashboard['theme'] | null;
+    /** D-096: a card of the dashboard shown reads machine data (else "Updated" has nothing to say: hidden). */
+    reads?: boolean;
   } = {};
   (tbCtx as any).__dbb = st;
   // Remember which dashboard state shows machines, as a fallback for the navbar's Dashboard list when the
@@ -786,6 +795,7 @@ export function init(tbCtx: any) {
     // D-073: a card whose module is not licensed (the alarm list without alerts) is not shown; the dashboard keeps it
     const shown = (dash ? dash.widgets : defaultWidgets(ctx, node.profile)).filter((w) => widgetLicensed(w.type));
     grid.render(shown);
+    st.reads = readsData(shown);
     barActions(ctx, deviceId, node, where, dash, shown, range);
     // Status pill after the grid has started loading (D-022): the header no longer holds up the widgets.
     void lastTelemetry(ctx, deviceId, node.profile, node.label).then(({ lastTs, result }) => {
@@ -1092,7 +1102,9 @@ export function init(tbCtx: any) {
     helpButton('dashboard_overview'); // D-063
     wirePill(ctx, null);
     shiftLabel(ctx, null);
-    ensureGrid(ctx, null, range, d.theme).render(d.widgets.filter((w) => widgetLicensed(w.type))); // D-073
+    const shownD = d.widgets.filter((w) => widgetLicensed(w.type)); // D-073
+    ensureGrid(ctx, null, range, d.theme).render(shownD);
+    st.reads = readsData(shownD);
     const acts: Omit<EditActions, 'owner'> | null = mayBuild(ctx) // D-059: role AND licence
       ? { el: root, title: d.name, subtitle: `Dashboard overview · by ${d.ownerName}`, items: [{ id: 'edit', label: 'Edit this dashboard', hint: `Opens “${d.name}” in the Dashboard Builder`, icon: 'edit' }], run: () => openBuilder({ ctx, dashboardId: d.id, chatEnabled: tbCtx.settings?.chatEnabled !== false, onClose: (ch) => ch && notifyChanged() }) }
       : null;
@@ -1166,6 +1178,8 @@ export function init(tbCtx: any) {
     }
     const ts = api.lastDataTs();
     const t = el.querySelector('.t') as HTMLElement;
+    // D-096: a dashboard of cards that read no machine data (Current shift, computed properties, text) has no "Updated"
+    el.hidden = !ts && st.reads === false;
     if (!ts) {
       t.textContent = 'Waiting for data…';
       el.className = 'dbb-upd';

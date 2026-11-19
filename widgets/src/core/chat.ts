@@ -45,6 +45,7 @@ import type { UserContext, Node } from './scope';
 import * as scope from './scope';
 import { Dashboard, Widget, WIDGET_TYPES, WIDGET_CAPS, DEFAULT_SIZE, TIME_RANGES, MAX_WIDGETS, MAX_KEYS, MAX_DEVICES, CONTENT_TYPES, WidgetSettings, DashboardTheme, THEME_PRESETS, ICONS, FONTS, checkDashboard, dashboardKind, newId } from './schema';
 import { metaLookup, propKind } from './compat';
+import * as shiftcrew from './shiftcrew';
 import { sanitizeHtml } from '../render/rich';
 import { firstFit } from '../render/grid';
 import { watchAttribute } from './tb-socket';
@@ -89,7 +90,8 @@ export function buildCatalog(ctx: UserContext): Catalog {
   }
   const profiles: Catalog['profiles'] = {};
   for (const p of new Set(nodes.filter((x) => x.entityType === 'DEVICE').map((x) => x.profile)))
-    profiles[p] = (ctx.profileKeys[p] ?? []).map((k) => ({ key: k.key, name: k.displayName, unit: k.unit, kind: propKind(k) }));
+    // D-096: not what the pickers do not offer (the old calendar-month shift, the OEE chain's records)
+    profiles[p] = (ctx.profileKeys[p] ?? []).filter((k) => !scope.NOT_OFFERED.test(k.key)).map((k) => ({ key: k.key, name: k.displayName, unit: k.unit, kind: propKind(k) }));
   const row = (x: Node) => ({
     alias: byId.get(x.id),
     label: x.label,
@@ -106,6 +108,8 @@ export function buildCatalog(ctx: UserContext): Catalog {
       machines: nodes.filter((x) => x.entityType === 'DEVICE').map(row),
       machineTypes: profiles,
       sharedKeys,
+      // D-096: worked out for any machine (value, status and multivalue only)
+      computedKeys: shiftcrew.computedMetas().map((m) => ({ key: m.key, name: m.displayName, kind: 'string' })),
     },
     null,
     0,
@@ -350,7 +354,8 @@ export function applyOps(
     }
     for (const p of profilesOf(w)) {
       const known = new Set((cat.profiles[p] ?? []).map((k) => k.key));
-      const bad = w.keys.filter((k) => !known.has(k));
+      // D-096: the computed properties belong to every machine type, on the cards that show text of one machine
+      const bad = w.keys.filter((k) => !known.has(k) && !(shiftcrew.isComputed(k) && shiftcrew.COMPUTED_TYPES.has(w.type)));
       if (bad.length) errs.push(`${where}: ${p} has no propert${bad.length > 1 ? 'ies' : 'y'} ${bad.join(', ')}. Available: ${[...known].join(', ')}.`);
     }
   };
